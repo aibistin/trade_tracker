@@ -1,0 +1,10 @@
+version: '3.4'
+
+services:
+  trading:
+    image: trading
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 5002:5002

@@ -1,0 +1,44 @@
+{% extends "base.html" %} {% block title %}Update Transaction{% endblock %} {%
+block content %}
+<h1>Update Transaction</h1>
+
+<form method="POST" action="/update_transaction/{{ transaction_id }}">
+  <div class="mb-3">
+    <label for="reason" class="form-label">Reason:</label>
+    <input
+      type="text"
+      class="form-control"
+      id="reason"
+      name="reason"
+      value="{{ transaction.reason }}"
+    />
+  </div>
+  <div class="mb-3">
+    <label for="initial_stop_price" class="form-label"
+      >Initial Stop Price:</label
+    >
+    <input
+      type="number"
+      step="0.01"
+      class="form-control"
+      id="initial_stop_price"
+      name="initial_stop_price"
+      value="{{ transaction.initial_stop_price }}"
+    />
+  </div>
+  <div class="mb-3">
+    <label for="projected_sell_price" class="form-label"
+      >Projected Sell Price:</label
+    >
+    <input
+      type="number"
+      step="0.01"
+      class="form-control"
+      id="projected_sell_price"
+      name="projected_sell_price"
+      value="{{ transaction.projected_sell_price }}"
+    />
+  </div>
+  <button type="submit" class="btn btn-primary">Update</button>
+</form>
+{% endblock %}

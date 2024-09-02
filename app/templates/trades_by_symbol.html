@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Trades for {{ symbol }}{% endblock %}
+
+{% block content %}
+    <h1>Trades for {{ symbol }}</h1>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Name</th>
+                <th>Action</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Fees</th>
+                <th>Trade Date</th>
+                <th>Amount</th>
+                <th>Stop@</th>
+                <th>Sell@</th>
+                <th>P/L</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.symbol }}</td>
+                    <td>{{ transaction.name }}</td> 
+                    <td>{{ transaction.action }}</td>
+                    <td>{{ transaction.quantity }}</td>
+                    <td>{{ transaction.price }}</td>
+                    <td>{{ transaction.fees }}</td> 
+                    <td>{{ transaction.trade_date }}</td>
+                    <td>{{ transaction.amount }}</td>
+                    <td>{{ transaction.initial_stop_price }}</td>
+                    <td>{{ transaction.projected_sell_price }}</td>
+                    <td>{{ transaction.pl }}</td> 
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

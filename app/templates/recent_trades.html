@@ -1,0 +1,40 @@
+{% extends "base.html" %} {% block title %}Recent Trades ({{ days }} Days){%
+endblock %} {% block content %}
+<h1>Recent Trades ({{ days }} Days)</h1>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Symbol</th>
+      <th>Name</th>
+      <th>Action</th>
+      <th>Quantity</th>
+      <th>Price</th>
+      <th>Fees</th>
+      <th>Trade Date</th>
+      <th>Amount</th>
+      <th>Stop@</th>
+      <th>Sell@</th>
+      <th>P/L</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for transaction, security_name in transactions %}
+    <tr>
+      <td>{{ transaction.symbol }}</td>
+      <td>{{ security_name }}</td>
+      {# Display the security name #}
+      <td>{{ transaction.action }}</td>
+      <td>{{ transaction.quantity }}</td>
+      <td>{{ transaction.price }}</td>
+      <td>{{ transaction.fees }}</td>
+      <td>{{ transaction.trade_date }}</td>
+      <td>{{ transaction.amount }}</td>
+      <td>{{ transaction.initial_stop_price }}</td>
+      <td>{{ transaction.projected_sell_price }}</td>
+      <td>{{ transaction.pl }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
