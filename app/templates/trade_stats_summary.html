@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Trade Stats Summary{% endblock title %}
+
+{% block content %}
+
+    <h1>Trade Stats Summary</h1>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Avg Buy Price</th>
+                <th>Buy Amount</th>
+                <th>Qty</th>
+                <th>Avg Sell Price</th>
+                <th>Sell Amount</th>
+                <th>Profit/Loss</th>
+                <th>Win/Lose</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set stats = namespace(total_profit_loss=0, win_count=0, lose_count=0, break_even_count=0) %}
+            {% for stat in trade_stats %}
+                <tr>
+                    <td>{{ stat.symbol }}</td>
+                    <td>{{ stat.average_buy_price }}</td>
+                    <td>{{ stat.buy_amount }}</td>
+                    <td>{{ stat.sell_quantity }}</td>
+                    <td>{{ stat.average_sell_price }}</td>
+                    <td>{{ stat.sell_amount }}</td>
+                    <td>{{ stat.profit_loss }}</td>
+                    <td>{{ stat.win_lose }}</td>
+                </tr>
+
+                {% set stats.total_profit_loss = stats.total_profit_loss + stat.profit_loss %}
+                {% if stat.win_lose == 'P' %}
+                    {% set stats.win_count = stats.win_count + 1 %}
+                {% elif stat.win_lose == 'L' %}
+                    {% set stats.lose_count = stats.lose_count + 1 %}
+                {% else %}
+                    {% set stats.break_even_count = stats.break_even_count + 1 %}
+                {% endif %}
+
+            {% endfor %}
+
+            <tr>
+                <td colspan="6"></td> 
+                <td><strong>Total Profit/Loss:</strong></td>
+                <td>{{ stats.total_profit_loss|round(2) }}</td> 
+                <td></td> 
+                <td></td> 
+            </tr>
+            <tr>
+                <td colspan="6"></td> 
+                <td><strong>Win Count</strong></td>
+                <td>{{ stats.win_count }}</td> 
+                <td></td> 
+            </tr>
+            <tr>
+                <td colspan="6"></td> 
+                <td><strong>Lose Count</strong></td>
+                <td>{{ stats.lose_count }}</td> 
+                <td></td> 
+            </tr>
+        {% if stats.break_even_count > 0 %}
+            <tr>
+                <td colspan="6"></td> 
+                <td><strong>Break Even Count</strong></td>
+                <td>{{ stats.break_even_count }}</td> 
+                <td></td> 
+            </tr>
+        {% endif %}
+            <tr>
+                <td colspan="6"></td> 
+                <td><strong>Win Average</strong></td>
+                <td>{{ ((stats.win_count * 100) / (stats.win_count + stats.lose_count + stats.break_even_count))|round(2) }}%
+                <td></td> 
+            </tr>
+        </tbody>
+    </table>
+
+{% endblock content %}

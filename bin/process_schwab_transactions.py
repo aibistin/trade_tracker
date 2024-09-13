@@ -53,7 +53,7 @@ def process_schwab_transactions_row(self, row, **kwargs):
             processed_row[0],  # symbol
             processed_row[2],  # action (assuming it's already converted to acronym)
             processed_row[6],  # trade_date
-            None,              # reason (not provided in CSV, set to None)
+            "",                # reason (not provided in CSV, set to '')
             processed_row[3],  # quantity
             processed_row[4],  # price
             processed_row[7],  # amount
@@ -66,7 +66,11 @@ def process_schwab_transactions_row(self, row, **kwargs):
 
 def main():
     processor = CSVProcessor("data/input", "data/output", "data/processed")
-    db_inserter = DatabaseInserter(db_path="data/stock_trades.db")
+    # db_path= "data/test.db"
+    db_path= "data/stock_trades.db"
+
+    db_inserter = DatabaseInserter(db_path=db_path)
+    print(f"Connected to: {db_path}")
 
     input_files = processor.get_input_files("transaction")
 
@@ -80,10 +84,13 @@ def main():
              input_files, output_filename, output_header, process_schwab_transactions_row,
         db_inserter=db_inserter)
 
-        db_inserter.close()
+        print("Completed writing to: " + output_filename)
 
     else:
         print(f"Warning: No Transaction files to process!")
+
+    db_inserter.close()
+    print(f"Closed connection to: {db_path}")
 
 if __name__ == "__main__":
     main()

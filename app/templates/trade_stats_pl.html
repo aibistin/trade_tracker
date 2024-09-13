@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Trade Stats Summary{% endblock title %}
+
+{% block content %}
+
+    <h1>Trade Stats Summary</h1>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Bought Qty</th>
+                <th>Bought Amount</th>
+                <th>Sold Qty</th>
+                <th>Sold Amount</th>
+                <th>Open Qty</th>
+                <th>Open Amount</th>
+                <th>Profit/Loss</th>
+                <th>% Profit/Loss</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set stats = namespace(total_profit_loss=0) %}
+            {% for symbol, stat in trade_stats.items() %} 
+                <tr>
+                    <td>{{ symbol }}</td>
+                    <td>{{ stat.bought_quantity }}</td>
+                    <td>{{ stat.bought_amount|round(2) }}</td>
+                    <td>{{ stat.sold_quantity }}</td>
+                    <td>{{ stat.sold_amount|round(2) }}</td>
+                    <td>{{ stat.open_bought_quantity }}</td>
+                    <td>{{ stat.open_bought_amount|round(2) }}</td>
+                    <td>{{ stat['Profit/Loss']|round(2) }}</td>
+                    <td>{{ stat['PercentProfit/Loss']|round(2) }}%</td>
+                </tr>
+
+                {% set stats.total_profit_loss = stats.total_profit_loss + stat['Profit/Loss'] %}
+            {% endfor %}
+
+            <tr>
+                <td colspan="7"></td> 
+                <td><strong>Total Profit/Loss:</strong></td>
+                <td>{{ stats.total_profit_loss|round(2) }}</td> 
+            </tr>
+        </tbody>
+    </table>
+
+{% endblock content %}

@@ -164,11 +164,14 @@ cython_debug/
 # My Stuff
 ######################
 clear_cache.sh
-old_python_setup.sh
+#old_python_setup.sh
+old_*
+*_copy
 python_setup.sh
 run_flask.sh
 bin/test*
 */old/
+old/*
 data/input/*
 data/output/*
 data/processed/*

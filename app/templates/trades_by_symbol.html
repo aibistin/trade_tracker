@@ -19,22 +19,28 @@
                 <th>Stop@</th>
                 <th>Sell@</th>
                 <th>P/L</th>
+                <th>Update</th>
             </tr>
         </thead>
         <tbody>
             {% for transaction in transactions %}
                 <tr>
-                    <td>{{ transaction.symbol }}</td>
+                    <td>
+                      <a href="/trades/{{ transaction.symbol }}">{{ transaction.symbol }}</a> 
+                    </td>
                     <td>{{ transaction.name }}</td> 
                     <td>{{ transaction.action }}</td>
                     <td>{{ transaction.quantity }}</td>
                     <td>{{ transaction.price }}</td>
                     <td>{{ transaction.fees }}</td> 
-                    <td>{{ transaction.trade_date }}</td>
+                    <td>{{ transaction.trade_date.strftime('%Y-%m-%d') }}</td>
                     <td>{{ transaction.amount }}</td>
-                    <td>{{ transaction.initial_stop_price }}</td>
-                    <td>{{ transaction.projected_sell_price }}</td>
-                    <td>{{ transaction.pl }}</td> 
+                    <td>{{ transaction.initial_stop_price|default('') }}</td>
+                    <td>{{ transaction.projected_sell_price|default('')  }}</td>
+                    <td>{{ transaction.pl|default('')  }}</td> 
+                    <td>
+                       <a href="/transaction/{{ transaction.id }}">Update</a> 
+                    </td>
                 </tr>
             {% endfor %}
         </tbody>

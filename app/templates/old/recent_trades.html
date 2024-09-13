@@ -16,30 +16,23 @@ endblock %} {% block content %}
       <th>Stop@</th>
       <th>Sell@</th>
       <th>P/L</th>
-      <th>Reason</th>
-      <th>Update</th>
     </tr>
   </thead>
   <tbody>
     {% for transaction, security_name in transactions %}
     <tr>
-      <td>
-        <a href="/trades/{{ transaction.symbol }}">{{ transaction.symbol }}</a> 
-      </td>
+      <td>{{ transaction.symbol }}</td>
       <td>{{ security_name }}</td>
+      {# Display the security name #}
       <td>{{ transaction.action }}</td>
       <td>{{ transaction.quantity }}</td>
       <td>{{ transaction.price }}</td>
       <td>{{ transaction.fees }}</td>
-      <td>{{ transaction.trade_date.strftime('%Y-%m-%d') }}</td>
+      <td>{{ transaction.trade_date }}</td>
       <td>{{ transaction.amount }}</td>
-      <td>{{ transaction.initial_stop_price if transaction.initial_stop_price != 'None' }}</td>
-      <td>{{ transaction.projected_sell_price if transaction.projected_sell_price != 'None' }}</td>
-      <td>{{ transaction.pl if transaction.pl  else ''}}</td>
-      <td>{{ transaction.reason if transaction.reason }}</td>
-      <td>
-        <a href="/transaction/{{ transaction.id }}">Update</a> 
-      </td>
+      <td>{{ transaction.initial_stop_price }}</td>
+      <td>{{ transaction.projected_sell_price }}</td>
+      <td>{{ transaction.pl }}</td>
     </tr>
     {% endfor %}
   </tbody>
