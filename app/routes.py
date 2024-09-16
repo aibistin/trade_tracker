@@ -65,6 +65,7 @@ def recent_trades(days):
         )
         .all()
     )
+
     for trans,sec in transactions:
         # print(dumper.dump(trans))
         print("++++++++++++")
@@ -86,7 +87,6 @@ def trades_by_symbol(symbol):
     ).order_by(
         TradeTransaction.trade_date
     ).all()
-
     return render_template('trades_by_symbol.html', transactions=transactions, symbol=symbol)
 
 
@@ -98,7 +98,6 @@ def trade_stats_summary():
     return render_template('trade_stats_summary.html', trade_stats=trade_stats)
 
 
-
 @app.route('/trade_stats_pl')
 def trade_stats_pl():
     """Fetches trade statistics summary and renders the template."""
@@ -107,18 +106,20 @@ def trade_stats_pl():
     raw_trade_data = db.session.query(
         TradeTransaction.symbol,
         TradeTransaction.action,
+        TradeTransaction.trade_date,
         TradeTransaction.quantity,
+        TradeTransaction.price,
         TradeTransaction.amount
     ).filter(
-        TradeTransaction.action.in_(["B", "S"]),
+        TradeTransaction.action.in_(["B", "RS", "S"]),
     ).all()
 
     # Group data by symbol
     data_dict = {}
-    for symbol, action, quantity, amount in raw_trade_data:
+    for symbol, action, trade_date, quantity, price, amount in raw_trade_data:
         if symbol not in data_dict:
             data_dict[symbol] = []
-        data_dict[symbol].append({'Action': action, 'Quantity': quantity, 'Amount': amount})
+        data_dict[symbol].append({'Action': action, 'Trade Date': trade_date, 'Quantity': quantity, 'Price': price, 'Amount': amount})
 
     # Analyze trades for each symbol
     all_trade_stats = {}
