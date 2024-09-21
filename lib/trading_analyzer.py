@@ -9,12 +9,11 @@ class TradingAnalyzer:
 
     def _is_last_trade_open(self, all_trades):
         if len(all_trades) > 0 and self._is_trade_open(all_trades[-1]):
-            # and (all_trades[-1]['quantity'] >  all_trades[-1]['current_sold_qty']):
             return True
         return False
 
     def _is_trade_open(self, trade):
-        if (trade['quantity'] > trade['current_sold_qty']):
+        if (trade['quantity'] > trade['current_sold_qty'] and (trade['current_sold_qty'] > 0)):
             return True
         return False
 
@@ -33,44 +32,60 @@ class TradingAnalyzer:
 
         while sell_trades and (buy_trade['current_sold_qty'] < bought_qty):
             sell = sell_trades[0]
-            # print(f"Current Sell: {sell}")
-            new_sell_record = {}
-            sell_qty = 0
-            sell_amt = 0
+            sell_rec_for_trade = {
+                'trade_date': sell['Trade Date'],
+                'quantity': 0,
+                'price':  sell['Price'],
+                'amount': 0,
+                'profit_loss': 0,
+                'percent_profit_loss': 0,
+            }
 
-            gross_sell_qty = sell['Quantity'] + buy_trade['current_sold_qty']
-            if gross_sell_qty > bought_qty:
-                # Not all of this sell trade belong to buy_trade
-                sell_qty = bought_qty - buy_trade['current_sold_qty']
-                sell_amt = (sell['Amount'] / sell['Quantity']) * sell_qty
-                # Modify 'sell' in place.
-                sell['Quantity'] -= bought_qty
-                sell['Amount'] -= sell_amt
+            print(f"################## Start _add_sells_to_trade #####################")
+            print(f"[] Sell Quantity = {sell['Quantity']}")
+            # start
+            qty_to_close_the_trade = bought_qty - buy_trade['current_sold_qty']
+            amt_to_close_the_trade = (
+                sell['Amount'] / sell['Quantity']) * qty_to_close_the_trade
+
+            if sell['Quantity'] - qty_to_close_the_trade == 0:
+                # The buy trade WILL be closed with this sell
+                sell_rec_for_trade['quantity'] = qty_to_close_the_trade
+                sell_rec_for_trade['amount'] = amt_to_close_the_trade
+                buy_trade['current_sold_qty'] += qty_to_close_the_trade
+                sell_trades.pop(0)  # Done with this sell record
+            elif (sell['Quantity'] - qty_to_close_the_trade) > 0:
+                # The buy trade will be closed with a part of this sell.
+                # --- Modify in place
+                sell_rec_for_trade['quantity'] = qty_to_close_the_trade
+                sell_rec_for_trade['amount'] = amt_to_close_the_trade
+                buy_trade['current_sold_qty'] += qty_to_close_the_trade
+                sell['Quantity'] -= qty_to_close_the_trade
+                sell['Amount'] -= amt_to_close_the_trade
             else:
-                # All of this sell trade belong to buy_trade
-                sell_qty = sell['Quantity']
-                sell_amt = sell['Amount']
+                # The buy trade will remain open after this sell.
+                sell_rec_for_trade['quantity'] = sell['Quantity']
+                sell_rec_for_trade['amount'] = sell['Amount']
+                buy_trade['current_sold_qty'] += sell['Quantity']
                 sell_trades.pop(0)  # Done with this sell record
 
-            buy_trade['current_sold_qty'] += sell_qty
+            print(f"[] bought_quantity = {bought_qty}")
+            print(f"[] Qty to close trade = {qty_to_close_the_trade}")
+            print(f"[] sell_quantity = {sell['Quantity']}")
+            print(f"[] Sell Trade = {sell}")
 
-            # print(f"Changed Sell Trade: {sell}")
-
+            # Calculate profit & loss for this Sell trade.
             price_difference = sell['Price'] - buy_trade['price']
-            profit_loss = round(price_difference * sell_qty, 2)
-            pct_profit_loss = round(
-                (price_difference / buy_trade['price']) * 100, 2)
+            profit_loss = round(price_difference * sell_rec_for_trade['quantity'], 2)
+ 
+            sell_rec_for_trade['percent_profit_loss'] = round((price_difference / buy_trade['price']) * 100, 2)
 
-            new_sell_record = {
-                'trade_date': sell['Trade Date'],
-                'quantity': sell_qty,
-                'price':  sell['Price'],
-                'amount': sell_amt,
-                'profit_loss': profit_loss,
-                'percent_profit_loss': pct_profit_loss,
-            }
-            # print(f"New Sell Record: {new_sell_record}")
-            buy_trade['sells'].append(new_sell_record)
+            sell_rec_for_trade['profit_loss'] = profit_loss
+
+            print(f"Sell record for this Buy trade: {sell_rec_for_trade}")
+            print(f"################## END #####################")
+
+            buy_trade['sells'].append(sell_rec_for_trade)
 
     def analyze_trades(self):
 
@@ -105,16 +120,16 @@ class TradingAnalyzer:
             print(f"Total sell trades @ start: {len(sell_trades)}")
             # Initialize results for the symbol
             self.results[symbol] = {
-                'bought_quantity': round(total_bought_quantity,2),
-                'bought_amount': round(total_bought_amount,2),
-                'sold_quantity': round(total_sold_quantity,2),
-                'sold_amount': round(total_sold_amount,2),
+                'bought_quantity': round(total_bought_quantity, 2),
+                'bought_amount': round(total_bought_amount, 2),
+                'sold_quantity': round(total_sold_quantity, 2),
+                'sold_amount': round(total_sold_amount, 2),
                 'closed_bought_quantity': 0,
                 'closed_bought_amount': 0,
                 'open_bought_quantity': 0,
                 'open_bought_amount': 0,
-                'Profit/Loss': 0,
-                'PercentProfit/Loss': 0,
+                'profit_loss': 0,
+                'percent_profit_loss': 0,
                 'all_trades': []
             }
 
@@ -129,74 +144,87 @@ class TradingAnalyzer:
             print(f"[{symbol}] Total Sold Q: {total_sold_quantity}")
             print(f"[{symbol}] Total Bought Q: {total_bought_quantity}")
 
-            # Match with buy trades
-            if total_sold_quantity > 0:
-                while buy_trades:
-                    buy = buy_trades[0]
-                    bought_quantity += buy['Quantity']
+            # Match sell trades with buy trades
+            while buy_trades:
+                current_buy_trade = {}
+                buy = buy_trades[0]
+                bought_quantity += buy['Quantity']
+                print(f"[{symbol}] Buy Trade: {buy}")
 
-                    current_trade = {}
+                if self._is_last_trade_open(self.results[symbol]['all_trades']):
+                    # Complete an open trade
+                    current_buy_trade = self.results[symbol]['all_trades'][-1]
+                else:
+                    # A new open trade
+                    current_buy_trade = {
+                        'trade_date': buy['Trade Date'],
+                        'quantity': buy['Quantity'],
+                        'price':  buy['Price'],
+                        'amount': buy['Amount'],
+                        'current_sold_qty': 0,
+                        'sells': []
+                    }
 
-                    if self._is_last_trade_open(self.results[symbol]['all_trades']):
-                        # Complete the open trade
-                        current_buy_trade = self.results[symbol]['all_trades'][-1]
-                    else:
-                        # A new open trade
-                        current_buy_trade = {
-                            'trade_date': buy['Trade Date'],
-                            'quantity': 0,
-                            'price':  buy['Price'],
-                            'amount': 0,
-                            'current_sold_qty': 0,
-                            'sells': []
-                        }
 
-                    if bought_quantity > total_sold_quantity:
-                        # We have some unsold shares. Partially match the buy trade
-                        not_sold_quantity = bought_quantity - total_sold_quantity
-                        closed_bought_quantity = buy['Quantity'] - \
-                            not_sold_quantity
-                        closed_bought_amount = (
-                            buy['Amount'] / buy['Quantity']) * closed_bought_quantity
-                        print(
-                            f"[{symbol}] Partial Closed B Qty: {closed_bought_quantity}")
-                        self.results[symbol]['closed_bought_quantity'] += closed_bought_quantity
-                        self.results[symbol]['closed_bought_amount'] += closed_bought_amount
+                not_sold_quantity = bought_quantity - total_sold_quantity
+
+                if bought_quantity > total_sold_quantity:
+                    # We have some unsold shares. Partially match the buy trade
+                    # Or we have a buy trade with no sells.
+                    closed_bought_quantity = buy['Quantity'] - \
+                        not_sold_quantity
+                    closed_bought_amount = (
+                        buy['Amount'] / buy['Quantity']) * closed_bought_quantity
+
+                    print(f"[{symbol}] Bought Qty: {buy['Quantity']}")
+                    print(
+                        f"[{symbol}] Partial Closed B Qty: {closed_bought_quantity}")
+                    print(
+                        f"[{symbol}] Partial Closed B Amt: {closed_bought_amount}")
+                    self.results[symbol]['closed_bought_quantity'] += closed_bought_quantity
+                    self.results[symbol]['closed_bought_amount'] += closed_bought_amount
+
+                    if len(sell_trades) > 0:
                         current_buy_trade['quantity'] = closed_bought_quantity
                         current_buy_trade['amount'] = closed_bought_amount
-
                         self._add_sells_to_this_trade(
                             current_buy_trade, sell_trades)
-                        self.results[symbol]['all_trades']. append(
-                            current_buy_trade)
+
+                    # print(f"Adding this to results: {current_buy_trade}")
+                    self.results[symbol]['all_trades'].append(
+                        current_buy_trade)
+                    if total_sold_quantity > 0:
+                        buy_trades.pop(0)
                         break
-                    else:
-                        # Fully match the buy trade
-                        # print(f"[{symbol}] FullMatch buy Qty: {buy['Quantity']}")
-                        self.results[symbol]['closed_bought_quantity'] += buy['Quantity']
+                else:
+                    # Fully match the buy trade
+                    print(f"[{symbol}] FullMatch buy Qty: {buy['Quantity']}")
+                    self.results[symbol]['closed_bought_quantity'] += buy['Quantity']
 
-                        self.results[symbol]['closed_bought_amount'] += buy['Amount']
-                        current_buy_trade['quantity'] = buy['Quantity']
-                        current_buy_trade['amount'] = buy['Amount']
+                    self.results[symbol]['closed_bought_amount'] += buy['Amount']
+                    current_buy_trade['quantity'] = buy['Quantity']
+                    current_buy_trade['amount'] = buy['Amount']
+                    if len(sell_trades) > 0:
                         self._add_sells_to_this_trade(
                             current_buy_trade, sell_trades)
-                        buy_trades.pop(0)  # Remove the matched buy trade
-                        self.results[symbol]['all_trades']. append(
-                            current_buy_trade)
 
-                # Get Open Trades
-                self.results[symbol]['open_bought_quantity'] = round(self.results[symbol]['bought_quantity'] -
-                                                                     self.results[symbol]['closed_bought_quantity'], 2)
-                self.results[symbol]['open_bought_amount'] = round(self.results[symbol]['bought_amount'] -
-                                                                   self.results[symbol]['closed_bought_amount'], 2)
+                    self.results[symbol]['all_trades'].append(
+                        current_buy_trade)
+                    buy_trades.pop(0)  # Remove the matched buy trade
 
-                # Calculate Profit/Loss
-                if abs(self.results[symbol]['closed_bought_amount']) > 0:
-                    self.results[symbol]['Profit/Loss'] = self.results[symbol]['sold_amount'] + \
-                        self.results[symbol]['closed_bought_amount']
-                    self.results[symbol]['PercentProfit/Loss'] =  \
-                        (self.results[symbol]['Profit/Loss'] /
-                         abs(self.results[symbol]['closed_bought_amount'])) * 100
+            # Calculate open shares for this symbol
+            self.results[symbol]['open_bought_quantity'] = round(self.results[symbol]['bought_quantity'] -
+                                                                 self.results[symbol]['closed_bought_quantity'], 2)
+            self.results[symbol]['open_bought_amount'] = round(self.results[symbol]['bought_amount'] -
+                                                               self.results[symbol]['closed_bought_amount'], 2)
+
+            # Calculate Profit/Loss
+            if abs(self.results[symbol]['closed_bought_amount']) > 0:
+                self.results[symbol]['profit_loss'] = self.results[symbol]['sold_amount'] + \
+                    self.results[symbol]['closed_bought_amount']
+                self.results[symbol]['percent_profit_loss'] =  \
+                    (self.results[symbol]['profit_loss'] /
+                     abs(self.results[symbol]['closed_bought_amount'])) * 100
 
     def get_results(self):
         return self.results

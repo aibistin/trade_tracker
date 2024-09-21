@@ -90,10 +90,46 @@ def trades_by_symbol(symbol):
     return render_template('trades_by_symbol.html', transactions=transactions, symbol=symbol)
 
 
+@app.route('/trade/detail/<string:symbol>')
+def trade_detail_by_symbol(symbol):
+    """Detailed buy, sell, profit and lost  transactions for the given symbol."""
+
+    raw_trade_data = db.session.query(
+        TradeTransaction.symbol,
+        TradeTransaction.action,
+        TradeTransaction.trade_date,
+        TradeTransaction.quantity,
+        TradeTransaction.price,
+        TradeTransaction.amount
+    ).filter(
+        TradeTransaction.symbol == symbol,
+        TradeTransaction.action.in_(["B", "RS", "S"])
+    ).order_by(
+        TradeTransaction.trade_date,
+        TradeTransaction.action
+    ).all()
+
+    # Group data by symbol
+    data_dict = {}
+    for symbol, action, trade_date, quantity, price, amount in raw_trade_data:
+        if symbol not in data_dict:
+            data_dict[symbol] = []
+        data_dict[symbol].append({'Action': action, 'Trade Date': trade_date, 'Quantity': quantity, 'Price': price, 'Amount': amount})
+
+    # Analyze trades for each symbol
+    all_trade_stats = {}
+    for symbol, trades in data_dict.items():
+        analyzer = TradingAnalyzer({symbol: trades})  # Analyze for each symbol separately
+        analyzer.analyze_trades()
+        all_trade_stats[symbol] = analyzer.get_results()[symbol]  # Store results with symbol as key
+    
+    print(f"[Routes] Trade Detail for {symbol}: {all_trade_stats}")
+    return render_template('trade_detail_by_symbol.html', trade_stats=all_trade_stats, symbol=symbol)
+
+
 @app.route('/trade_stats_summary')
 def trade_stats_summary():
     """Fetches trade statistics summary and renders the template."""
-    # The SQLAlchemy query will be added here (see next section)
     trade_stats = TradeTransaction.get_trade_stats_summary()
     return render_template('trade_stats_summary.html', trade_stats=trade_stats)
 
@@ -112,6 +148,9 @@ def trade_stats_pl():
         TradeTransaction.amount
     ).filter(
         TradeTransaction.action.in_(["B", "RS", "S"]),
+    ).order_by(
+        TradeTransaction.trade_date,
+        TradeTransaction.action
     ).all()
 
     # Group data by symbol
@@ -128,7 +167,7 @@ def trade_stats_pl():
         analyzer.analyze_trades()
         all_trade_stats[symbol] = analyzer.get_results()[symbol]  # Store results with symbol as key
     
-
+    print(f"[Routes] Trade Stats: {all_trade_stats}")
     return render_template('trade_stats_pl.html', trade_stats=all_trade_stats)
 
 if __name__ == '__main__':

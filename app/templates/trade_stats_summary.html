@@ -22,8 +22,10 @@
         <tbody>
             {% set stats = namespace(total_profit_loss=0, win_count=0, lose_count=0, break_even_count=0) %}
             {% for stat in trade_stats %}
-                <tr>
-                    <td>{{ stat.symbol }}</td>
+                <tr></tr>
+                    <td>
+                      <a href="/trade/detail/{{ stat.symbol }}">{{ stat.symbol }}</a> 
+                    </td>
                     <td>{{ stat.average_buy_price }}</td>
                     <td>{{ stat.buy_amount }}</td>
                     <td>{{ stat.sell_quantity }}</td>

@@ -12,7 +12,6 @@ class DatabaseInserter:
             self.conn = sqlite3.connect(db_path)
             self.cursor = self.conn.cursor()
 
-
     def convert_action(self, action):
         """Converts the full action name to its corresponding acronym."""
         action_map = {
@@ -48,7 +47,7 @@ class DatabaseInserter:
             # Handle duplicate symbol (if needed, you can update the existing record instead)
             print(f"Warning: Security with symbol '{symbol}' already exists.")
 
-    def transaction_exists(self, symbol, action, trade_date, quantity, price, amount):
+    def transaction_exists(self, symbol, action, trade_date, quantity, price, amount, account):
         """Checks if a transaction with the given details already exists in the database."""
 
         action_acronym = self.convert_action(action)  # Convert action
@@ -57,19 +56,19 @@ class DatabaseInserter:
         self.cursor.execute("""
             SELECT * FROM trade_transaction
             WHERE symbol = ? AND action = ? AND trade_date = ?
-                  AND quantity = ? AND price = ? AND amount = ?
-        """, (symbol, action_acronym, trade_date, quantity, price_float, amount))
+                  AND quantity = ? AND price = ? AND amount = ? AND account = ?
+        """, (symbol, action_acronym, trade_date, quantity, price_float, amount, account))
         return self.cursor.fetchone() is not None  # True if a row is found, False otherwise
 
-    def insert_transaction(self, symbol, action, trade_date, reason, quantity, price, amount, initial_stop_price, projected_sell_price):
+    def insert_transaction(self, symbol, action, trade_date, reason, quantity, price, amount, initial_stop_price, projected_sell_price, account):
         """Inserts a transaction into the 'transaction' table, converting the action first."""
         action_acronym = self.convert_action(action)  # Convert action
         price_float = self.validate_price(price)
 
         self.cursor.execute("""
-            INSERT INTO trade_transaction (symbol, action, trade_date, reason, quantity, price, amount, initial_stop_price, projected_sell_price)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (symbol, action_acronym, trade_date, reason, quantity, price_float, amount, initial_stop_price, projected_sell_price))
+            INSERT INTO trade_transaction (symbol, action, trade_date, reason, quantity, price, amount, initial_stop_price, projected_sell_price, account)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (symbol, action_acronym, trade_date, reason, quantity, price_float, amount, initial_stop_price, projected_sell_price, account))
         self.conn.commit()
 
     def close(self):
@@ -82,7 +81,7 @@ class DatabaseInserter:
             return False
 
         try:
-            return float(price_in.replace("$", "")) if isinstance(price_in,str) else price_in
+            return float(price_in.replace("$", "")) if isinstance(price_in, str) else price_in
         except ValueError:
             print(f"Warning[db_utils]: Invalid price format: {price_in}")
             return False

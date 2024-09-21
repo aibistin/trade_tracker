@@ -4,7 +4,7 @@ from lib.trading_analyzer import TradingAnalyzer
 
 class TestTradingAnalyzer(unittest.TestCase):
     def setUp(self):
-        self.data_dict = [
+        self.data_list = [
             {'SN': [
                 {'Action': 'B', 'Quantity': 100.0, 'Price': 91.39,
                  'Trade Date': '2024-08-22', 'Amount': -9139.0},
@@ -52,7 +52,30 @@ class TestTradingAnalyzer(unittest.TestCase):
                  'Trade Date': '2024-08-01', 'Amount': 4720.0},
                 {'Action': 'S', 'Quantity': 50.0, 'Price': 43.2601,
                  'Trade Date': '2024-08-27', 'Amount': 2163.01},
-            ]}
+            ]},
+            {'NAIL': [
+                {'Action':  'B', 'Quantity':  40.0, 'Price':  130.4599,
+                    'Trade Date':  '2024-07-25', 'Amount': -5218.4},
+                {'Action':  'B', 'Quantity':  40.0, 'Price':  145.0,
+                    'Trade Date':  '2024-07-26', 'Amount': -5800.0},
+                {'Action':  'B', 'Quantity':  50.0, 'Price':  127.1,
+                    'Trade Date':  '2024-08-05', 'Amount': -6355.0},
+                {'Action':  'S', 'Quantity':  50.0, 'Price':  145.4,
+                    'Trade Date':  '2024-08-27', 'Amount':  7270.0},
+                {'Action':  'S', 'Quantity':  80.0, 'Price':  147.5,
+                    'Trade Date':  '2024-08-27', 'Amount':  11800.0},
+                {'Action':  'B', 'Quantity':  50.0, 'Price':  145.7,
+                    'Trade Date':  '2024-08-30', 'Amount': -7285.0},
+                {'Action':  'S', 'Quantity':  50.0, 'Price':  140.6,
+                    'Trade Date':  '2024-09-03', 'Amount':  7030.0},
+                {'Action':  'B', 'Quantity':  50.0, 'Price':  140.87,
+                    'Trade Date':  '2024-09-12', 'Amount': -7043.5},
+                {'Action':  'S', 'Quantity':  50.0, 'Price':  156.38,
+                    'Trade Date':  '2024-09-13', 'Amount':  7819.0},
+                {'Action':  'B', 'Quantity':  40.0, 'Price':  159.6201,
+                    'Trade Date':  '2024-09-16', 'Amount': -6384.8}
+            ]
+            }
         ]
 
         self.expect_trades = {
@@ -190,11 +213,115 @@ class TestTradingAnalyzer(unittest.TestCase):
                         }
                     ]
                 }
+            ],
+            'NAIL': [
+                {
+                    'trade_date': '2024-07-25',
+                    'quantity': 40,
+                    'price':  130.4599,
+                    'amount': -5218.4,
+                    'current_sold_qty': 40,
+                    'sells': [
+                        {     # NAIL|S|2024-08-27|50.0|145.4|7270.0  -> 40 of 50
+                            'trade_date': '2024-08-27',
+                            'quantity': 40,
+                            'price':  145.4,
+                            'amount': (145.4 * 40),
+                            'profit_loss': (145.4 * 40) - (130.4599 * 40),
+                            'percent_profit_loss': (((145.4 * 40) - (130.4599 * 40)) / (130.4599 * 40)) * 100,
+                        }
+                    ]
+                },
+                {
+                    'trade_date': '2024-07-26',
+                    'quantity': 40,
+                    'price':  145.00,
+                    'amount': -5800.0,
+                    'current_sold_qty': 40,
+                    # Half of one sell
+                    'sells': [
+                        {
+                            'trade_date': '2024-08-27',
+                            'quantity': 10,
+                            'price':  145.4,
+                            'amount': (145.4 * 10),
+                            'profit_loss': (145.4 * 10) - (145.00 * 10),
+                            'percent_profit_loss': (((145.4 * 10) - (145.00 * 10)) / (145.00 * 10)) * 100,
+                        },
+                        {  # NAIL|S|2024-08-27|80.0|147.5|11800.0 -> 30 of 80
+                            'trade_date': '2024-08-27',
+                            'quantity': 30,
+                            'price':  147.5,
+                            'amount': (147.5 * 30),
+                            'profit_loss': (147.5 * 30) - (145.00 * 30),
+                            'percent_profit_loss': (((147.5 * 30) - (145.00 * 30)) / (145.00 * 30)) * 100,
+                        }
+                    ]
+                },
+                {  # NAIL|B|2024-08-05|50.0|127.1|-6355.0
+                    'trade_date': '2024-08-05',
+                    'quantity': 50,
+                    'price':  127.10,
+                    'amount': -6355.0,
+                    'current_sold_qty': 50,
+                    'sells': [
+                        {   # NAIL|S|2024-08-27|80.0|147.5|11800.0 -> 30 + 50 of 80
+                            'trade_date': '2024-08-27',
+                            'quantity': 50,
+                            'price':  147.50,
+                            'amount': 7375.0, # (11800.0/80) * 50
+                            'profit_loss': (147.5 * 50) - (127.10 * 50),
+                            'percent_profit_loss': (((147.5 * 50) - (127.1 * 50)) / (127.1 * 50)) * 100,
+                        },
+                    ]
+                },
+                {  # NAIL|B|2024-08-30|50.0|145.7|-7285.0
+                    'trade_date': '2024-08-30',
+                    'quantity': 50,
+                    'price':  145.7,
+                    'amount': -7285.0,
+                    'current_sold_qty': 50,
+                    'sells': [
+                        {  # NAIL|S|2024-09-03|50.0|140.6|7030.0
+                            'trade_date': '2024-09-03',
+                            'quantity': 50,
+                            'price':  140.6,
+                            'amount': 7030.0,
+                            'profit_loss': (140.6 * 50) - (145.7 * 50),
+                            'percent_profit_loss': ((140.6 - 145.7)/145.7) * 100,
+                        }
+                    ]
+                },
+                {  # NAIL|B|2024-09-12|50.0|140.87|-7043.5
+                    'trade_date': '2024-09-12',
+                    'quantity': 50,
+                    'price':  140.87,
+                    'amount': -7043.5,
+                    'current_sold_qty': 50,
+                    'sells': [
+                        {  # NAIL|S|2024-09-13|50.0|156.38|7819.0
+                            'trade_date': '2024-09-13',
+                            'quantity': 50,
+                            'price':  156.38,
+                            'amount': 7819.0,
+                            'profit_loss': (156.38 * 50) - (140.87 * 50),
+                            'percent_profit_loss': ((156.38 - 140.87)/140.87) * 100,
+                        }
+                    ]
+                },
+                {  # NAIL|B|2024-09-16|40.0|159.6201|-6384.8
+                    'trade_date': '2024-09-16',
+                    'quantity': 40,
+                    'price':  159.6201,
+                    'amount': -6384.8,
+                    'current_sold_qty': 0,
+                    'sells': []
+                },
             ]
         }
 
     def test_analyze_trades_sn(self):
-        analyzer = TradingAnalyzer(self.data_dict[0])
+        analyzer = TradingAnalyzer(self.data_list[0])
         analyzer.analyze_trades()
         results = analyzer.get_results()
 
@@ -226,9 +353,9 @@ class TestTradingAnalyzer(unittest.TestCase):
         self.assertAlmostEqual(
             results['SN']['open_bought_amount'], expected_open_bought_amount, places=2)
         self.assertAlmostEqual(
-            results['SN']['Profit/Loss'], expected_profit_loss, places=2)
+            results['SN']['profit_loss'], expected_profit_loss, places=2)
         self.assertAlmostEqual(
-            results['SN']['PercentProfit/Loss'], expected_profit_loss_percent, places=2)
+            results['SN']['percent_profit_loss'], expected_profit_loss_percent, places=2)
 
         # Complete Trades
         self.assertEqual(len(results['SN']['all_trades']), 4)
@@ -256,7 +383,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     got_sell['percent_profit_loss'], expected_sell['percent_profit_loss'], places=2)
 
     def test_analyze_trades_nvda(self):
-        analyzer = TradingAnalyzer(self.data_dict[1])
+        analyzer = TradingAnalyzer(self.data_list[1])
         analyzer.analyze_trades()
         results = analyzer.get_results()
 
@@ -276,9 +403,9 @@ class TestTradingAnalyzer(unittest.TestCase):
             results['NVDA']['open_bought_amount'], 0, places=2)
 
         self.assertAlmostEqual(
-            results['NVDA']['Profit/Loss'], 2250.0, places=2)
+            results['NVDA']['profit_loss'], 2250.0, places=2)
         self.assertAlmostEqual(
-            results['NVDA']['PercentProfit/Loss'], 3.75, places=2)
+            results['NVDA']['percent_profit_loss'], 3.75, places=2)
         # Complete Trades
         self.assertEqual(len(results['NVDA']['all_trades']), 1)
 
@@ -304,9 +431,8 @@ class TestTradingAnalyzer(unittest.TestCase):
                 self.assertAlmostEqual(
                     got_sell['percent_profit_loss'], expected_sell['percent_profit_loss'], places=2)
 
-
     def test_analyze_trades_tna(self):
-        analyzer = TradingAnalyzer(self.data_dict[2])
+        analyzer = TradingAnalyzer(self.data_list[2])
         analyzer.analyze_trades()
         results = analyzer.get_results()
 
@@ -327,9 +453,9 @@ class TestTradingAnalyzer(unittest.TestCase):
             results['TNA']['open_bought_amount'], 0, places=2)
 
         self.assertAlmostEqual(
-            results['TNA']['Profit/Loss'], -7537.5 + 4720.0 + 2163.01, places=2)
+            results['TNA']['profit_loss'], -7537.5 + 4720.0 + 2163.01, places=2)
         self.assertAlmostEqual(
-            results['TNA']['PercentProfit/Loss'], -8.68, places=2)
+            results['TNA']['percent_profit_loss'], -8.68, places=2)
         # Complete Trades
         self.assertEqual(len(results['TNA']['all_trades']), 1)
 
@@ -353,6 +479,78 @@ class TestTradingAnalyzer(unittest.TestCase):
 
                 self.assertAlmostEqual(
                     got_sell['profit_loss'], expected_sell['profit_loss'], places=1)
+                self.assertAlmostEqual(
+                    got_sell['percent_profit_loss'], expected_sell['percent_profit_loss'], places=2)
+
+    def test_analyze_trades_nail(self):
+        # Expected:
+        analyzer = TradingAnalyzer(self.data_list[3])
+        analyzer.analyze_trades()
+        results = analyzer.get_results()
+
+        # Check results for symbol 'NAIL'
+        expected_bought_qty = 270
+        expected_bought_amount = -38086.7
+        expected_sold_qty = 230
+        expected_sold_amount = 33919.0
+
+        # -38086.7 + 6384.8 = −31701.9
+        expected_closed_bought_amount = round(-38086.7 + 6384.8, 2)
+        expected_open_bought_amount = -6384.8
+
+        # bought amounts are negative numbers
+        expected_profit_loss = expected_sold_amount + expected_closed_bought_amount
+        expected_profit_loss_percent = abs(
+            expected_profit_loss / expected_closed_bought_amount) * 100
+
+        self.assertEqual(
+            results['NAIL']['bought_quantity'], expected_bought_qty)
+
+        self.assertAlmostEqual(
+            results['NAIL']['bought_amount'], expected_bought_amount, places=2)
+
+        self.assertEqual(results['NAIL']['sold_quantity'], expected_sold_qty)
+
+        self.assertAlmostEqual(
+            results['NAIL']['sold_amount'], expected_sold_amount, places=2)
+        self.assertEqual(
+            results['NAIL']['closed_bought_quantity'], expected_sold_qty)
+
+        self.assertAlmostEqual(
+            results['NAIL']['closed_bought_amount'], expected_closed_bought_amount, places=2)
+
+        self.assertEqual(results['NAIL']['open_bought_quantity'], 40.0)
+
+        self.assertAlmostEqual(
+            results['NAIL']['open_bought_amount'], expected_open_bought_amount, places=2)
+        self.assertAlmostEqual(
+            results['NAIL']['profit_loss'], expected_profit_loss, places=2)
+        self.assertAlmostEqual(
+            results['NAIL']['percent_profit_loss'], expected_profit_loss_percent, places=2)
+
+        # Complete Trades
+        self.assertEqual(len(results['NAIL']['all_trades']), 6)
+
+        for i, expected_trade in enumerate(self.expect_trades['NAIL']):
+            got_trade = results['NAIL']['all_trades'][i]
+            self.assertEqual(got_trade['trade_date'],
+                             expected_trade['trade_date'])
+            self.assertEqual(got_trade['quantity'], expected_trade['quantity'])
+            self.assertEqual(got_trade['amount'], expected_trade['amount'])
+            self.assertEqual(
+                got_trade['current_sold_qty'], expected_trade['current_sold_qty'])
+            self.assertEqual(len(got_trade['sells']), len(
+                expected_trade['sells']))
+            for j, expected_sell in enumerate(expected_trade['sells']):
+                got_sell = got_trade['sells'][j]
+                self.assertEqual(got_sell['trade_date'],
+                                 expected_sell['trade_date'])
+                self.assertEqual(got_sell['quantity'], expected_sell['quantity'])
+                self.assertEqual(got_sell['amount'], expected_sell['amount'])
+                self.assertEqual(got_sell['price'], expected_sell['price'])
+
+                self.assertAlmostEqual(
+                    got_sell['profit_loss'], expected_sell['profit_loss'], places=2)
                 self.assertAlmostEqual(
                     got_sell['percent_profit_loss'], expected_sell['percent_profit_loss'], places=2)
 

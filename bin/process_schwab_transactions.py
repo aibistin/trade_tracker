@@ -3,10 +3,12 @@ from lib.db_utils import DatabaseInserter
 import os
 from datetime import datetime
 
+
 def process_schwab_transactions_row(self, row, **kwargs):
     """Processes a row from the Schwab Transactions CSV file and inserts into the database."""
 
-    db_inserter =  kwargs['db_inserter'] if 'db_inserter' in kwargs else None
+    db_inserter = kwargs['db_inserter'] if 'db_inserter' in kwargs else None
+    account = kwargs['account'] if 'account' in kwargs else None
     quantity = CSVProcessor.extract_quantity(row["Quantity"])
 
     if not CSVProcessor.validate_price(row["Price"]):
@@ -37,7 +39,8 @@ def process_schwab_transactions_row(self, row, **kwargs):
         row["Amount"],
         row['Stop@'],
         row['Sell@'],
-        "",  # P/L
+        "",  # P/L,
+        account
     ]
 
     # Insert/update security if needed
@@ -45,13 +48,14 @@ def process_schwab_transactions_row(self, row, **kwargs):
 
     # Insert transaction if it doesn't exist
     if not db_inserter.transaction_exists(
-            processed_row[0], processed_row[2], processed_row[6], 
-            processed_row[3], processed_row[4], processed_row[7]
-        ):
+        processed_row[0], processed_row[2], processed_row[6],
+        processed_row[3], processed_row[4], processed_row[7], account
+    ):
 
         db_inserter.insert_transaction(
             processed_row[0],  # symbol
-            processed_row[2],  # action (assuming it's already converted to acronym)
+            # action (assuming it's already converted to acronym)
+            processed_row[2],
             processed_row[6],  # trade_date
             "",                # reason (not provided in CSV, set to '')
             processed_row[3],  # quantity
@@ -59,6 +63,7 @@ def process_schwab_transactions_row(self, row, **kwargs):
             processed_row[7],  # amount
             processed_row[8],  # initial_stop_price
             processed_row[9],  # projected_sell_price
+            account,          # 'C', 'R', 'I'
         )
 
     return processed_row
@@ -67,7 +72,7 @@ def process_schwab_transactions_row(self, row, **kwargs):
 def main():
     processor = CSVProcessor("data/input", "data/output", "data/processed")
     # db_path= "data/test.db"
-    db_path= "data/stock_trades.db"
+    db_path = "data/stock_trades.db"
 
     db_inserter = DatabaseInserter(db_path=db_path)
     print(f"Connected to: {db_path}")
@@ -78,11 +83,11 @@ def main():
         timestamp = datetime.now().strftime("%m%d%y%H%M%S")
         output_filename = f"transaction_record_{timestamp}.csv"
         output_header = ["Symbol", "Name", "Action", "Quantity", "Price",
-                         "Fees", "Trade Date", "Amount", "Stop@", "Sell@", "P/L"]
+                         "Fees", "Trade Date", "Amount", "Stop@", "Sell@", "P/L", "Act."]
 
         processor.process_files(
-             input_files, output_filename, output_header, process_schwab_transactions_row,
-        db_inserter=db_inserter)
+            input_files, output_filename, output_header, process_schwab_transactions_row,
+            db_inserter=db_inserter)
 
         print("Completed writing to: " + output_filename)
 
@@ -92,6 +97,6 @@ def main():
     db_inserter.close()
     print(f"Closed connection to: {db_path}")
 
+
 if __name__ == "__main__":
     main()
-

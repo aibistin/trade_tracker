@@ -92,7 +92,7 @@ class CSVProcessor:
 
         price = float(row['Price'].replace("$", ""))
         # price = float(row['Fill Price'].replace(
-            # "$", "")) if row['Fill Price'] else float(row['Price'].replace("$", ""))
+        # "$", "")) if row['Fill Price'] else float(row['Price'].replace("$", ""))
         try:
             return round(price * 0.95)
         except ValueError:
@@ -106,7 +106,7 @@ class CSVProcessor:
 
         price = float(row['Price'].replace("$", ""))
         # price = float(row['Fill Price'].replace(
-            # "$", "")) if row['Fill Price'] else float(row['Price'].replace("$", ""))
+        # "$", "")) if row['Fill Price'] else float(row['Price'].replace("$", ""))
 
         try:
             return round(price * 1.15)
@@ -182,8 +182,8 @@ class CSVProcessor:
                       **kwargs):
         """Main file processing logic."""
         output_file = os.path.join(self.output_dir, output_filename)
-        field_names =  kwargs['field_names'] if 'field_names' in kwargs else None
-        db_inserter =  kwargs['db_inserter'] if 'db_inserter' in kwargs else None
+        field_names = kwargs['field_names'] if 'field_names' in kwargs else None
+        db_inserter = kwargs['db_inserter'] if 'db_inserter' in kwargs else None
         seen_rows = set()
         out_count = 0
 
@@ -192,18 +192,28 @@ class CSVProcessor:
             writer.writerow(output_header)
 
             for input_file in input_files:
-                print(f"Info: Reading file {input_file}")
+                account = 'I'  # C = Contributory, R = Roth Contributory, I = Individual
+                print(f"Info: Reading file path: {input_file}")
+                file_name = os.path.basename(input_file)
+                print(f"Info: File Name: {file_name}")
+
+                if file_name.lower().startswith('c'):
+                    account = 'C'
+                elif file_name.lower().startswith('r'):
+                    account = 'R'
+
                 with open(input_file, "r") as in_csv:
                     reader = csv.DictReader(in_csv, fieldnames=field_names)
                     for row in reader:
                         # Deduplication
-                        row_tuple = tuple(row.values())
+                        row_tuple = tuple([row.values(), account])
                         if row_tuple in seen_rows:
                             continue
                         seen_rows.add(row_tuple)
 
                         # Custom row processing
-                        processed_row = row_processor(self, row, db_inserter=db_inserter)
+                        processed_row = row_processor(
+                            self, row, db_inserter=db_inserter, account=account)
                         if processed_row:
                             writer.writerow(processed_row)
                             out_count += 1

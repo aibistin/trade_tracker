@@ -35,7 +35,6 @@ def check_directories(output_dir, input_dir, processed_dir):
 def process_schwab_orders(self, row, **kwargs):
     """Processes a row from the Schwab Transactions CSV file."""
 
-    # Extract and validate quantity
     row["Quantity"] = CSVProcessor.extract_quantity(row["Quantity"])
 
     # Validate price
