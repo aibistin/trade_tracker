@@ -167,6 +167,7 @@ class TradingAnalyzer:
 
 
                 not_sold_quantity = bought_quantity - total_sold_quantity
+                print(f"[{symbol}] Not Sold Qty: {not_sold_quantity}")
 
                 if bought_quantity > total_sold_quantity:
                     # We have some unsold shares. Partially match the buy trade
@@ -195,7 +196,7 @@ class TradingAnalyzer:
                         current_buy_trade)
                     if total_sold_quantity > 0:
                         buy_trades.pop(0)
-                        break
+                    break
                 else:
                     # Fully match the buy trade
                     print(f"[{symbol}] FullMatch buy Qty: {buy['Quantity']}")

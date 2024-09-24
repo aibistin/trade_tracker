@@ -43,11 +43,8 @@
                     <td>{{ stat.sold_amount|round(2) }}</td>
                     <td>{{ stat.open_bought_quantity|round(1) }}</td>
                     <td>{{ stat.open_bought_amount|round(2) }}</td>
-                    {#
-                    <td>{{ "${:,.2f}".format(stat['profit_loss'])}}</td>
-                    #}
-                    <td>{{ "$%.2f"|format(stat['profit_loss'])}}</td>
-                    <td>{{ stat['percent_profit_loss']|round(2) }}%</td>
+                    <td>{{ "${:,.2f}".format(stat.profit_loss)}}</td>
+                    <td>{{ stat.percent_profit_loss|round(2) }}%</td>
                 </tr>
 
                 {% if stat.all_trades %} 
