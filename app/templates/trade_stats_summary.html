@@ -16,6 +16,7 @@
                 <th>Avg Sell Price</th>
                 <th>Sell Amount</th>
                 <th>Profit/Loss</th>
+                <th>% Profit/Loss</th>
                 <th>Win/Lose</th>
             </tr>
         </thead>
@@ -26,12 +27,18 @@
                     <td>
                       <a href="/trade/detail/{{ stat.symbol }}">{{ stat.symbol }}</a> 
                     </td>
-                    <td>{{ stat.average_buy_price }}</td>
-                    <td>{{ stat.buy_amount }}</td>
-                    <td>{{ stat.sell_quantity }}</td>
+                    <td>{{ stat.average_buy_price|round(2) }}</td>
+                    <td>{{ stat.buy_amount|round(2) }}</td>
+                    <td>{{ stat.sell_quantity|round(2) }}</td>
                     <td>{{ stat.average_sell_price }}</td>
-                    <td>{{ stat.sell_amount }}</td>
-                    <td>{{ stat.profit_loss }}</td>
+                    <td>{{ "${:,.2f}".format(stat.sell_amount)}}</td>
+                    <td>{{ "${:,.2f}".format(stat.profit_loss)}}</td>
+                    {% if stat.buy_amount != 0 %}
+                         {% set abs_buy_amt = stat.buy_amount|abs( )%}
+                        <td>{{((stat.profit_loss/abs_buy_amt) * 100)|round(2)}}%</td>
+                    {% else %}
+                        <td>{{ 0.0 }}</td>
+                    {% endif %}
                     <td>{{ stat.win_lose }}</td>
                 </tr>
 

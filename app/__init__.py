@@ -9,6 +9,8 @@ from .extensions import db
 load_dotenv('.flaskenv')
 app = Flask(__name__)
 
+app.config['SECRET_KEY'] = 'This is a strong, random key'  # Replace with a strong, random key
+
 # To share the Database Connection
 if os.environ.get('FLASK_ENV') == 'testing':
     print("Created an In Memory Database")
@@ -16,6 +18,7 @@ if os.environ.get('FLASK_ENV') == 'testing':
 else:
     print("Created a File based Database")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../data/stock_trades.db'
+
 
 
 # Initialize the db with the app

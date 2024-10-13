@@ -65,6 +65,11 @@ def process_schwab_transactions_row(self, row, **kwargs):
             processed_row[9],  # projected_sell_price
             account,          # 'C', 'R', 'I'
         )
+        print(f"[{processed_row[0]} Inserted transaction for:")
+    else:
+        print(f"[{processed_row[0]} Transaction already exists for:")
+
+    print(f"[{processed_row[0]} Date:{processed_row[6]}, Action:{processed_row[2]}, Qty:{processed_row[3]}, Price:{processed_row[4]}")
 
     return processed_row
 

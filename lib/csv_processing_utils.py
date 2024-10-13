@@ -19,18 +19,14 @@ class CSVProcessor:
     @staticmethod
     def extract_quantity(quantity_str):
         """Extract numeric quantity (int or float) from string."""
-        try:
-            # Match any numbers, including decimals
-            match = re.search(r"[-+]?\d*\.?\d+", quantity_str)
-            if match:
-                quantity = float(match.group())
-                # Convert to int if possible
-                return int(quantity) if quantity.is_integer() else quantity
-            else:
-                return 0
-        except ValueError:
+
+        quantity = CSVProcessor.convert_to_float(quantity_str)
+        if quantity is not None:
+            return quantity
+        else:
             print(f"Warning: Unexpected quantity format: {quantity_str}")
             return 0
+
 
     @staticmethod
     def convert_trade_date(trade_date_str, date_format="%m/%d/%Y"):
@@ -43,46 +39,65 @@ class CSVProcessor:
             return None
 
     @staticmethod
+    def convert_to_float(some_input):
+
+        if isinstance(some_input, str):
+            new_input = re.sub(r"[^\d\.]", "", some_input)
+        else:
+            new_input = some_input
+
+        try:
+            result = float(new_input)
+        except ValueError:
+            print(f"Warning: Invalid float format: {some_input}")
+            result = None
+        return result
+
+    @staticmethod
     def validate_price(price_str):
         """Validate price format (number or number with '$')."""
         if not price_str:
             return False
 
-        try:
-            return float(price_str.replace("$", "")) if price_str else False
-        except ValueError:
+        price = CSVProcessor.convert_to_float(price_str)
+        if price is None:
             print(f"Warning: Invalid price format: {price_str}")
             return False
 
-    # def calculate_amount(self, quantity, price):
+        return price
+
     def calculate_amount(self, row):
         """Calculates the amount based on quantity and price. For Buy Sell & Re-Invest Orders"""
 
         if not row['Action'].startswith(('Buy', 'Sell', 'Reinvest')):
             return None
 
-        try:
-            price = float(row['Price'].replace("$", ""))
-        except ValueError:
-            print("Warning: Invalid price format for security: row['Symbol']")
+        price = CSVProcessor.convert_to_float(row['Price'])
+        if price is None:
+            print(f"Warning: Invalid format for security: {row['Symbol']}")
             print(f"Price: {row['Price']},  Action: {row['Action']}")
-            return None
+            return 0
 
-        # price = float(row['Fill Price'].replace(
-            # "$", "")) if row['Fill Price'] else float(row['Price'].replace("$", ""))
+        quantity = CSVProcessor.convert_to_float(row['Quantity'])
+        if quantity is None:
+            print(f"Warning: Invalid Quantity for security: {row['Symbol']}")
+            print(f"Price: {row['Quantity']},  Action: {row['Action']}")
+            print(f"Quantity: {quantity}, Price: {str(price)}")
+            return 0.0
+
         amount = 0
         try:
             if any(x in row['Action'] for x in ['Open', 'Close']):
-                # Options
-                amount = round((float(row['Quantity']) * price) * 100, 2)
+                # Convert an Option Open/Close to standard 100*price 
+                amount = round((quantity * price) * 100, 2)
             else:
-                amount = round((float(row['Quantity']) * price), 2)
+                amount = round((quantity * price), 2)
 
             return - amount if row['Action'].startswith('Buy') else amount
 
         except ValueError:
             print("Warning: Invalid quantity or price format.")
-            print(f"Quantity: {row['Quantity']}, Price: {str(price)}")
+            print(f"Quantity: {quantity}, Price: {str(price)}")
             return 0.0
 
     def calculate_stop(self, row):
@@ -90,9 +105,9 @@ class CSVProcessor:
         if not row['Action'].startswith('Buy'):
             return None
 
-        price = float(row['Price'].replace("$", ""))
-        # price = float(row['Fill Price'].replace(
-        # "$", "")) if row['Fill Price'] else float(row['Price'].replace("$", ""))
+        # price = float(re.sub("[^\d\.]", "", row['Price']))
+        price = CSVProcessor.convert_to_float(row['Price'])
+
         try:
             return round(price * 0.95)
         except ValueError:
@@ -104,9 +119,8 @@ class CSVProcessor:
         if not row['Action'].startswith('Buy'):
             return 0.0
 
-        price = float(row['Price'].replace("$", ""))
-        # price = float(row['Fill Price'].replace(
-        # "$", "")) if row['Fill Price'] else float(row['Price'].replace("$", ""))
+        # price = float(re.sub("[^\d\.]", "", row['Price']))
+        price = CSVProcessor.convert_to_float(row['Price'])
 
         try:
             return round(price * 1.15)

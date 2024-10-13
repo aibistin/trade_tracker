@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Current Holdings{% endblock title %}
+
+{% block content %}
+
+    <h1>Current Holdings</h1>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Quantity</th>
+                <th>Average Price</th>
+                <th>Cost Basis</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for holding in current_holdings %}
+                <tr>
+                    <td>{{ holding.symbol }}</td>
+                    <td>{{ holding.quantity|round(2) }}</td>
+                    <td>{{ "${:,.2f}".format(holding.avg_price)}}</td>
+                    <td>{{ "${:,.2f}".format(holding.cost_basis)}}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+{% endblock content %}

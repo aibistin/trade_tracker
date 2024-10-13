@@ -6,74 +6,92 @@ class TestTradingAnalyzer(unittest.TestCase):
     def setUp(self):
         self.data_list = [
             {'SN': [
-                {'Action': 'B', 'Quantity': 100.0, 'Price': 91.39,
+                {'Id': '0001',
+                 'Action': 'B', 'Quantity': 100.0, 'Price': 91.39,
                  'Trade Date': '2024-08-22', 'Amount': -9139.0},
-                {'Action': 'S', 'Quantity': 100.0, 'Price': 88.9427,
+                {'Id': '0002', 'Action': 'S', 'Quantity': 100.0, 'Price': 88.9427,
                  'Trade Date': '2024-08-23', 'Amount': 8894.27},
                 # Sold 100
 
-                {'Action': 'B', 'Quantity': 50.0, 'Price': 89.4964,
+                {'Id': '0003', 'Action': 'B', 'Quantity': 50.0, 'Price': 89.4964,
                  'Trade Date': '2024-08-26', 'Amount': -4474.82},
                 # Sold 50
 
-                {'Action': 'B', 'Quantity': 50.0, 'Price': 91.7,
+                {'Id': '0004', 'Action': 'B', 'Quantity': 50.0, 'Price': 91.7,
                  'Trade Date': '2024-08-27', 'Amount': -4585.0},
                 # Sold 50
 
-                {'Action': 'S', 'Quantity': 100.0, 'Price': 94.92,
+                {'Id': '0005', 'Action': 'S', 'Quantity': 100.0, 'Price': 94.92,
                  'Trade Date': '2024-09-06', 'Amount': 9492.0},
                 # Sold for previous two trades
 
-                {'Action': 'B', 'Quantity': 50.0, 'Price': 94.85,
+                {'Id': '0006', 'Action': 'B', 'Quantity': 50.0, 'Price': 94.85,
                  'Trade Date': '2024-08-30', 'Amount': -4742.5},
 
 
-                {'Action': 'S', 'Quantity': 25.0, 'Price': 94.94,
+                {'Id': '0007', 'Action': 'S', 'Quantity': 25.0, 'Price': 94.94,
                  'Trade Date': '2024-09-06', 'Amount': 2373.5},
-                {'Action': 'S', 'Quantity': 10.0, 'Price': 96.99,
+                {'Id': '0008', 'Action': 'S', 'Quantity': 10.0, 'Price': 96.99,
                  'Trade Date': '2024-09-07', 'Amount': 969.9},
 
-                {'Action': 'B', 'Quantity': 25.0, 'Price': 98.99,
+                {'Id': '0009', 'Action': 'B', 'Quantity': 25.0, 'Price': 98.99,
                  'Trade Date': '2024-09-10', 'Amount': -2474.75}
 
             ]},
             {'NVDA': [
-                {'Action': 'B', 'Quantity': 200.0, 'Price': 300.0,
+                {'Id': '0011', 'Action': 'B', 'Quantity': 200.0, 'Price': 300.0,
                  'Trade Date': '2024-08-22', 'Amount': -60000.0},
-                {'Action': 'S', 'Quantity': 150.0, 'Price': 310.0,
+                {'Id': '0012', 'Action': 'S', 'Quantity': 150.0, 'Price': 310.0,
                  'Trade Date': '2024-09-01', 'Amount': 46500.0},
-                {'Action': 'S', 'Quantity': 50.0, 'Price': 315.0,
+                {'Id': '0013', 'Action': 'S', 'Quantity': 50.0, 'Price': 315.0,
                  'Trade Date': '2024-09-02', 'Amount': 15750.0}
             ]},
             {'TNA': [
-                {'Action': 'B', 'Quantity': 150.0, 'Price': 50.25,
+                {'Id': '0111', 'Action': 'B', 'Quantity': 150.0, 'Price': 50.25,
                  'Trade Date': '2024-07-31', 'Amount': -7537.5},
-                {'Action': 'S', 'Quantity': 100.0, 'Price': 47.2,
+                {'Id': '0112', 'Action': 'S', 'Quantity': 100.0, 'Price': 47.2,
                  'Trade Date': '2024-08-01', 'Amount': 4720.0},
-                {'Action': 'S', 'Quantity': 50.0, 'Price': 43.2601,
+                {'Id': '0113', 'Action': 'S', 'Quantity': 50.0, 'Price': 43.2601,
                  'Trade Date': '2024-08-27', 'Amount': 2163.01},
             ]},
             {'NAIL': [
-                {'Action':  'B', 'Quantity':  40.0, 'Price':  130.4599,
+                {'Id': '0222', 'Action':  'B', 'Quantity':  40.0, 'Price':  130.4599,
                     'Trade Date':  '2024-07-25', 'Amount': -5218.4},
-                {'Action':  'B', 'Quantity':  40.0, 'Price':  145.0,
+                {'Id': '0223', 'Action':  'B', 'Quantity':  40.0, 'Price':  145.0,
                     'Trade Date':  '2024-07-26', 'Amount': -5800.0},
-                {'Action':  'B', 'Quantity':  50.0, 'Price':  127.1,
+                {'Id': '0224', 'Action':  'B', 'Quantity':  50.0, 'Price':  127.1,
                     'Trade Date':  '2024-08-05', 'Amount': -6355.0},
-                {'Action':  'S', 'Quantity':  50.0, 'Price':  145.4,
+                {'Id': '0225', 'Action':  'S', 'Quantity':  50.0, 'Price':  145.4,
                     'Trade Date':  '2024-08-27', 'Amount':  7270.0},
-                {'Action':  'S', 'Quantity':  80.0, 'Price':  147.5,
+                {'Id': '0226', 'Action':  'S', 'Quantity':  80.0, 'Price':  147.5,
                     'Trade Date':  '2024-08-27', 'Amount':  11800.0},
-                {'Action':  'B', 'Quantity':  50.0, 'Price':  145.7,
+                {'Id': '0227', 'Action':  'B', 'Quantity':  50.0, 'Price':  145.7,
                     'Trade Date':  '2024-08-30', 'Amount': -7285.0},
-                {'Action':  'S', 'Quantity':  50.0, 'Price':  140.6,
+                {'Id': '0228', 'Action':  'S', 'Quantity':  50.0, 'Price':  140.6,
                     'Trade Date':  '2024-09-03', 'Amount':  7030.0},
-                {'Action':  'B', 'Quantity':  50.0, 'Price':  140.87,
+                {'Id': '0229', 'Action':  'B', 'Quantity':  50.0, 'Price':  140.87,
                     'Trade Date':  '2024-09-12', 'Amount': -7043.5},
-                {'Action':  'S', 'Quantity':  50.0, 'Price':  156.38,
+                {'Id': '0231', 'Action':  'S', 'Quantity':  50.0, 'Price':  156.38,
                     'Trade Date':  '2024-09-13', 'Amount':  7819.0},
-                {'Action':  'B', 'Quantity':  40.0, 'Price':  159.6201,
+                {'Id': '0232', 'Action':  'B', 'Quantity':  40.0, 'Price':  159.6201,
                     'Trade Date':  '2024-09-16', 'Amount': -6384.8}
+            ]
+            },
+            {'NIO': [
+                {'Id': '500',  'Action': 'B', 'Trade Date': '2024-09-24',
+                    'Quantity': 1000.0, 'Price': 5.865, 'Amount': -5865.0, 'Account': 'R'},
+                {'Id': '504',  'Action': 'B', 'Trade Date': '2024-09-26',
+                    'Quantity': 200.0, 'Price': 5.8199, 'Amount': -1163.98, 'Account': 'R'},
+                {'Id': '507',  'Action': 'B', 'Trade Date': '2024-09-25',
+                    'Quantity': 800.0, 'Price': 5.73, 'Amount': -4584.0, 'Account': 'R'},
+                {'Id': '509',  'Action': 'S', 'Trade Date': '2024-09-25',
+                    'Quantity': 1000.0, 'Price': 5.5905, 'Amount': 5590.5, 'Account': 'R'},
+                {'Id': '518',  'Action': 'S', 'Trade Date': '2024-09-30',
+                    'Quantity': 400.0, 'Price': 7.38, 'Amount': 2952.0, 'Account': 'R'},
+                {'Id': '530',  'Action': 'B', 'Trade Date': '2024-10-03',
+                    'Quantity': 100.0, 'Price': 6.759, 'Amount': -675.9, 'Account': 'R'},
+                {'Id': '536',  'Action': 'B', 'Trade Date': '2024-10-04',
+                    'Quantity': 100.0, 'Price': 6.5399, 'Amount': -653.99, 'Account': 'C'}
             ]
             }
         ]
@@ -133,12 +151,11 @@ class TestTradingAnalyzer(unittest.TestCase):
                         }
                     ]
                 },
-
                 {
                     'trade_date': '2024-08-30',
-                    'quantity': 35,
+                    'quantity': 50,
                     'price':  94.85,
-                    'amount': (-4742.50/2) - (4742.5/5),
+                    'amount': -4742.50,
                     'current_sold_qty': 35,
                     'sells': [
                         {
@@ -269,7 +286,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             'trade_date': '2024-08-27',
                             'quantity': 50,
                             'price':  147.50,
-                            'amount': 7375.0, # (11800.0/80) * 50
+                            'amount': 7375.0,  # (11800.0/80) * 50
                             'profit_loss': (147.5 * 50) - (127.10 * 50),
                             'percent_profit_loss': (((147.5 * 50) - (127.1 * 50)) / (127.1 * 50)) * 100,
                         },
@@ -317,9 +334,75 @@ class TestTradingAnalyzer(unittest.TestCase):
                     'current_sold_qty': 0,
                     'sells': []
                 },
+            ],
+            'NIO': [
+                {
+                    'trade_date': '2024-09-24',
+                    'quantity': 1000,
+                    'price':  5.865,
+                    'amount': -5865.0,
+                    'current_sold_qty': 1000,
+                    'sells': [
+                        {
+                            'trade_date': '2024-09-25',
+                            'quantity': 1000,
+                            'price':  5.5905,
+                            'amount': 5590.5,
+                            'profit_loss': 5590.5 - 5865.0,
+                            'percent_profit_loss': ((5590.5 - 5865.0)/5865.0) * 100,
+                        }
+                    ],
+                    'acccount': 'R',
+                },
+                {
+                    'trade_date': '2024-09-25',
+                    'quantity': 800,
+                    'price':  5.73,
+                    'amount': -4584.0,
+                    'current_sold_qty': 400,
+                    'sells': [
+                        {
+                            'trade_date': '2024-09-30',
+                            'quantity': 400,
+                            'price':  7.38,
+                            'amount': 2952.0,
+                            'profit_loss': 2952.0 - (4584.0/2),
+                            'percent_profit_loss': ((2952.0 - (4584.0/2)) / (4584.0/2)) * 100,
+                        }
+                    ],
+                    'acccount': 'R',
+                },
+                {
+                    'trade_date': '2024-09-26',
+                    'quantity': 200,
+                    'price':  5.8199,
+                    'amount': -1163.98,
+                    'current_sold_qty': 0,
+                    'sells': [],
+                    'acccount': 'R',
+                },
+                {
+                    'trade_date': '2024-10-03',
+                    'quantity': 100,
+                    'price':  6.759,
+                    'amount': -675.9,
+                    'current_sold_qty': 0,
+                    'sells': [],
+                    'acccount': 'R',
+                },
+                {
+                    'trade_date': '2024-10-04',
+                    'quantity': 100,
+                    'price':  6.5399,
+                    'amount': -653.99,
+                    'current_sold_qty': 0,
+                    'sells': [],
+                    'acccount': 'C',
+                },
             ]
         }
 
+    # @unittest.skip("Skip SN")
     def test_analyze_trades_sn(self):
         analyzer = TradingAnalyzer(self.data_list[0])
         analyzer.analyze_trades()
@@ -344,9 +427,10 @@ class TestTradingAnalyzer(unittest.TestCase):
 
         self.assertAlmostEqual(
             results['SN']['sold_amount'], 20759.77 + 969.9, places=2)
-        self.assertEqual(results['SN']['closed_bought_quantity'], 235.0)
+        self.assertEqual(
+            results['SN']['closed_bought_quantity'], 235.0, "SN closed_bought_quantity")
         self.assertAlmostEqual(
-            results['SN']['closed_bought_amount'], expected_closed_bought_amount, places=2)
+            results['SN']['closed_bought_amount'], expected_closed_bought_amount, places=2, msg="SN closed_bought_amount")
 
         self.assertEqual(results['SN']['open_bought_quantity'], 40.0)
 
@@ -358,13 +442,15 @@ class TestTradingAnalyzer(unittest.TestCase):
             results['SN']['percent_profit_loss'], expected_profit_loss_percent, places=2)
 
         # Complete Trades
-        self.assertEqual(len(results['SN']['all_trades']), 4)
+        self.assertEqual(
+            len(results['SN']['all_trades']), 5, "SN - all_trades count")
 
         for i, expected_trade in enumerate(self.expect_trades['SN']):
             got_trade = results['SN']['all_trades'][i]
             self.assertEqual(got_trade['trade_date'],
                              expected_trade['trade_date'])
-            self.assertEqual(got_trade['quantity'], expected_trade['quantity'])
+            self.assertEqual(
+                got_trade['quantity'], expected_trade['quantity'], "SN - quantity")
             self.assertEqual(got_trade['amount'], expected_trade['amount'])
             self.assertEqual(
                 got_trade['current_sold_qty'], expected_trade['current_sold_qty'])
@@ -382,6 +468,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                 self.assertAlmostEqual(
                     got_sell['percent_profit_loss'], expected_sell['percent_profit_loss'], places=2)
 
+    # @unittest.skip("Skip NVDA")
     def test_analyze_trades_nvda(self):
         analyzer = TradingAnalyzer(self.data_list[1])
         analyzer.analyze_trades()
@@ -431,6 +518,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                 self.assertAlmostEqual(
                     got_sell['percent_profit_loss'], expected_sell['percent_profit_loss'], places=2)
 
+    # @unittest.skip("Skip TNA")
     def test_analyze_trades_tna(self):
         analyzer = TradingAnalyzer(self.data_list[2])
         analyzer.analyze_trades()
@@ -482,6 +570,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                 self.assertAlmostEqual(
                     got_sell['percent_profit_loss'], expected_sell['percent_profit_loss'], places=2)
 
+    # @unittest.skip("Skip NAIL")
     def test_analyze_trades_nail(self):
         # Expected:
         analyzer = TradingAnalyzer(self.data_list[3])
@@ -514,7 +603,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         self.assertAlmostEqual(
             results['NAIL']['sold_amount'], expected_sold_amount, places=2)
         self.assertEqual(
-            results['NAIL']['closed_bought_quantity'], expected_sold_qty)
+            results['NAIL']['closed_bought_quantity'], expected_sold_qty, "NAIL closed_bought_quantity")
 
         self.assertAlmostEqual(
             results['NAIL']['closed_bought_amount'], expected_closed_bought_amount, places=2)
@@ -545,7 +634,8 @@ class TestTradingAnalyzer(unittest.TestCase):
                 got_sell = got_trade['sells'][j]
                 self.assertEqual(got_sell['trade_date'],
                                  expected_sell['trade_date'])
-                self.assertEqual(got_sell['quantity'], expected_sell['quantity'])
+                self.assertEqual(got_sell['quantity'],
+                                 expected_sell['quantity'])
                 self.assertEqual(got_sell['amount'], expected_sell['amount'])
                 self.assertEqual(got_sell['price'], expected_sell['price'])
 
@@ -553,6 +643,80 @@ class TestTradingAnalyzer(unittest.TestCase):
                     got_sell['profit_loss'], expected_sell['profit_loss'], places=2)
                 self.assertAlmostEqual(
                     got_sell['percent_profit_loss'], expected_sell['percent_profit_loss'], places=2)
+
+    def test_analyze_trades_nio(self):
+        # Expected:
+        analyzer = TradingAnalyzer(self.data_list[4])
+        analyzer.analyze_trades()
+        results = analyzer.get_results()
+
+        # Check results for symbol 'NIO'
+        expected_bought_qty = 2200
+        # -5865.0 -4584.0 -1163.98 -675.9 -653.99
+        expected_bought_amount = -12942.87
+        expected_sold_qty = 1400
+        # 5590.5 + 2952.0
+        expected_sold_amount = 8542.5
+        # -5865.0 - (4584.0/2)
+        expected_closed_bought_amount = -8157.0
+        # (-4584.0/2) -1163.98 -675.9 -653.99
+        expected_open_bought_amount = -4785.87
+
+        expected_profit_loss = expected_sold_amount + expected_closed_bought_amount
+        expected_profit_loss_percent = abs(
+            expected_profit_loss / expected_closed_bought_amount) * 100
+
+        self.assertEqual(
+            results['NIO']['bought_quantity'], expected_bought_qty)
+
+        self.assertAlmostEqual(
+            results['NIO']['bought_amount'], expected_bought_amount, places=2)
+
+        self.assertEqual(results['NIO']['sold_quantity'], expected_sold_qty)
+
+        self.assertAlmostEqual(
+            results['NIO']['sold_amount'], expected_sold_amount, places=2)
+        self.assertEqual(
+            results['NIO']['closed_bought_quantity'], expected_sold_qty, "NIO closed_bought_quantity")
+
+        self.assertAlmostEqual(
+            results['NIO']['closed_bought_amount'], expected_closed_bought_amount, places=2, msg="NIO closed_bought_amount")
+
+        self.assertEqual(results['NIO']['open_bought_quantity'], 800.0)
+
+        self.assertAlmostEqual(
+            results['NIO']['open_bought_amount'], expected_open_bought_amount, places=2)
+        self.assertAlmostEqual(
+            results['NIO']['profit_loss'], expected_profit_loss, places=2)
+        self.assertAlmostEqual(
+            results['NIO']['percent_profit_loss'], expected_profit_loss_percent, places=2)
+
+        # Complete Trades
+        self.assertEqual(len(results['NIO']['all_trades']), 5)
+
+        for i, expected_trade in enumerate(self.expect_trades['NIO']):
+            got_trade = results['NIO']['all_trades'][i]
+            self.assertEqual(got_trade['trade_date'],
+                             expected_trade['trade_date'])
+            self.assertEqual(got_trade['quantity'], expected_trade['quantity'])
+            self.assertEqual(got_trade['amount'], expected_trade['amount'])
+            self.assertEqual(
+                got_trade['current_sold_qty'], expected_trade['current_sold_qty'])
+            self.assertEqual(len(got_trade['sells']), len(
+                expected_trade['sells']))
+            for j, expected_sell in enumerate(expected_trade['sells']):
+                got_sell = got_trade['sells'][j]
+                self.assertEqual(got_sell['trade_date'],
+                                 expected_sell['trade_date'])
+                self.assertEqual(got_sell['quantity'],
+                                 expected_sell['quantity'])
+                self.assertEqual(got_sell['amount'], expected_sell['amount'])
+                self.assertEqual(got_sell['price'], expected_sell['price'])
+
+                self.assertAlmostEqual(
+                    got_sell['profit_loss'], expected_sell['profit_loss'], places=2, msg="NIO - profit_loss")
+                self.assertAlmostEqual(
+                    got_sell['percent_profit_loss'], expected_sell['percent_profit_loss'], places=2, msg="NIO - percent_profit_loss")
 
 
 if __name__ == '__main__':

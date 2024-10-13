@@ -21,7 +21,7 @@
         </thead>
         <tbody>
             {% set stats = namespace() %}
-            {% set stats.total_profit_loss =0 %}
+            {% set stats.total_profit_loss = 0 %}
 
             {% for symbol, stat in trade_stats.items() %} 
                 <tr></tr>
@@ -71,8 +71,11 @@
                         <td>{{ trade.price|round(2) }}</td>
                         <td>{{ trade.amount|round(2) }}</td>
                         <td>{{ trade.current_sold_qty|round(2) }}</td>
-                        <td></td>
-                        <td></td>
+                        <td>
+                        {% if trade.current_sold_qty < trade.quantity %}
+                          <a href="/transaction/{{ trade.trade_id }}">View This Trade</a> 
+                        {% endif %}
+                        </td>
                         <td></td>
                     </tr>
                         {% if trade.sells %} 

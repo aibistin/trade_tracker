@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction Detail{% endblock %}
+
+{% block content %}
+
+<div class="container">
+
+  <h1>Manage Trade for {{ transaction.symbol }}</h1>
+
+  <div class="row">
+    <div class="col-md-6">
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Symbol:</label> <span><a href="/trades/{{ transaction.symbol }}">{{ transaction.symbol }}</a></span>
+      </div>
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Action:</label> <span>{{ transaction.action }}</span>
+      </div>
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Quantity:</label> <span>{{ transaction.quantity }}</span>
+      </div>
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Price:</label> <span>{{ transaction.price }}</span>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Fees:</label> <span>{{ transaction.fees }}</span>
+      </div>
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Trade Date:</label> <span>{{ transaction.trade_date.strftime('%Y-%m-%d') }}</span>
+      </div>
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Amount:</label> <span>{{ transaction.amount }}</span>
+      </div>
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Stop@:</label> <span>{{ transaction.initial_stop_price if transaction.initial_stop_price != 'None' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-12">
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Sell@:</label> <span>{{ transaction.projected_sell_price if transaction.projected_sell_price != 'None' }}</span>
+      </div>
+      <div class="d-flex flex-column mb-3">
+        <label class="fw-bold">Reason for Buying:</label> <span>{{ transaction.reason if transaction.reason }}</span>
+      </div>
+    </div>
+  </div>
+
+  <h2>Live Stock Data</h2> 
+  <div id="stockData"> 
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Short Name:</label> <span id="shortName">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Current Price:</label> <span id="currentPrice">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Market Open:</label> <span id="regularMarketOpen">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Day Low:</label> <span id="regularMarketDayLow">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Day High:</label> <span id="regularMarketDayHigh">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Volume:</label> <span id="regularMarketVolume">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Average Volume:</label> <span id="averageVolume">-</span>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#updateForm" aria-expanded="false" aria-controls="updateForm">
+    Update Transaction
+  </button>
+
+  <div class="collapse" id="updateForm">
+    <div class="card card-body">
+      <form method="POST" action="/update_transaction/{{ transaction_id }}">
+          <div class="mb-3">
+              <label for="reason" class="form-label">Reason:</label>
+              <input type="text" class="form-control" id="reason" name="reason" value="{{ transaction.reason }}">
+          </div>
+          <div class="mb-3">
+              <label for="initial_stop_price" class="form-label">Initial Stop Price:</label>
+              <input type="number" step="0.01" class="form-control" id="initial_stop_price" name="initial_stop_price" value="{{ transaction.initial_stop_price }}">
+          </div>
+          <div class="mb-3">
+              <label for="projected_sell_price" class="form-label">Projected Sell Price:</label>
+              <input type="number" step="0.01" class="form-control" id="projected_sell_price" name="projected_sell_price" value="{{ transaction.projected_sell_price }}">
+          </div>
+          <button type="submit" class="btn btn-primary">Update</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
