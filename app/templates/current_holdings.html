@@ -2,14 +2,17 @@
 
 {% block title %}Current Holdings{% endblock title %}
 
+{% set global_var = namespace() %}
+{# global_var.stock_symbol can be used for AJAX call in base.html #}
+{% set global_var.stock_symbol = symbol %}
+
 {% block content %}
 
-    <h1>Current Holdings</h1>
+    <h1>Current Holdings for {{ symbol }}</h1>
 
     <table class="table">
         <thead>
             <tr>
-                <th>Symbol</th>
                 <th>Quantity</th>
                 <th>Average Price</th>
                 <th>Cost Basis</th>
@@ -17,8 +20,12 @@
         </thead>
         <tbody>
             {% for holding in current_holdings %}
+                {#  Variables for jQuery in base.html #}
+                {% set global_var.quantity = holding.quantity %}
+                {% set global_var.average_price = holding.avg_price %}
+                {% set global_var.cost_basis = holding.cost_basis %}
+
                 <tr>
-                    <td>{{ holding.symbol }}</td>
                     <td>{{ holding.quantity|round(2) }}</td>
                     <td>{{ "${:,.2f}".format(holding.avg_price)}}</td>
                     <td>{{ "${:,.2f}".format(holding.cost_basis)}}</td>
@@ -26,5 +33,43 @@
             {% endfor %}
         </tbody>
     </table>
+
+  <h2>Live Data for {{ global_var.stock_symbol }}</h2> 
+  <div id="stockData"> 
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Short Name:</label> <span id="shortName">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Current Price:</label> <span id="currentPrice">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Market Open:</label> <span id="regularMarketOpen">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Day Low:</label> <span id="regularMarketDayLow">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Day High:</label> <span id="regularMarketDayHigh">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Volume:</label> <span id="regularMarketVolume">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Average Volume:</label> <span id="averageVolume">-</span>
+    </div>
+
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Cost Basis:</label> <span id="costBasis">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">Market Value:</label> <span id="marketValue">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">P/L:</label> <span id="profitLoss">-</span>
+    </div>
+    <div class="d-flex flex-column mb-3">
+      <label class="fw-bold">% P/L:</label> <span id="pctProfitLoss">-</span>
+    </div>
+  </div>
 
 {% endblock content %}

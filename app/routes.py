@@ -5,7 +5,7 @@ from lib.yfinance import YahooFinance
 from sqlalchemy import select
 from app import app
 from flask import Flask, render_template, request
-from flask import jsonify, flash, redirect, url_for 
+from flask import jsonify, flash, redirect, url_for
 from datetime import datetime, timedelta
 import dumper
 import os
@@ -32,7 +32,7 @@ with app.app_context():
 
 @app.before_request
 def before_request():
-    print("Before request")
+    print(f"Before request: {request.method} {request.url}")
 
 
 @app.route('/')
@@ -76,13 +76,15 @@ def update_transaction(transaction_id):
 
     transaction.reason = request.form.get('reason')
     try:
-        transaction.initial_stop_price = float(request.form.get('initial_stop_price'))
+        transaction.initial_stop_price = float(
+            request.form.get('initial_stop_price'))
     except (ValueError, TypeError):
         flash('Invalid Initial Stop Price. Please enter a number.', 'error')
         return redirect(url_for('view_transaction', transaction_id=transaction_id))
 
     try:
-        transaction.projected_sell_price = float(request.form.get('projected_sell_price'))
+        transaction.projected_sell_price = float(
+            request.form.get('projected_sell_price'))
     except (ValueError, TypeError):
         flash('Invalid Projected Sell Price. Please enter a number.', 'error')
         return redirect(url_for('view_transaction', transaction_id=transaction_id))
@@ -207,7 +209,7 @@ def trade_stats_pl():
     for id, symbol, action, trade_date, quantity, price, amount in raw_trade_data:
         if symbol not in data_dict:
             data_dict[symbol] = []
-        data_dict[symbol].append({ 'Id': id, 'Action': action, 'Trade Date': trade_date,
+        data_dict[symbol].append({'Id': id, 'Action': action, 'Trade Date': trade_date,
                                  'Quantity': quantity, 'Price': price, 'Amount': amount})
 
     # Analyze trades for each symbol
@@ -241,29 +243,17 @@ def open_positions_symbol(symbol):
     current_holdings = get_current_holdings(symbol)
 
     print(f"Open Trades: {current_holdings}")
-    return render_template('current_holdings.html', current_holdings=current_holdings)
-
-
-@app.route('/yahoo_data/<string:stock_symbol>')
-def get_yahoo_data(stock_symbol):
-    yahoo_data = {}
-    yahoo_finance = YahooFinance(stock_symbol)
-    yahoo_finance.get_stock_data()
-    # yahoo_finance.analyze_trades()
-    # Store results with symbol as key
-    yahoo_data = yahoo_finance.get_results()
-    # print(f"[{stock_symbol}] Yahoo Data: {yahoo_data}")
-    return yahoo_data
+    return render_template('current_holdings.html', symbol=symbol, current_holdings=current_holdings)
 
 
 @app.route('/get_stock_data/<string:stock_symbol>')
 def get_stock_data(stock_symbol):
     """Fetches stock data from Yahoo Finance and returns it as JSON."""
-
+    print(f"[{stock_symbol}] Getting Yahoo Data")
     yf = YahooFinance(stock_symbol)
     yf.get_stock_data()
     stock_data = yf.get_results()
-    # print(f"[{stock_symbol}] Yahoo Data: {stock_data}")
+    print(f"[{stock_symbol}] Yahoo Data: {stock_data}")
     return jsonify(stock_data)
 
 
