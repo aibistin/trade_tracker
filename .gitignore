@@ -173,9 +173,6 @@ bin/test*
 */old/
 old/*
 app/templates/old
-data/input/*
-data/output/*
-data/processed/*
 data/*
 docs/
 util/

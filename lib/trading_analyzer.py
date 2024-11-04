@@ -310,7 +310,6 @@ class TradingAnalyzer:
 
     def get_open_trades(self):
         all_open_trades = {}
-        # print(f"Results: {self.results}")
 
         for symbol, trades in self.results.items():
             open_trades = []
@@ -318,6 +317,5 @@ class TradingAnalyzer:
                 if buy_trade["is_done"] == False:
                     open_trades.append(buy_trade)
             all_open_trades[symbol] = open_trades
-            # print(f"[{symbol}] All Open Trades: {all_open_trades}")
 
         return all_open_trades
