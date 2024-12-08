@@ -1,0 +1,75 @@
+{% extends "base.html" %} 
+
+{% block js %}
+
+    {% if request.endpoint in ['view_transaction', 'open_positions_symbol' ]%}
+    <script>
+      $(document).ready(function() {
+        // Fetch live stock data
+        $.ajax({
+          url: '/get_stock_data/{{ stock_symbol }}',
+          method: 'GET',
+          success: function(data) {
+            // Call function to update transaction details
+            updateTransactionDetails(data);
+          },
+          error: function(error) {
+            console.error("Error fetching stock data:", error);
+          },
+        });
+      });
+
+      function roundTo(num, decimalPlaces = 0) {
+        return Number.parseFloat(num).toFixed(decimalPlaces);
+      }
+
+      function updateTransactionDetails(data) {
+        const currentPrice = data.currentPrice;
+        <!-- Variables provided by the child template -->
+        const transactionPrice = {{ trade.transaction_price }};
+        const transactionQuantity = {{ trade.transaction_quantity }};
+        const transactionAmount = {{ trade.transaction_amount }};
+
+        const currentAmount =  transactionQuantity * currentPrice;
+
+
+        // Update live stock data
+        $('#currentPrice').text(currentPrice);
+        $('#currentAmount').text(currentAmount.toFixed(2));
+
+        // Calculate and update price difference
+        const priceDifference = currentPrice - transactionPrice;
+        const pricePercentDifference = (priceDifference / transactionPrice) * 100;
+        $('#priceDifference').text(priceDifference.toFixed(2));
+        $('#pricePercentDifference').text(pricePercentDifference.toFixed(2) + '%');
+
+        // Calculate and update amount difference
+        const amountDifference = currentAmount - Math.abs(transactionAmount);
+        const amountPercentDifference = (amountDifference / Math.abs(transactionAmount)) * 100;
+        $('#amountDifference').text(amountDifference.toFixed(2));
+        $('#amountPercentDifference').text(amountPercentDifference.toFixed(2) + '%');
+
+        // Apply color based on comparison
+        const priceColor = currentPrice >= transactionPrice ? 'darkgreen' : 'darkred';
+        $('#currentPrice').css('color', priceColor);
+        $('#priceDifference').css('color', priceColor);
+        $('#pricePercentDifference').css('color', priceColor);
+
+        const amountColor = currentAmount >= Math.abs(transactionAmount) ? 'darkgreen' : 'darkred';
+        $('#currentAmount').css('color', amountColor);
+        $('#amountDifference').css('color', amountColor);
+        $('#amountPercentDifference').css('color', amountColor);
+
+        $("#shortName").text(data.shortName);
+        $("#regularMarketOpen").text(data.regularMarketOpen);
+        $("#regularMarketDayLow").text(data.regularMarketDayLow);
+        $("#regularMarketDayHigh").text(data.regularMarketDayHigh);
+        $("#regularMarketVolume").text(data.regularMarketVolume);
+        $("#averageVolume").text(data.averageVolume);
+      }
+
+    </script>
+
+    {% endif %}
+
+{% endblock js %}

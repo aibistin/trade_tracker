@@ -309,13 +309,61 @@ class TradingAnalyzer:
         return self.results
 
     def get_open_trades(self):
-        all_open_trades = {}
+        trade_info = {}
 
         for symbol, trades in self.results.items():
-            open_trades = []
+            logging.debug(f"[analyze_trades] Symbol: [{symbol}] Trades: [{trades}]")
+            if symbol not in trade_info:
+                trade_info[symbol] = {
+                    "symbol": symbol,
+                    "bought_quantity": 0,
+                    "bought_amount": 0,
+                    "sold_quantity": 0,
+                    "sold_amount": 0,
+                    "closed_bought_quantity": 0,
+                    "closed_bought_amount": 0,
+                    "open_bought_quantity": 0,
+                    "open_bought_amount": 0,
+                    "profit_loss": 0,
+                    "percent_profit_loss": 0,
+                    "open_trades": [],
+                }
+
             for buy_trade in trades["all_trades"]:
                 if buy_trade["is_done"] == False:
-                    open_trades.append(buy_trade)
-            all_open_trades[symbol] = open_trades
+                    trade_info[symbol]["bought_amount"] += buy_trade["amount"]
+                    trade_info[symbol]["bought_quantity"] += buy_trade["quantity"]
+                    trade_info[symbol]["open_bought_quantity"] += buy_trade["quantity"]
+                    trade_info[symbol]["sold_quantity"] += buy_trade["current_sold_qty"]
+                    trade_info[symbol]["sold_amount"] += (
+                        buy_trade["current_sold_qty"] * buy_trade["price"]
+                    )
+                    trade_info[symbol]["profit_loss"] += sum(
+                        [sell["profit_loss"] for sell in buy_trade["sells"]]
+                    )
+                    trade_info[symbol]["open_trades"].append(buy_trade)
 
-        return all_open_trades
+            if trade_info[symbol]["bought_quantity"] != 0:
+                trade_info[symbol]["average_price"] = (
+                    trade_info[symbol]["bought_amount"] / trade_info[symbol]["bought_quantity"]
+                )
+            else:
+                trade_info[symbol]["average_price"] = 0
+
+            if trade_info[symbol]["open_bought_amount"] != 0:
+                trade_info[symbol]["percent_profit_loss"] = round(
+                    (trade_info[symbol]["profit_loss"] / trade_info[symbol]["open_bought_amount"]) * 100, 2
+                )
+            else:
+                trade_info[symbol]["percent_profit_loss"] = 0
+            
+            logging.debug(
+                f"[analyze_trades] Appending : [{symbol}] Trade Info: [{trade_info[symbol]}]"
+            )
+
+
+        logging.debug(
+            f"[analyze_trades] Returning: All Open Trades: [{trade_info}]"
+        )
+        return trade_info
+

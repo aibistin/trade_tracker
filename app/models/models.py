@@ -250,3 +250,24 @@ def get_raw_trade_data(symbol):
         .order_by(TradeTransaction.trade_date, TradeTransaction.action)
         .all()
     )
+
+
+def get_trade_data_for_analysis(stock_symbol):
+    """Get raw trade data for the given stock symbol and return as a dictionary."""
+
+    raw_trade_data = get_raw_trade_data(stock_symbol)
+    data_dict = {}
+    for id, symbol, action, trade_date, quantity, price, amount in raw_trade_data:
+        if symbol not in data_dict:
+            data_dict[symbol] = []
+        data_dict[symbol].append(
+            {
+                "Id": id,
+                "Action": action,
+                "Trade Date": trade_date,
+                "Quantity": quantity,
+                "Price": price,
+                "Amount": amount,
+            }
+        )
+    return data_dict

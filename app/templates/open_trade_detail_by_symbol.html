@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Trade Details for {{ symbol }}{% endblock title %}
+{% block title %}Trade Details for {{ stock_symbol }}{% endblock title %}
 
 {% block content %}
-    <h1>Trades for {{ symbol }}</h1>
+    <h1>Open Trades for {{ stock_symbol }}</h1>
 
     <table class="table">
         <thead>
@@ -20,32 +20,42 @@
             </tr>
         </thead>
         <tbody>
-            {% set stats = namespace() %}
-            {% set stats.total_profit_loss = 0 %}
+            {% set position_data = open_position_data[stock_symbol] %}
+            {# These namespace variables are used in the jquery_base.html template #}
+            {% set trade = namespace() %}
+            {% set trade.total_profit_loss = 0 %}
+            {# These namespace variables are used in the jquery_base.html template #}
+            {% set trade.transaction_price = trade.price %}
+            {% set trade.transaction_quantity = trade.quantity %}
+            {% set trade.transaction_amount = trade.amount %}
 
-            {% for symbol, stat in trade_stats.items() %} 
-            {# for stat in trade_stats #} 
+                {% if position_data %} 
                 <tr></tr>
                     <td>
-                      <a href="/trades/{{ symbol }}">{{ symbol }}</a> 
+                      <a href="/trades/{{ stock_symbol }}">{{ stock_symbol }}</a> 
                     </td>
-                    <td>{{ stat.bought_quantity|round(1) }}</td>
-                    <td>{{ stat.bought_amount|round(2) }}</td>
-                    <td>{{ stat.sold_quantity|round(1) }}</td>
-                    <td>{{ stat.sold_amount|round(2) }}</td>
-                    <td>{{ stat.open_bought_quantity|round(1) }}</td>
-                    <td>{{ stat.open_bought_amount|round(2) }}</td>
-                    <td>{{ "${:,.2f}".format(stat.profit_loss)}}</td>
-                    <td>{{ stat.percent_profit_loss|round(2) }}%</td>
+                    <td>{{ position_data.bought_quantity|round(1) }}</td>
+                    <td>{{ position_data.bought_amount|round(2) }}</td>
+                    <td>{{ position_data.sold_quantity|round(1) }}</td>
+                    <td>{{ position_data.sold_amount|round(2) }}</td>
+                    <td>{{ position_data.open_bought_quantity|round(1) }}</td>
+                    <td>{{ position_data.open_bought_amount|round(2) }}</td>
+                    <td>{{ "${:,.2f}".format(position_data.profit_loss)}}</td>
+                    <td>{{ position_data.percent_profit_loss|round(2) }}%</td>
+                    <!-- "symbol": symbol, -->
+                    <!-- "closed_bought_quantity": 0, -->
+                    <!-- "closed_bought_amount": 0, -->
+                    <!-- "open_trades": [], -->
                 </tr>
+                {% endif %} 
 
-                {% if stat.all_trades %} 
+                {% if position_data.open_trades %} 
                     <tr></tr>
                         <th></th>
                         <th></th>
                         <th></th>
                         <th></th>
-                        <th>All {{symbol}} Trades</th>
+                        <th>All Open {{stock_symbol}} Trades</th>
                         <th></th>
                         <th></th>
                         <th></th>
@@ -53,7 +63,7 @@
                     </tr>
                 {% endif %} 
 
-                {% for trade in stat.all_trades if stat.all_trades %} 
+                {% for trade in position_data.open_trades if position_data.open_trades %} 
                     <tr>
                         <th></th>
                         <th>Bought Date</th>
@@ -73,9 +83,7 @@
                         <td>{{ trade.amount|round(2) }}</td>
                         <td>{{ trade.current_sold_qty|round(2) }}</td>
                         <td>
-                        {% if trade.current_sold_qty < trade.quantity %}
                           <a href="/transaction/{{ trade.trade_id }}">View This Trade</a> 
-                        {% endif %}
                         </td>
                         <td></td>
                     </tr>
@@ -84,7 +92,7 @@
                             <th></th>
                             <th></th>
                             <th></th>
-                            <th>{{symbol}}</th>
+                            <th>{{stock_symbol}}</th>
                             <th>{{ trade.trade_date.strftime('%Y-%m-%d')}}</th>
                             <th>Sells</th>
                             <td></td>
@@ -119,19 +127,21 @@
                         </tr>
                     {% endfor %}
 
-                {% set stats.total_profit_loss = stats.total_profit_loss + stat.profit_loss %}
+                {# set stats.total_profit_loss = stats.total_profit_loss + trade.profit_loss #}
 
+                {# 
             <tr>
                 <td colspan="5"></td> 
                 <td><strong>Total Profit/Loss:</strong></td>
-                <td>{{ "${:,.2f}".format(stat.profit_loss)}}</td>
+                <td>{{ "${:,.2f}".format(trade.profit_loss)}}</td>
             </tr>
             <tr>
                 <td colspan="5"></td> 
                 <td><strong>% Profit/Loss:</strong></td>
-                <td>{{ stat.percent_profit_loss|round(2) }}%</td>
+                <td>{{ trade.percent_profit_loss|round(2) }}%</td>
             </tr>
-            {% endfor %}
+                #}
+            {# endfor #}
         </tbody>
     </table>
 
