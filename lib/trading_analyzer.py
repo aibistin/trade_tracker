@@ -2,6 +2,7 @@
 import warnings
 import logging
 import time
+from datetime import datetime
 
 timestr = time.strftime("%Y%m%d")
 
@@ -27,6 +28,7 @@ class TradingAnalyzer:
     #     'current_sold_qty': 0,
     #     'sells': []
     # }
+
     def _sell_adder(self, buy_trade: dict, sell_trade: dict, symbol: str) -> dict:
         bought_qty = buy_trade["quantity"]
         sell_rec_for_trade = self._initialize_sell_record(sell_trade)
@@ -60,9 +62,14 @@ class TradingAnalyzer:
         logging.debug(f"[{symbol}] Append this to the buy trade: {sell_rec_for_trade}")
         return sell_rec_for_trade
 
+    def _convert_to_iso_format(self, date_obj: datetime) -> str:
+        # date_obj = datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %Z")
+        return date_obj.isoformat()
+
     def _initialize_sell_record(self, sell_trade: dict) -> dict:
         return {
             "trade_id": sell_trade["Id"],
+            "trade_date_iso": self._convert_to_iso_format(sell_trade["Trade Date"]),
             "trade_date": sell_trade["Trade Date"],
             "quantity": 0,
             "price": sell_trade["Price"],
@@ -188,18 +195,29 @@ class TradingAnalyzer:
             logging.info(f"[{symbol}] Total buy trades: {len(buy_trades)}")
             logging.info(f"[{symbol}] Total sell trades: {len(sell_trades)}")
             # Initialize results for the current trade symbol
-            self.results[symbol] = {
+            self.results[symbol] = {"summary": {}, "all_trades": []}
+
+            self.results[symbol]["summary"] = {
                 "bought_quantity": round(total_bought_quantity, 2),
                 "bought_amount": round(total_bought_amount, 2),
+                "average_bought_price": round(
+                    total_bought_amount / total_bought_quantity, 2
+                ),
                 "sold_quantity": round(total_sold_quantity, 2),
                 "sold_amount": round(total_sold_amount, 2),
+                "average_basis_sold_price": 0,
+                "average_basis_open_price": 0,
+                "average_sold_price": (
+                    round(total_sold_amount / total_sold_quantity, 2)
+                    if (total_sold_quantity > 0)
+                    else 0
+                ),
                 "closed_bought_quantity": 0,
                 "closed_bought_amount": 0,
                 "open_bought_quantity": 0,
                 "open_bought_amount": 0,
                 "profit_loss": 0,
                 "percent_profit_loss": 0,
-                "all_trades": [],
             }
 
             # Validate that we are not selling more than we bought
@@ -234,6 +252,9 @@ class TradingAnalyzer:
 
                 current_buy_trade = {
                     "trade_id": buy_record["Id"],
+                    "trade_date_iso": self._convert_to_iso_format(
+                        buy_record["Trade Date"]
+                    ),
                     "trade_date": buy_record["Trade Date"],
                     "quantity": buy_record["Quantity"],
                     "price": buy_record["Price"],
@@ -279,31 +300,49 @@ class TradingAnalyzer:
 
                 self.results[symbol]["all_trades"].append(current_buy_trade)
 
-            self.results[symbol]["closed_bought_quantity"] = running_sold_quantity
-            self.results[symbol]["closed_bought_amount"] = running_sold_amount
+            self.results[symbol]["summary"][
+                "closed_bought_quantity"
+            ] = running_sold_quantity
+            self.results[symbol]["summary"][
+                "closed_bought_amount"
+            ] = running_sold_amount
 
             # Calculate open shares for this symbol
-            self.results[symbol]["open_bought_quantity"] = round(
-                self.results[symbol]["bought_quantity"]
-                - self.results[symbol]["closed_bought_quantity"],
+            self.results[symbol]["summary"]["open_bought_quantity"] = round(
+                self.results[symbol]["summary"]["bought_quantity"]
+                - self.results[symbol]["summary"]["closed_bought_quantity"],
                 2,
             )
-            self.results[symbol]["open_bought_amount"] = round(
-                self.results[symbol]["bought_amount"]
-                - self.results[symbol]["closed_bought_amount"],
+            self.results[symbol]["summary"]["open_bought_amount"] = round(
+                abs(self.results[symbol]["summary"]["bought_amount"])
+                - abs(self.results[symbol]["summary"]["closed_bought_amount"]),
                 2,
             )
 
             # # Calculate Profit/Loss
-            if abs(self.results[symbol]["closed_bought_amount"]) > 0:
-                self.results[symbol]["profit_loss"] = (
-                    self.results[symbol]["sold_amount"]
-                    + self.results[symbol]["closed_bought_amount"]
+            if abs(self.results[symbol]["summary"]["closed_bought_amount"]) > 0:
+                self.results[symbol]["summary"]["profit_loss"] = self.results[symbol][
+                    "summary"
+                ]["sold_amount"] - abs(
+                    self.results[symbol]["summary"]["closed_bought_amount"]
                 )
-                self.results[symbol]["percent_profit_loss"] = (
-                    self.results[symbol]["profit_loss"]
-                    / abs(self.results[symbol]["closed_bought_amount"])
+                self.results[symbol]["summary"]["percent_profit_loss"] = (
+                    self.results[symbol]["summary"]["profit_loss"]
+                    / abs(self.results[symbol]["summary"]["closed_bought_amount"])
                 ) * 100
+
+            # Calculate Average Basis Sold Price
+            if abs(self.results[symbol]["summary"]["sold_quantity"]) > 0:
+                self.results[symbol]["summary"]["average_basis_sold_price"] = abs(
+                    self.results[symbol]["summary"]["closed_bought_amount"]
+                ) / abs(self.results[symbol]["summary"]["sold_quantity"])
+
+            # Calculate Average Basis Un-Sold Price
+            if abs(self.results[symbol]["summary"]["open_bought_quantity"]) > 0:
+                self.results[symbol]["summary"]["average_basis_open_price"] = abs(
+                    self.results[symbol]["summary"]["open_bought_amount"]
+                ) / abs(self.results[symbol]["summary"]["open_bought_quantity"])
+
 
     def get_results(self):
         return self.results
@@ -343,27 +382,30 @@ class TradingAnalyzer:
                     )
                     trade_info[symbol]["open_trades"].append(buy_trade)
 
+            # TODO not using this?
             if trade_info[symbol]["bought_quantity"] != 0:
                 trade_info[symbol]["average_price"] = (
-                    trade_info[symbol]["bought_amount"] / trade_info[symbol]["bought_quantity"]
+                    trade_info[symbol]["bought_amount"]
+                    / trade_info[symbol]["bought_quantity"]
                 )
             else:
                 trade_info[symbol]["average_price"] = 0
 
             if trade_info[symbol]["open_bought_amount"] != 0:
                 trade_info[symbol]["percent_profit_loss"] = round(
-                    (trade_info[symbol]["profit_loss"] / trade_info[symbol]["open_bought_amount"]) * 100, 2
+                    (
+                        trade_info[symbol]["profit_loss"]
+                        / trade_info[symbol]["open_bought_amount"]
+                    )
+                    * 100,
+                    2,
                 )
             else:
                 trade_info[symbol]["percent_profit_loss"] = 0
-            
+
             logging.debug(
                 f"[analyze_trades] Appending : [{symbol}] Trade Info: [{trade_info[symbol]}]"
             )
 
-
-        logging.debug(
-            f"[analyze_trades] Returning: All Open Trades: [{trade_info}]"
-        )
+        logging.debug(f"[analyze_trades] Returning: All Open Trades: [{trade_info}]")
         return trade_info
-

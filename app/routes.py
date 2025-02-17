@@ -169,8 +169,7 @@ def trades_by_symbol(symbol):
 def trade_detail_by_symbol(symbol):
     """Detailed buy, sell, profit and lost  transactions for the given symbol."""
 
-    data_dict = get_trade_data_for_analysis(symbol)   
-
+    data_dict = get_trade_data_for_analysis(symbol)
     all_trade_stats = {}
     for symbol, trades in data_dict.items():
         analyzer = TradingAnalyzer({symbol: trades})
@@ -180,7 +179,7 @@ def trade_detail_by_symbol(symbol):
 
     print(f"[Routes] Trade Detail for {symbol}: {all_trade_stats}")
     return render_template(
-        "trade_detail_by_symbol.html", trade_stats=all_trade_stats, symbol=symbol
+        "trade_detail_by_symbol.html", trade_stats=all_trade_stats[symbol], symbol=symbol
     )
 
 
@@ -196,7 +195,7 @@ def trade_stats_pl():
     """Fetches trade statistics summary and renders the template."""
 
     # Fetch trade data from the database
-    data_dict = get_trade_data_for_analysis(symbol)   
+    data_dict = get_trade_data_for_analysis(symbol)
 
     # Analyze trades for each symbol
     all_trade_stats = {}
@@ -230,7 +229,7 @@ def open_positions(stock_symbol):
     print(f"[{stock_symbol}] Getting Open Positions")
 
     # Fetch trade data from the database
-    data_dict = get_trade_data_for_analysis(stock_symbol)   
+    data_dict = get_trade_data_for_analysis(stock_symbol)
     open_position_data = {}
     analyzer = TradingAnalyzer(data_dict)
     analyzer.analyze_trades()
@@ -242,25 +241,46 @@ def open_positions(stock_symbol):
         open_position_data[stock_symbol] = {}
 
     return render_template(
-        "open_trade_detail_by_symbol.html", open_position_data=open_position_data, stock_symbol=stock_symbol
+        "open_trade_detail_by_symbol.html",
+        open_position_data=open_position_data,
+        stock_symbol=stock_symbol,
     )
 
+
 # API
+@app.route("/trade/transactions_json/<string:stock_symbol>")
+def trade_detail_by_symbol_json(stock_symbol):
+    """Detailed buy, sell, profit and lost transactions for the given stock_symbol in JSON format."""
+
+    data_dict = get_trade_data_for_analysis(stock_symbol)
+    all_trade_stats = {"stock_symbol": stock_symbol}
+
+    for stock_symbol, trades in data_dict.items():
+        analyzer = TradingAnalyzer({stock_symbol: trades})
+        analyzer.analyze_trades()
+        # Store results with stock_symbol as key
+        # all_trade_stats["transactions"] = analyzer.get_results()[stock_symbol]["all_trades"]
+        all_trade_stats["transactions"] = analyzer.get_results()[stock_symbol]
+
+    print(f"[Routes] Transactions for {stock_symbol}: {all_trade_stats}")
+    return jsonify(all_trade_stats)
+
+
+
 @app.route("/open_positions_json/<string:stock_symbol>")
 @app.route("/open_trades_json/<string:stock_symbol>")
 def get_open_positions_json(stock_symbol):
     print(f"[{stock_symbol}] Getting Open Positions JSON")
 
     # Fetch trade data from the database
-    data_dict = get_trade_data_for_analysis(stock_symbol)   
-    open_positions = {}
+    data_dict = get_trade_data_for_analysis(stock_symbol)
+    return_data = {"stock_symbol": stock_symbol}
     analyzer = TradingAnalyzer(data_dict)
     analyzer.analyze_trades()
-    open_positions_list = analyzer.get_open_trades()
-    open_positions = next((item for item in open_positions_list if item['symbol'] == stock_symbol), {})
+    return_data["transactions"] = analyzer.get_open_trades()[stock_symbol]
+    print(f"[Routes][{stock_symbol}] Open position Data: {return_data}")
 
-    print(f"[{stock_symbol}] Open positions api: {open_positions}")
-    return jsonify({stock_symbol: open_positions})
+    return jsonify(return_data)
 
 
 if __name__ == "__main__":

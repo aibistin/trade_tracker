@@ -23,23 +23,23 @@
             {% set stats = namespace() %}
             {% set stats.total_profit_loss = 0 %}
 
-            {% for symbol, stat in trade_stats.items() %} 
+            {# for stat in trade_stats.items() #}
             {# for stat in trade_stats #} 
                 <tr></tr>
                     <td>
                       <a href="/trades/{{ symbol }}">{{ symbol }}</a> 
                     </td>
-                    <td>{{ stat.bought_quantity|round(1) }}</td>
-                    <td>{{ stat.bought_amount|round(2) }}</td>
-                    <td>{{ stat.sold_quantity|round(1) }}</td>
-                    <td>{{ stat.sold_amount|round(2) }}</td>
-                    <td>{{ stat.open_bought_quantity|round(1) }}</td>
-                    <td>{{ stat.open_bought_amount|round(2) }}</td>
-                    <td>{{ "${:,.2f}".format(stat.profit_loss)}}</td>
-                    <td>{{ stat.percent_profit_loss|round(2) }}%</td>
+                    <td>{{ trade_stats['summary'].bought_quantity|round(1) }}</td>
+                    <td>{{ trade_stats['summary'].bought_amount|round(2) }}</td>
+                    <td>{{ trade_stats['summary'].sold_quantity|round(1) }}</td>
+                    <td>{{ trade_stats['summary'].sold_amount|round(2) }}</td>
+                    <td>{{ trade_stats['summary'].open_bought_quantity|round(1) }}</td>
+                    <td>{{ trade_stats['summary'].open_bought_amount|round(2) }}</td>
+                    <td>{{ "${:,.2f}".format(trade_stats['summary'].profit_loss)}}</td>
+                    <td>{{ trade_stats['summary'].percent_profit_loss|round(2) }}%</td>
                 </tr>
 
-                {% if stat.all_trades %} 
+                {% if trade_stats.all_trades %} 
                     <tr></tr>
                         <th></th>
                         <th></th>
@@ -53,7 +53,7 @@
                     </tr>
                 {% endif %} 
 
-                {% for trade in stat.all_trades if stat.all_trades %} 
+                {% for trade in trade_stats.all_trades if trade_stats.all_trades %} 
                     <tr>
                         <th></th>
                         <th>Bought Date</th>
@@ -119,19 +119,19 @@
                         </tr>
                     {% endfor %}
 
-                {% set stats.total_profit_loss = stats.total_profit_loss + stat.profit_loss %}
+                {% set stats.total_profit_loss = stats.total_profit_loss + trade_stats['summary'].profit_loss %}
 
             <tr>
                 <td colspan="5"></td> 
                 <td><strong>Total Profit/Loss:</strong></td>
-                <td>{{ "${:,.2f}".format(stat.profit_loss)}}</td>
+                <td>{{ "${:,.2f}".format(trade_stats['summary'].profit_loss)}}</td>
             </tr>
             <tr>
                 <td colspan="5"></td> 
                 <td><strong>% Profit/Loss:</strong></td>
-                <td>{{ stat.percent_profit_loss|round(2) }}%</td>
+                <td>{{ trade_stats['summary'].percent_profit_loss|round(2) }}%</td>
             </tr>
-            {% endfor %}
+            {# endfor #}
         </tbody>
     </table>
 

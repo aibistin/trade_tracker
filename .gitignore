@@ -170,6 +170,7 @@ old_*
 python_setup.sh
 run_flask.sh
 bin/test*
+frontend/*
 */old/
 old/*
 app/templates/old

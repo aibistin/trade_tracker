@@ -3,11 +3,13 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 print("Sys Path: " + str(sys.path)   )
 from flask import Flask
+from flask_cors import CORS
 from dotenv import load_dotenv
 from .extensions import db
 
 load_dotenv('.flaskenv')
 app = Flask(__name__)
+CORS(app)
 
 app.config['SECRET_KEY'] = 'This is a strong, random key'  # Replace with a strong, random key
 
