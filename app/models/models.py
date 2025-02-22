@@ -271,3 +271,10 @@ def get_trade_data_for_analysis(stock_symbol):
             }
         )
     return data_dict
+
+
+def get_all_securities():
+    """Fetches all securities from the database."""
+    return (
+        db.session.query(Security.symbol, Security.name).order_by(Security.symbol).all()
+    )
