@@ -176,6 +176,11 @@ def get_current_holdings(symbol=None):
     Args:
         symbol (str, optional): If provided, fetches holdings only for this symbol. Otherwise, fetches all holdings.
     """
+    symbol_names = (
+        db.session.query(Security.symbol, Security.name)
+        .order_by(Security.symbol)
+        .cte("symbol_names")
+    )
 
     buy_sum = (
         select(
@@ -209,7 +214,7 @@ def get_current_holdings(symbol=None):
             buy_sum.c.symbol,
             (buy_sum.c.bsum - func.coalesce(sell_sum.c.ssum, 0)).label("quantity"),
             buy_sum.c.bprice.label("avg_price"),
-            (buy_sum.c.bamount - func.coalesce(sell_sum.c.samount, 0)).label(
+            (func.coalesce(sell_sum.c.samount, 0) - buy_sum.c.bamount).label(
                 "cost_basis"
             ),
         )
@@ -217,6 +222,8 @@ def get_current_holdings(symbol=None):
         .outerjoin(sell_sum, buy_sum.c.symbol == sell_sum.c.symbol)
         .where((buy_sum.c.bsum > sell_sum.c.ssum) | (sell_sum.c.ssum == None))
         # .order_by(buy_sum.c.symbol)  # Add sorting here
+        .join(symbol_names, buy_sum.c.symbol == symbol_names.c.symbol)
+        .add_columns(symbol_names.c.name.label("security_name"))
     )
 
     # current_holdings = db.session.execute(result).all()
@@ -229,6 +236,24 @@ def get_current_holdings(symbol=None):
 
     current_holdings = db.session.execute(result).all()
     return current_holdings
+
+
+# @staticmethod
+def get_current_holdings_symbols():
+    """Returns a list of symbols from current holdings."""
+    current_holdings = get_current_holdings()
+    holdings_list = [
+        {
+            "symbol": symbol,
+            "shares": shares,
+            "average_price": price,
+            "profit_loss": pl,
+            "name": name,
+        }
+        for symbol, shares, price, pl, name in current_holdings
+    ]
+    # return [{"symbol": holding["symbol"], "name": holding["name"]} for holding in holdings_list]
+    return [[holding["symbol"], holding["name"]] for holding in holdings_list]
 
 
 def get_raw_trade_data(symbol):

@@ -1,0 +1,38 @@
+[
+  [
+    "BE",
+    "BLOOM ENERGY CORP CLASS A"
+  ],
+  [
+    "BITX",
+    "2X BITCOIN STRATEGY ETF"
+  ],
+  [
+    "BTC",
+    "GRAYSCALE BITCOIN MINI TRUST ETF"
+  ],
+  [
+    "CGEH",
+    "CAPSTONE GREEN ENERGY HL"
+  ],
+  [
+    "DOCS",
+    "DOXIMITY INC CLASS A"
+  ],
+  [
+    "JOBY",
+    "JOBY AVIATION INC FCLASS A"
+  ],
+  [
+    "MSTR",
+    "MICROSTRATEGY INC CLASS A"
+  ],
+  [
+    "MSTX",
+    "DEFIANCE DAILY TARGT 175X MSTR ETF"
+  ],
+  [
+    "NNE",
+    "NANO NUCLEAR ENERGY INC CLASS EQUITY"
+  ]
+]

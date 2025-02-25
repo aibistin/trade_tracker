@@ -3,7 +3,7 @@ src/router/index.js
 This file contains the Vue Router configuration.
 */
 import { createRouter, createWebHistory } from "vue-router";
-import AllTrades from "@/views/AllTrades.vue";
+// import AllTrades from "@/views/AllTrades.vue";
 
 const routes = [
   {
@@ -12,12 +12,11 @@ const routes = [
     component: () => import("@/views/TradeHome.vue"),
   },
   {
-    /* open/all/or closed trades */
+    /* open/all/closed trades */
     path: "/trades/:scope/:stockSymbol",
     name: "AllTrades",
     /* Import only when needed to reduce initial load time */
-    // component: () => import("@/views/AllTrades.vue"),
-    component: AllTrades,
+    component: () => import("@/views/AllTrades.vue"),
     props: true // Pass route params as props
   },
 /* TODO Try the below method */

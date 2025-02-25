@@ -5,7 +5,7 @@
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
       </div>
-      <p class="mt-2">Loading all trades...</p>
+      <p class="mt-2">Loading {{ titleCase(scope) }} trades...</p>
     </div>
 
     <!-- Error State -->
@@ -15,11 +15,12 @@
 
     <div v-if="data">
 
-      <h4 class="mt-4 mb-3">{{ data.requested === 'all_trades' ? 'All' : 'Open' }} Trades for <span
+      <h4 class="mt-4 mb-3">{{ titleCase(scope)}} Trades for <span
           class="text-primary-emphasis">{{ data.stock_symbol }}</span>
       </h4>
 
-      <TransactionSummary :tradeSummary="data.transaction_stats.summary" :stockSymbol="data.stock_symbol" />
+      <TransactionSummary :tradeSummary="data.transaction_stats.summary" :stockSymbol="data.stock_symbol"
+        :allTradeCount="data.transaction_stats.all_trades?.length" />
       <div v-if="data.transaction_stats.all_trades?.length">
         <buy-trade-summary :stockSymbol="data.stock_symbol">
           <tr v-for="trade in flattenTrades(data.transaction_stats.all_trades)" :key="trade.trade_id"
@@ -63,6 +64,9 @@ export default {
   },
   methods: {
     profitLossClass,
+    titleCase(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    },
     tradeRowClass(trade) {
       return {
         "table-info": trade.isBuy ? true : false,
@@ -124,8 +128,16 @@ export default {
   },
   setup(props) {
 
+    const apiUrl = ref(null);
+    const expandedTrades = ref(new Set());
+    const stockSymbol = ref(props.stockSymbol);
+    const { data, loading, error, fetchData } = useFetchTrades();
+    const route = useRoute();
+    logRoute(route);
+
     const _createApiUrl = (scope, stockSymbolValue) => {
-      return scope === 'open' ? `${openTradesUrl}/${stockSymbolValue}` : `${allTradesUrl}/${stockSymbolValue}`;
+      return `http://localhost:5000/trades/${scope}/json/${stockSymbolValue}`;
+
     }
 
     const toggleTrade = (tradeId) => {
@@ -134,15 +146,6 @@ export default {
       expandedTrades.value = newSet;
     };
 
-    const apiUrl = ref(null);
-    const expandedTrades = ref(new Set());
-    const openTradesUrl = "http://localhost:5000/open_trades_json"; // API URL for open trades
-    const allTradesUrl = "http://localhost:5000/trade/transactions_json"; // API URL for all trades
-    const stockSymbol = ref(props.stockSymbol);
-    const { data, loading, error, fetchData } = useFetchTrades();
-    const route = useRoute();
-
-    logRoute(route);
     apiUrl.value = _createApiUrl(props.scope, stockSymbol.value);
     console.log(`[AllTrades] API URL: ${apiUrl.value}`);
 

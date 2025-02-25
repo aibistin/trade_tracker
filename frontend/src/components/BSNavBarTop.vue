@@ -6,17 +6,19 @@
         aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
+
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
             <router-link class="nav-link active" aria-current="page" to="/home">Home</router-link>
           </li>
+
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               All Trades
             </a>
             <ul class="dropdown-menu">
-              <li v-for="[symbol, name] in stockSymbols" :key="symbol">
+              <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
                 <router-link class="dropdown-item" @click="logNavigation(symbol, 'all')" :to="`/trades/all/${symbol}`">
                   {{ symbol }} - {{ name }}
                 </router-link>
@@ -24,28 +26,69 @@
             </ul>
           </li>
 
-
-          <li class="nav-item dropdown">
+          <li class="nav-item dropdown" size="3">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               Open Trades
             </a>
             <ul class="dropdown-menu">
-              <li v-for="[symbol, name] in stockSymbols" :key="symbol">
+              <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
                 <router-link class="dropdown-item" @click="logNavigation(symbol, 'to')" :to="`/trades/open/${symbol}`">
                   {{ symbol }} - {{ name }}
                 </router-link>
               </li>
             </ul>
           </li>
+          <li class="nav-item dropdown" size="3">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Closed Trades
+            </a>
+            <ul class="dropdown-menu">
+              <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
+                <router-link class="dropdown-item" @click="logNavigation(symbol, 'to')" :to="`/trades/closed/${symbol}`">
+                  {{ symbol }} - {{ name }}
+                </router-link>
+              </li>
+            </ul>
+          </li>
+
+
+
+
+
           <li class="nav-item">
             <router-link class="nav-link disabled" to="/trades/closed" aria-disabled="true">Closed Trades</router-link>
           </li>
+
+
+
         </ul>
-        <form class="d-flex disabled" role="search">
+
+
+
+<!-- Search -->
+        <!-- <form class="d-flex disabled" role="search">
           <input class="form-control me-2 disabled" type="search" placeholder="Search" aria-label="Search"
             aria-disabled="true" />
           <button class="btn btn-outline-success disabled" type="submit">Search</button>
-        </form>
+        </form> -->
+          <form class="d-flex" role="search"> 
+            <input v-model="searchQuery" type="text" class="form-control" placeholder="View All Trades for ..."
+              @input="filterSymbols" @focus="isDropdownOpen = true" />
+            <!-- Dropdown Menu -->
+            <ul v-if="isDropdownOpen" class="dropdown-menu show"
+              style="width: 100%; max-height: 300px; overflow-y: auto;">
+              <li v-for="[symbol, name] in filteredSymbols" :key="symbol">
+                <a class="dropdown-item btn-outline-success" href="#" @click="selectAllTradesSymbol(symbol, 'all')">
+                  {{ symbol }} - {{ name }}
+                </a>
+              </li>
+              <li v-if="filteredSymbols.length === 0">
+                <a class="dropdown-item disabled">No matching symbols found</a>
+              </li>
+            </ul>
+          </form>
+          <!-- end Selectable -->
+
       </div>
     </div>
   </nav>
@@ -53,30 +96,82 @@
   <!-- Loading State -->
   <div v-if="loading" class="text-center py-4">
     <div class="spinner-border text-primary" role="status">
-      <span class="visually-hidden">Loading...</span>
+      <span class="visually-hidden">Loading all symbols...</span>
     </div>
-    <p class="mt-2">Loading stock symbols...</p>
+    <p class="mt-2">Loading all stock symbols...</p>
+  </div>
+
+  <div v-if="currentLoading" class="text-center py-4">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading current symbols...</span>
+    </div>
+    <p class="mt-2">Loading current stock symbols...</p>
   </div>
 
   <!-- Error State -->
   <div v-if="error" class="alert alert-danger">
-    Error loading stock symbols: {{ error }}
+    Error loading all stock symbols: {{ error }}
+  </div>
+  <!-- Error State -->
+  <div v-if="currentError" class="alert alert-danger">
+    Error loading open stock symbols: {{ error }}
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useFetchTrades } from '../composables/useFetchTrades';
+import { useRouter } from 'vue-router';
 const allSymbolsApiUrl = ref('http://localhost:5000/trade/symbols_json');
+const currentSymbolsApiUrl = ref('http://localhost:5000/trade/current_holdings_symbols_json')
+const searchQuery = ref('');
+const isDropdownOpen = ref(false);
+const router = useRouter();
 
 // Create the useFetchTrades composable for fetching stock symbols
 console.log(`[BSNavBarTop->Init] Creating useFetchTrades`);
 const { data: stockSymbols, loading, error, fetchData } = useFetchTrades();
+const { data: currentStockSymbols, loading: currentLoading, error: currentError, fetchData: fetchCurrentSymbols } = useFetchTrades();
+
+
+/* Using Selector */
+// Filter symbols based on search query
+const filteredSymbols = computed(() => {
+  if (!searchQuery.value) {
+    return stockSymbols.value;
+  }
+
+  const query = searchQuery.value.toLowerCase();
+
+  return stockSymbols.value.filter(([symbol, name]) => {
+    return (
+      symbol.toLowerCase().includes(query) ||
+      name.toLowerCase().includes(query)
+    );
+  });
+});
+
+
+// Watch for changes in searchQuery
+watch(isDropdownOpen, () => {
+});
+
+
+// Handle symbol selection
+const selectAllTradesSymbol = (symbol, scope) => {
+  searchQuery.value = ''; // Clear the search query
+  isDropdownOpen.value = false; // Close the dropdown
+  router.push(`/trades/${scope}/${symbol}`);
+};
+
+/* end Using Selector */
+
 
 // Fetch data when the component mounts
 onMounted(() => {
   console.log(`[BSNavBarTop->onMounted] fetchData with ${allSymbolsApiUrl.value}`);
   fetchData(allSymbolsApiUrl);
+  fetchCurrentSymbols(currentSymbolsApiUrl);
 });
 
 
@@ -91,133 +186,3 @@ const logNavigation = (symbol, type) => {
   margin-bottom: 20px;
 }
 </style>
-
-
-<!-- <template> -->
-<!-- Programatically  -->
-<!-- <li class="nav-item dropdown">
-            <a
-              class="nav-link dropdown-toggle"
-              href="#"
-              role="button"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-            >
-              Open Trades Pg
-            </a>
-            <ul class="dropdown-menu">
-              <li v-for="[symbol, name] in stockSymbols" :key="symbol">
-                <a
-                  class="dropdown-item"
-                  href="#"
-                  @click="navigateToOpenTrades(symbol)"
-                >
-                  {{ symbol }} - {{ name }}
-                </a>
-              </li>
-            </ul>
-          </li> -->
-<!-- End Programatically  -->
-<!-- </template> -->
-
-
-<!-- 
-<template>
-  <nav class="navbar navbar-expand-lg bg-body-tertiary">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="#">Trade Track</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item">
-            <router-link class="nav-link active" aria-current="page" to="/home">Home</router-link>
-        </li>
-        <li>
-            <router-link class="nav-link" :to="{
-              path: '/trades/all/ALAB',
-            }">
-              All Trades
-            </router-link>
-        </li>
-        <li>
-            <router-link class="nav-link" :to="{
-              path: '/trades/open/NNE',
-            }">
-              Open Trades
-            </router-link>
-        </li>
-        <li class="nav-item">
-            <router-link class="nav-link disabled" to="/all_closed_trades" aria-disabled="true">Closed Trades</router-link>
-        </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Dropdown
-          </a>
-          <ul class="dropdown-menu">
-            <li><router-link class="dropdown-item" to="/home">Home</router-link></li>
-            <li><router-link class="dropdown-item" to="/trades/all/DOCS">All Trades</router-link></li>
-            <li><router-link class="dropdown-item" to="/trades/open/DOCS">Open Trades</router-link></li>
-            <li><a class="dropdown-item" href="#">Another action</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="#">Something else here</a></li>
-          </ul>
-        </li>
-      </ul>
-      <form class="d-flex disabled" role="search">
-        <input class="form-control me-2 disabled" type="search" placeholder="Search" aria-label="Search" aria-disabled="true">
-        <button class="btn btn-outline-success disabled" type="submit">Search</button>
-      </form>
-    </div>
-  </div>
-</nav>
-</template> -->
-
-<!-- <template>
-  <nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <div class="container-fluid">
-      <router-link class="navbar-brand" to="/home">Stock Trading App</router-link>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarSupportedContent">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          <li class="nav-item">
-            <router-link class="nav-link" to="/home">Home</router-link>
-          </li>
-          <li>
-            <router-link class="nav-link" :to="{
-              path: '/trades/all/ALAB',
-            }">
-              All Trades
-            </router-link>
-          </li>
-          <li>
-            <router-link class="nav-link" :to="{
-              path: '/trades/open/NNE',
-            }">
-              Open Trades
-            </router-link>
-          </li>
-          <li class="nav-item">
-            <router-link class="nav-link" to="/all_closed_trades">Closed Trades</router-link>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </nav>
-</template>
-
-<script setup>
-// No script logic needed for BSNavBarTop.vue in this setup
-console.count("BSNavBarTop.vue: Component! ");
-</script>
-
-<style scoped>
-.navbar {
-  margin-bottom: 20px;
-}
-</style>
--->

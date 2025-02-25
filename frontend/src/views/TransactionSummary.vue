@@ -84,6 +84,7 @@ export default {
     },
     allTradeCount: {
       type: Number,
+      required: false,
       default: 0
     },
   },

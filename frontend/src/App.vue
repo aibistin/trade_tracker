@@ -8,13 +8,7 @@ import BSNavBarTop from "./components/BSNavBarTop.vue";
 // Inject Bootstrap
 const bootstrap = inject("bootstrap");
 
-// State for the component
-// const selectedTicker = ref('ALAB'); // Default ticker
-// const showOpenTrades = ref(true); // Toggle between open trades and all trades
-// const openTradesUrl = 'http://localhost:5000/open_trades_json'; // API URL for open trades
-// const allTradesUrl = 'http://localhost:5000/trade/transactions_json'; // API URL for all trades
-
-/* Debug: Log when showOpenTrades changes */
+// Debug: State for the component
 // watch(showOpenTrades, (newValue) => {
 //   console.log('showOpenTrades changed:', newValue);
 // });
