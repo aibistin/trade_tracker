@@ -4,79 +4,105 @@ import os
 from datetime import datetime
 
 
+def add_option_fields(row, new_fields):
+    """Adds new fields to the row dictionary."""
+    row["Symbol"] = new_fields["Symbol"]
+    row["Label"] = new_fields["Label"]
+    row["Trade Type"] = new_fields["Trade Type"]
+    row["Expiration Date"] = CSVProcessor.convert_trade_date(
+        new_fields["Expiration Date"], "%m/%d/%Y"
+    )
+    row["Target Price"] = new_fields["Target Price"]
+
+
 def process_schwab_transactions_row(self, row, **kwargs):
     """Processes a row from the Schwab Transactions CSV file and inserts into the database."""
 
-    db_inserter = kwargs['db_inserter'] if 'db_inserter' in kwargs else None
-    account = kwargs['account'] if 'account' in kwargs else None
-    quantity = CSVProcessor.extract_quantity(row["Quantity"])
+    # Populate missing Symbol field if necessary
+    print(f"Before Extract Symbol: {row['Symbol']}, Description row: {row['Description']}")
+    if not len(row["Symbol"]) > 0:
+        row["Symbol"] = self.extract_symbol_from_description(row)
+    print(f"After Extract Symbol: {row['Symbol']}, Description row: {row['Description']}")
+
+
+    db_inserter = kwargs["db_inserter"] if "db_inserter" in kwargs else None
+    account = kwargs["account"] if "account" in kwargs else None
 
     if not CSVProcessor.validate_price(row["Price"]):
-        if row['Action'].startswith(('B', 'S')) and len(row['Action']) <= 3:
+        if row["Action"].startswith(("B", "S")) and len(row["Action"]) <= 3:
             print(f"Skipping row due to invalid price: {row}")
             return None
 
-    # Calculate the transaction amount.
-    row['Amount'] = str(self.calculate_amount(row))
-    row['Stop@'] = str(self.calculate_stop(row))
-    row['Sell@'] = str(self.calculate_sell(row))
+    symbol = row["Symbol"]
+    # Some "Symbol" fields have an option pattern but are not option trades.
+    # Example: "Exchange or Exercise","EE", "SOUN 09/20/2024 4.00 C".
+    if self.is_option_label_patttern(row["Symbol"]):
+        new_fields = self.extract_option_label(row)
+        if new_fields:
+            print(f"[{symbol}] Extracted option fields: {new_fields}")
+            symbol = new_fields["Symbol"]
+            add_option_fields(row, new_fields)
 
-    # Convert and validate trade date
+    if self.is_option_trade(row):
+        if not new_fields:
+            print(
+                f"[{symbol}] ERROR: Skipping Option Trade. Invalid option trade row: {row}"
+            )
+            return None
+
+    row["Trade Type"] = row.get("Trade Type", self.determine_trade_type(row))
+    row["Amount"] = str(self.calculate_amount(row))
+    row["Stop@"] = str(self.calculate_stop(row))
+    row["Sell@"] = str(self.calculate_sell(row))
+
     trade_date_str = CSVProcessor.convert_trade_date(row["Date"], "%m/%d/%Y")
     if not trade_date_str:
-        print(f"Skipping row due to invalid or missing trade date: {row}")
+        if row["Trade Type"] == "O":
+            print(
+                f"[{symbol}] Skipping row due to invalid or missing trade date: {row}"
+            )
+        else:
+            print(f"[{symbol}] ERROR: Trade has invalid or missing trade date: {row}")
         return None
 
-    # Create processed row if all validations pass
-    processed_row = [
-        row["Symbol"],
-        row["Description"],
-        row["Action"],
-        quantity,
-        row["Price"],
-        row["Fees & Comm"],
-        trade_date_str,
-        row["Amount"],
-        row['Stop@'],
-        row['Sell@'],
-        "",  # P/L,
-        account
-    ]
+    trade_transaction = {
+        "symbol": row["Symbol"],
+        "name": row["Description"],
+        "action": row["Action"],
+        "label": row.get("Label", None),
+        "trade_type": row.get("Trade Type", "O"),
+        "trade_date": trade_date_str,
+        "expiration_date": row.get("Expiration Date", None),
+        "reason": "",
+        "quantity": CSVProcessor.extract_quantity(row["Quantity"]),
+        "price": row["Price"],
+        "amount": row["Amount"],
+        "target_price": row.get("Target Price", None),
+        "initial_stop_price": "",
+        "projected_sell_price": "",
+        "account": account,  # 'C', 'R', 'I'
+    }
 
-    # Insert/update security if needed
-    db_inserter.insert_security(processed_row[0], processed_row[1])
+    db_inserter.insert_security(trade_transaction)
 
-    # Insert transaction if it doesn't exist
-    if not db_inserter.transaction_exists(
-        processed_row[0], processed_row[2], processed_row[6],
-        processed_row[3], processed_row[4], processed_row[7], account
-    ):
-
-        db_inserter.insert_transaction(
-            processed_row[0],  # symbol
-            # action (assuming it's already converted to acronym)
-            processed_row[2],
-            processed_row[6],  # trade_date
-            "",                # reason (not provided in CSV, set to '')
-            processed_row[3],  # quantity
-            processed_row[4],  # price
-            processed_row[7],  # amount
-            processed_row[8],  # initial_stop_price
-            processed_row[9],  # projected_sell_price
-            account,          # 'C', 'R', 'I'
-        )
-        print(f"[{processed_row[0]} Inserted transaction for:")
+    print(f"[{symbol}] Inserting Transaction: {trade_transaction}")
+    if not db_inserter.transaction_exists(trade_transaction):
+        db_inserter.insert_transaction(trade_transaction)
+        print(f'[{symbol}] Inserted transaction for: {trade_transaction["trade_date"]}')
     else:
-        print(f"[{processed_row[0]} Transaction already exists for:")
+        print(
+            f'[{symbol}] Transaction already exists for: {trade_transaction["trade_date"]}'
+        )
 
-    print(f"[{processed_row[0]} Date:{processed_row[6]}, Action:{processed_row[2]}, Qty:{processed_row[3]}, Price:{processed_row[4]}")
+    print(
+        f'[{symbol}] Date:{trade_transaction["trade_date"]}, Action: {trade_transaction["action"]}, Qty:{trade_transaction["quantity"]}, Price:{trade_transaction["price"]}'
+    )
 
-    return processed_row
+    return trade_transaction
 
 
 def main():
     processor = CSVProcessor("data/input", "data/output", "data/processed")
-    # db_path= "data/test.db"
     db_path = "data/stock_trades.db"
 
     db_inserter = DatabaseInserter(db_path=db_path)
@@ -87,12 +113,33 @@ def main():
     if input_files:
         timestamp = datetime.now().strftime("%m%d%y%H%M%S")
         output_filename = f"transaction_record_{timestamp}.csv"
-        output_header = ["Symbol", "Name", "Action", "Quantity", "Price",
-                         "Fees", "Trade Date", "Amount", "Stop@", "Sell@", "P/L", "Act."]
+
+        output_header = [
+            "Symbol",
+            "Name",
+            "Action",
+            "Label",
+            "Trade Type",
+            "Quantity",
+            "Price",
+            "Fees",
+            "Trade Date",
+            "Expiration Date",
+            "Amount",
+            "Target Price",
+            "Stop@",
+            "Sell@",
+            "P/L",
+            "Act.",
+        ]
 
         processor.process_files(
-            input_files, output_filename, output_header, process_schwab_transactions_row,
-            db_inserter=db_inserter)
+            input_files,
+            output_filename,
+            output_header,
+            process_schwab_transactions_row,
+            db_inserter=db_inserter,
+        )
 
         print("Completed writing to: " + output_filename)
 

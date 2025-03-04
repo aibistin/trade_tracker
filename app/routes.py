@@ -307,45 +307,6 @@ def get_current_holdings_symbols_json():
     return jsonify(current_symbols)
 
 
-# @app.route("/trades/all/json/<string:stock_symbol>")
-# def trade_detail_by_symbol_json(stock_symbol):
-#     """Detailed buy, sell, profit and lost transactions for the given stock_symbol in JSON format."""
-
-#     data_dict = get_trade_data_for_analysis(stock_symbol)
-#     trade_record = {
-#         "stock_symbol": stock_symbol,
-#         "transaction_stats": {},
-#         "requested": "all_trades",
-#     }
-
-#     for stock_symbol, trades in data_dict.items():
-#         analyzer = TradingAnalyzer({stock_symbol: trades})
-#         analyzer.analyze_trades()
-#         # Store results with stock_symbol as key
-#         trade_record["transaction_stats"] = analyzer.get_results()[stock_symbol]
-
-#     print(f"[Routes] Transactions for {stock_symbol}: {trade_record}")
-#     return jsonify(trade_record)
-
-
-# @app.route("/trades/open/json/<string:stock_symbol>")
-# def get_open_positions_json(stock_symbol):
-#     print(f"[{stock_symbol}] Getting Open Positions JSON")
-
-#     # Fetch trade data from the database
-#     data_dict = get_trade_data_for_analysis(stock_symbol)
-#     trade_record = {
-#         "stock_symbol": stock_symbol,
-#         "transaction_stats": {},
-#         "requested": "open_trades",
-#     }
-#     analyzer = TradingAnalyzer(data_dict)
-#     analyzer.analyze_trades()
-#     trade_record["transaction_stats"] = analyzer.get_open_trades()[stock_symbol]
-#     print(f"[Routes] Open position for {stock_symbol}: {trade_record}")
-#     return jsonify(trade_record)
-
-
 @app.route("/trades/<string:scope>/json/<string:stock_symbol>")
 def get_positions_json(scope, stock_symbol):
     """Get either open or closed positions for a given stock symbol in JSON format.
@@ -358,6 +319,19 @@ def get_positions_json(scope, stock_symbol):
             ),
             400,
         )
+
+    print(f"[{stock_symbol}] Getting {scope.capitalize()} Positions JSON")
+
+    trade_record = {
+        "stock_symbol": stock_symbol,
+        "transaction_stats": {},
+        "requested": f"{scope}_trades",
+    }
+
+    data_dict = get_trade_data_for_analysis(stock_symbol)
+
+    analyzer = TradingAnalyzer(data_dict)
+
     getter_methods = {
         "all": analyzer.get_results,
         "open": analyzer.get_open_trades,
@@ -367,16 +341,6 @@ def get_positions_json(scope, stock_symbol):
     # Get the appropriate method based on the scope
     getter_method = getter_methods.get(scope, analyzer.get_results)
 
-    print(f"[{stock_symbol}] Getting {scope.capitalize()} Positions JSON")
-
-    data_dict = get_trade_data_for_analysis(stock_symbol)
-    trade_record = {
-        "stock_symbol": stock_symbol,
-        "transaction_stats": {},
-        "requested": f"{scope}_trades",
-    }
-
-    analyzer = TradingAnalyzer(data_dict)
     analyzer.analyze_trades()
 
     trade_record["transaction_stats"] = getter_method()[stock_symbol]

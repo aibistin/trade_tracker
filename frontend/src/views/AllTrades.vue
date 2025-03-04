@@ -134,7 +134,7 @@ export default {
     const { data, loading, error, fetchData } = useFetchTrades();
     const route = useRoute();
     logRoute(route);
-
+    // Get all_trades, open_trades or closed_trades
     const _createApiUrl = (scope, stockSymbolValue) => {
       return `http://localhost:5000/trades/${scope}/json/${stockSymbolValue}`;
 

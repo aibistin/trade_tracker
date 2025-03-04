@@ -44,50 +44,31 @@
             </a>
             <ul class="dropdown-menu">
               <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
-                <router-link class="dropdown-item" @click="logNavigation(symbol, 'to')" :to="`/trades/closed/${symbol}`">
+                <router-link class="dropdown-item" @click="logNavigation(symbol, 'to')"
+                  :to="`/trades/closed/${symbol}`">
                   {{ symbol }} - {{ name }}
                 </router-link>
               </li>
             </ul>
           </li>
-
-
-
-
-
-          <li class="nav-item">
-            <router-link class="nav-link disabled" to="/trades/closed" aria-disabled="true">Closed Trades</router-link>
-          </li>
-
-
-
         </ul>
 
-
-
-<!-- Search -->
-        <!-- <form class="d-flex disabled" role="search">
-          <input class="form-control me-2 disabled" type="search" placeholder="Search" aria-label="Search"
-            aria-disabled="true" />
-          <button class="btn btn-outline-success disabled" type="submit">Search</button>
-        </form> -->
-          <form class="d-flex" role="search"> 
-            <input v-model="searchQuery" type="text" class="form-control" placeholder="View All Trades for ..."
-              @input="filterSymbols" @focus="isDropdownOpen = true" />
-            <!-- Dropdown Menu -->
-            <ul v-if="isDropdownOpen" class="dropdown-menu show"
-              style="width: 100%; max-height: 300px; overflow-y: auto;">
-              <li v-for="[symbol, name] in filteredSymbols" :key="symbol">
-                <a class="dropdown-item btn-outline-success" href="#" @click="selectAllTradesSymbol(symbol, 'all')">
-                  {{ symbol }} - {{ name }}
-                </a>
-              </li>
-              <li v-if="filteredSymbols.length === 0">
-                <a class="dropdown-item disabled">No matching symbols found</a>
-              </li>
-            </ul>
-          </form>
-          <!-- end Selectable -->
+        <form class="d-flex" role="search">
+          <input v-model="searchQuery" type="text" class="form-control" placeholder="View All Trades for ..."
+            @input="filterSymbols" @focus="isDropdownOpen = true" />
+          <!-- Dropdown Menu -->
+          <ul v-if="isDropdownOpen" class="dropdown-menu show"
+            style="width: 100%; max-height: 300px; overflow-y: auto;">
+            <li v-for="[symbol, name] in filteredSymbols" :key="symbol">
+              <a class="dropdown-item btn-outline-success" href="#" @click="selectAllTradesSymbol(symbol, 'all')">
+                {{ symbol }} - {{ name }}
+              </a>
+            </li>
+            <li v-if="filteredSymbols.length === 0">
+              <a class="dropdown-item disabled">No matching symbols found</a>
+            </li>
+          </ul>
+        </form>
 
       </div>
     </div>
