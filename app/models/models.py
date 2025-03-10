@@ -136,19 +136,24 @@ class TradeTransaction(db.Model):
 
         return result
 
+#TODO Not being called. Remove
     def get_open_positions():
         """Fetches open positions (where bought quantity exceeds sold quantity)."""
-
+ 
         buy_sum = (
             select(
                 TradeTransaction.symbol,
                 TradeTransaction.action,
+                TradeTransaction.trade_type,
+                TradeTransaction.label,
+                TradeTransaction.expiration_date,
+                TradeTransaction.target_price,
                 func.sum(TradeTransaction.quantity).label("bsum"),
                 func.abs(func.sum(TradeTransaction.amount)).label("bamount"),
             )
-            .where(TradeTransaction.action.in_(["B", "RS"]))
-            .group_by(TradeTransaction.symbol)
-            .order_by(TradeTransaction.symbol)
+            .where(TradeTransaction.action.in_(["B", "RS", "BO"]))
+            .group_by(TradeTransaction.symbol,TradeTransaction.trade_type)
+            .order_by(TradeTransaction.symbol,TradeTransaction.trade_type)
             .cte("buy_sum")
         )
 
@@ -159,9 +164,9 @@ class TradeTransaction(db.Model):
                 func.sum(TradeTransaction.quantity).label("ssum"),
                 func.sum(TradeTransaction.amount).label("samount"),
             )
-            .where(TradeTransaction.action.in_(["S"]))
-            .group_by(TradeTransaction.symbol)
-            .order_by(TradeTransaction.symbol)
+            .where(TradeTransaction.action.in_(["S","SC"]))
+            .group_by(TradeTransaction.symbol,TradeTransaction.trade_type)
+            .order_by(TradeTransaction.symbol,TradeTransaction.trade_type)
             .cte("sell_sum")
         )
 
@@ -173,6 +178,17 @@ class TradeTransaction(db.Model):
 
         open_positions = db.session.execute(result).all()
         return open_positions
+
+# trade_type
+# label
+# expiration_date
+# target_price
+# TradeTransaction.symbol,
+# TradeTransaction.action,
+# TradeTransaction.trade_type,
+# TradeTransaction.label,
+# TradeTransaction.expiration_date,
+# TradeTransaction.target_price,
 
 
 def get_current_holdings(symbol=None):
@@ -187,17 +203,20 @@ def get_current_holdings(symbol=None):
         .cte("symbol_names")
     )
 
+
     buy_sum = (
         select(
             TradeTransaction.symbol,
             TradeTransaction.action,
+            TradeTransaction.trade_type,
+            TradeTransaction.label,
             func.sum(TradeTransaction.quantity).label("bsum"),
             func.avg(TradeTransaction.price).label("bprice"),  # Added average buy price
             func.abs(func.sum(TradeTransaction.amount)).label("bamount"),
         )
-        .where(TradeTransaction.action.in_(["B", "RS"]))
-        .group_by(TradeTransaction.symbol)
-        .order_by(TradeTransaction.symbol)
+        .where(TradeTransaction.action.in_(["B", "RS", "BO"]))
+            .group_by(TradeTransaction.symbol,TradeTransaction.trade_type)
+            .order_by(TradeTransaction.symbol,TradeTransaction.trade_type)
         .cte("buy_sum")
     )
 
@@ -205,12 +224,14 @@ def get_current_holdings(symbol=None):
         select(
             TradeTransaction.symbol,
             TradeTransaction.action,
+            TradeTransaction.trade_type,
+            TradeTransaction.label,
             func.sum(TradeTransaction.quantity).label("ssum"),
             func.sum(TradeTransaction.amount).label("samount"),
         )
-        .where(TradeTransaction.action.in_(["S"]))
-        .group_by(TradeTransaction.symbol)
-        .order_by(TradeTransaction.symbol)
+        .where(TradeTransaction.action.in_(["S", "SC"]))
+            .group_by(TradeTransaction.symbol,TradeTransaction.trade_type)
+            .order_by(TradeTransaction.symbol,TradeTransaction.trade_type)
         .cte("sell_sum")
     )
 
@@ -243,7 +264,7 @@ def get_current_holdings(symbol=None):
     return current_holdings
 
 
-# @staticmethod
+
 def get_current_holdings_symbols():
     """Returns a list of symbols from current holdings."""
     current_holdings = get_current_holdings()
@@ -267,9 +288,13 @@ def get_raw_trade_data(symbol):
             TradeTransaction.id,
             TradeTransaction.symbol,
             TradeTransaction.action,
+            TradeTransaction.trade_type,
+            TradeTransaction.label,
             TradeTransaction.trade_date,
+            TradeTransaction.expiration_date,
             TradeTransaction.quantity,
             TradeTransaction.price,
+            TradeTransaction.target_price,
             TradeTransaction.amount,
         )
         .filter(
@@ -277,30 +302,33 @@ def get_raw_trade_data(symbol):
             TradeTransaction.action.in_(["B", "RS", "S"]),
             # TradeTransaction.symbol != "ET",
         )
-        .order_by(TradeTransaction.trade_date, TradeTransaction.action)
+        .order_by(TradeTransaction.trade_date, TradeTransaction.action, TradeTransaction.trade_type)
         .all()
     )
 
 
 def get_trade_data_for_analysis(stock_symbol):
-    """Get raw trade data for the given stock symbol and return as a dictionary."""
+    """Returns all trade transactions for a given stock symbol."""
 
+    trade_transactions = []
     raw_trade_data = get_raw_trade_data(stock_symbol)
-    data_dict = {}
-    for id, symbol, action, trade_date, quantity, price, amount in raw_trade_data:
-        if symbol not in data_dict:
-            data_dict[symbol] = []
-        data_dict[symbol].append(
+    for id, symbol, action, trade_type, label, trade_date, expiration_date, quantity, price, target_price, amount in raw_trade_data:
+        trade_transactions[symbol].append(
             {
                 "Id": id,
+                "Symbol": symbol,
                 "Action": action,
+                "Trade Type": trade_type,
+                "Label": label,
                 "Trade Date": trade_date,
+                "Expiration Date": expiration_date,
                 "Quantity": quantity,
                 "Price": price,
+                "Target Price": target_price,
                 "Amount": amount,
             }
         )
-    return data_dict
+    return trade_transactions
 
 
 def get_all_securities():

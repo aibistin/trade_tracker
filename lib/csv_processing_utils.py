@@ -113,8 +113,6 @@ class CSVProcessor:
             return False
 
 
-
-
     def determine_trade_type(self, row):
         """Determines the trade type based on the action.
         Possible trade types: 'L', 'S', 'C', 'P', 'O'

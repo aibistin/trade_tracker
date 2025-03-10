@@ -182,21 +182,19 @@ def trades_by_symbol(symbol):
 
 @app.route("/trade/detail/<string:symbol>")
 def trade_detail_by_symbol(symbol):
-    """Detailed buy, sell, profit and lost  transactions for the given symbol."""
+    """Detailed buy, sell, profit and loss transactions for the given symbol."""
 
-    data_dict = get_trade_data_for_analysis(symbol)
+    trade_transactions = get_trade_data_for_analysis(symbol)
     all_trade_stats = {}
-    for symbol, trades in data_dict.items():
-        analyzer = TradingAnalyzer({symbol: trades})
-        analyzer.analyze_trades()
-        # Store results with symbol as key
-        all_trade_stats[symbol] = analyzer.get_results()[symbol]
+    analyzer = TradingAnalyzer(symbol, trade_transactions)
+    analyzer.analyze_trades()
+    # Store results with symbol as key
+    all_trade_stats = analyzer.get_profit_loss_data()[symbol]
 
     print(f"[Routes] Trade Detail for {symbol}: {all_trade_stats}")
     return render_template(
         "trade_detail_by_symbol.html",
-        trade_stats=all_trade_stats[symbol],
-        symbol=symbol,
+        trade_stats=all_trade_stats, symbol=symbol,
     )
 
 
@@ -207,24 +205,23 @@ def trade_stats_summary():
     return render_template("trade_stats_summary.html", trade_stats=trade_stats)
 
 
-@app.route("/trade_stats_pl")
-def trade_stats_pl():
-    """Fetches trade statistics summary and renders the template."""
+# @app.route("/trade_stats_pl")
+# def trade_stats_pl(symbol):
+#     """Fetches trade statistics summary and renders the template."""
 
-    # Fetch trade data from the database
-    data_dict = get_trade_data_for_analysis(symbol)
+#     # Fetch trade data from the database
+#     trade_transactions = get_trade_data_for_analysis(symbol)
 
-    # Analyze trades for each symbol
-    all_trade_stats = {}
-    for symbol, trades in data_dict.items():
-        # Analyze for each symbol separately
-        analyzer = TradingAnalyzer({symbol: trades})
-        analyzer.analyze_trades()
-        # Store results with symbol as key
-        all_trade_stats[symbol] = analyzer.get_results()[symbol]
+#     # Analyze trades for each symbol
+#     all_trade_stats = {}
+#     # Analyze for each symbol separately
+#     analyzer = TradingAnalyzer({symbol: trade_transactions})
+#     analyzer.analyze_trades()
+#     # Store results with symbol as key
+#     all_trade_stats = analyzer.get_profit_loss_data()
 
-    print(f"[Routes] Trade Stats: {all_trade_stats}")
-    return render_template("trade_stats_pl.html", trade_stats=all_trade_stats)
+#     print(f"[Routes] Trade Stats: {all_trade_stats}")
+#     return render_template("trade_stats_pl.html", trade_stats=all_trade_stats)
 
 
 # Ajax
@@ -246,9 +243,9 @@ def open_positions(stock_symbol):
     print(f"[{stock_symbol}] Getting Open Positions")
 
     # Fetch trade data from the database
-    data_dict = get_trade_data_for_analysis(stock_symbol)
+    trade_transactions = get_trade_data_for_analysis(stock_symbol)
     open_position_data = {}
-    analyzer = TradingAnalyzer(data_dict)
+    analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
     analyzer.analyze_trades()
     try:
         open_position_data = analyzer.get_open_trades()
@@ -263,6 +260,10 @@ def open_positions(stock_symbol):
         stock_symbol=stock_symbol,
     )
 
+# trade_type
+# label
+# expiration_date
+# target_price
 
 # API
 @app.route("/trade/symbols_json")
@@ -328,22 +329,20 @@ def get_positions_json(scope, stock_symbol):
         "requested": f"{scope}_trades",
     }
 
-    data_dict = get_trade_data_for_analysis(stock_symbol)
-
-    analyzer = TradingAnalyzer(data_dict)
+    trade_transactions = get_trade_data_for_analysis(stock_symbol)
+    analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
 
     getter_methods = {
-        "all": analyzer.get_results,
+        "all": analyzer.get_profit_loss_data,
         "open": analyzer.get_open_trades,
         "closed": analyzer.get_closed_trades,
     }
 
     # Get the appropriate method based on the scope
-    getter_method = getter_methods.get(scope, analyzer.get_results)
+    getter_method = getter_methods.get(scope, analyzer.get_profit_loss_data)
 
     analyzer.analyze_trades()
-
-    trade_record["transaction_stats"] = getter_method()[stock_symbol]
+    trade_record["transaction_stats"] = getter_method()
 
     print(f"[Routes] {scope.capitalize()} positions for {stock_symbol}: {trade_record}")
     return jsonify(trade_record)

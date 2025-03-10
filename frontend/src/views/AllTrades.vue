@@ -19,16 +19,17 @@
           class="text-primary-emphasis">{{ data.stock_symbol }}</span>
       </h4>
 
-      <TransactionSummary :tradeSummary="data.transaction_stats.summary" :stockSymbol="data.stock_symbol"
-        :allTradeCount="data.transaction_stats.all_trades?.length" />
-      <div v-if="data.transaction_stats.all_trades?.length">
+      <TransactionSummary :tradeSummary="data.transaction_stats.stock.summary" :stockSymbol="data.stock_symbol"
+        :allTradeCount="data.transaction_stats.stock.all_trades?.length" />
+      <div v-if="data.transaction_stats.stock.all_trades?.length">
         <buy-trade-summary :stockSymbol="data.stock_symbol">
-          <tr v-for="trade in flattenTrades(data.transaction_stats.all_trades)" :key="trade.trade_id"
+          <tr v-for="trade in flattenTrades(data.transaction_stats.stock.all_trades)" :key="trade.trade_id"
             :class="tradeRowClass(trade)">
             <TradeTableRow :buyTrade="transformTrade(trade)" />
           </tr>
         </buy-trade-summary>
       </div>
+      <!-- Put option trades here -->
 
     </div>
   </div>

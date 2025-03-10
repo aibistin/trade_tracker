@@ -61,21 +61,21 @@ class DatabaseInserter:
             )
             self.conn.commit()
         except sqlite3.IntegrityError:
-            print(f"Warning: Security symbol '{security["symbol"]}' already exists.")
-
+            print(f"Warning: Security symbol {security['symbol']} already exists.")
 
     def transaction_exists(self, trade_transaction):
         """Checks if a transaction with the given details already exists in the database."""
 
         action_acronym = self.convert_action(trade_transaction["action"])
         price_float = self.validate_price(trade_transaction["price"])
+        target_price_float = self.validate_price(trade_transaction["target_price"])
 
         self.cursor.execute(
             """
             SELECT * FROM trade_transaction
-            WHERE symbol = ? AND action = ? AND label = ? AND trade_type = ? 
-            AND trade_date = ? AND expiration_date = ?
-            AND quantity = ? AND price = ? AND amount = ? AND account = ?
+            WHERE symbol = ?   AND action = ? AND label = ? AND trade_type = ? 
+            AND trade_date = ? AND expiration_date = ?      AND quantity = ? 
+            AND price = ?      AND amount = ? AND target_price = ? AND account = ?
             """,
             (
                 trade_transaction["symbol"],
@@ -87,11 +87,11 @@ class DatabaseInserter:
                 trade_transaction["quantity"],
                 price_float,
                 trade_transaction["amount"],
+                target_price_float,
                 trade_transaction["account"],
             ),
         )
         return self.cursor.fetchone() is not None
-
 
     def insert_transaction(self, trade_transaction):
         """Inserts a transaction into the 'trade_transaction' table using a dictionary."""
@@ -127,11 +127,6 @@ class DatabaseInserter:
         )
         self.conn.commit()
 
-
-    def close(self):
-        """Closes the database connection."""
-        self.conn.close()
-
     def validate_price(self, price_in):
         """Validate price format (number or number with '$')."""
         if not price_in:
@@ -146,3 +141,7 @@ class DatabaseInserter:
         except ValueError:
             print(f"Warning[db_utils]: Invalid price format: {price_in}")
             return False
+
+    def close(self):
+        """Closes the database connection."""
+        self.conn.close()
