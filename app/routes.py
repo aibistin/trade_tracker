@@ -101,20 +101,18 @@ def view_transaction(transaction_id):
     )
 
 
-# @app.route('/update_transaction/<int:transaction_id>', methods=['GET'])
-# def update_transaction(transaction_id):
-#     transaction = db.session.get(
-#         TradeTransaction, transaction_id)
-#     if not transaction:
-#         return "Transaction not found", 404
-#     return render_template('update_transaction.html', transaction_id=transaction_id, transaction=transaction)
-
-
 @app.route("/update_transaction/<int:transaction_id>", methods=["POST"])
 def update_transaction(transaction_id):
     """Updates the reason, initial_stop_price, and projected_sell_price fields of a transaction."""
 
-    transaction = TradeTransaction.query.get_or_404(transaction_id)
+    print(f"[update_transaction] Updating transaction ID: {transaction_id}")
+
+    try:
+        transaction = db.session.execute( select(TradeTransaction).where(TradeTransaction.id == transaction_id))
+    except Exception as e:
+        print(f"[update_transaction] Select Error: {e}")
+        return "Transaction not found", 404
+
 
     transaction.reason = request.form.get("reason")
     try:
@@ -131,6 +129,7 @@ def update_transaction(transaction_id):
         flash("Invalid Projected Sell Price. Please enter a number.", "error")
         return redirect(url_for("view_transaction", transaction_id=transaction_id))
 
+    print(f"Committing the update for transaction id: {transaction_id}")
     db.session.commit()
     flash("Transaction updated successfully!", "success")
     return redirect(url_for("view_transaction", transaction_id=transaction_id))
@@ -293,7 +292,7 @@ def get_current_holdings_json():
         }
         for symbol, shares, price, pl, name in current_holdings
     ]
-    # Convert list of tuples to list of dictionaries
+
     print(f"[get_current_holdings_json] Holdings list: {holdings_list}")
 
     return jsonify(holdings_list)

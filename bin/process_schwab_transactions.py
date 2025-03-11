@@ -4,31 +4,31 @@ import os
 from datetime import datetime
 
 
-def add_option_fields(row, new_fields):
+def add_option_fields(row, new_fields, csv_processor):
     """Adds new fields to the row dictionary."""
     row["Symbol"] = new_fields["Symbol"]
     row["Label"] = new_fields["Label"]
     row["Trade Type"] = new_fields["Trade Type"]
-    row["Expiration Date"] = CSVProcessor.convert_trade_date(
+    row["Expiration Date"] = csv_processor.convert_trade_date(
         new_fields["Expiration Date"], "%m/%d/%Y"
     )
     row["Target Price"] = new_fields["Target Price"]
 
 
-def process_schwab_transactions_row(self, row, **kwargs):
+def process_schwab_transactions_row(csv_processor, row, **kwargs):
     """Processes a row from the Schwab Transactions CSV file and inserts into the database."""
 
     # Populate missing Symbol field if necessary
     print(f"Before Extract Symbol: {row['Symbol']}, Description row: {row['Description']}")
     if not len(row["Symbol"]) > 0:
-        row["Symbol"] = self.extract_symbol_from_description(row)
+        row["Symbol"] = csv_processor.extract_symbol_from_description(row)
     print(f"After Extract Symbol: {row['Symbol']}, Description row: {row['Description']}")
 
 
     db_inserter = kwargs["db_inserter"] if "db_inserter" in kwargs else None
     account = kwargs["account"] if "account" in kwargs else None
 
-    if not CSVProcessor.validate_price(row["Price"]):
+    if not csv_processor.validate_price(row["Price"]):
         if row["Action"].startswith(("B", "S")) and len(row["Action"]) <= 3:
             print(f"Skipping row due to invalid price: {row}")
             return None
@@ -36,26 +36,26 @@ def process_schwab_transactions_row(self, row, **kwargs):
     symbol = row["Symbol"]
     # Some "Symbol" fields have an option pattern but are not option trades.
     # Example: "Exchange or Exercise","EE", "SOUN 09/20/2024 4.00 C".
-    if self.is_option_label_patttern(row["Symbol"]):
-        new_fields = self.extract_option_label(row)
+    if csv_processor.is_option_label_patttern(row["Symbol"]):
+        new_fields = csv_processor.extract_option_label(row)
         if new_fields:
             print(f"[{symbol}] Extracted option fields: {new_fields}")
             symbol = new_fields["Symbol"]
-            add_option_fields(row, new_fields)
+            add_option_fields( row, new_fields, csv_processor)
 
-    if self.is_option_trade(row):
+    if csv_processor.is_option_trade(row):
         if not new_fields:
             print(
                 f"[{symbol}] ERROR: Skipping Option Trade. Invalid option trade row: {row}"
             )
             return None
 
-    row["Trade Type"] = row.get("Trade Type", self.determine_trade_type(row))
-    row["Amount"] = str(self.calculate_amount(row))
-    row["Stop@"] = str(self.calculate_stop(row))
-    row["Sell@"] = str(self.calculate_sell(row))
+    row["Trade Type"] = row.get("Trade Type", csv_processor.determine_trade_type(row))
+    row["Amount"] = str(csv_processor.calculate_amount(row))
+    row["Stop@"] = str(csv_processor.calculate_stop(row))
+    row["Sell@"] = str(csv_processor.calculate_sell(row))
 
-    trade_date_str = CSVProcessor.convert_trade_date(row["Date"], "%m/%d/%Y")
+    trade_date_str = csv_processor.convert_trade_date(row["Date"], "%m/%d/%Y")
     if not trade_date_str:
         if row["Trade Type"] == "O":
             print(
@@ -74,7 +74,7 @@ def process_schwab_transactions_row(self, row, **kwargs):
         "trade_date": trade_date_str,
         "expiration_date": row.get("Expiration Date", None),
         "reason": "",
-        "quantity": CSVProcessor.extract_quantity(row["Quantity"]),
+        "quantity": csv_processor.extract_quantity(row["Quantity"]),
         "price": row["Price"],
         "amount": row["Amount"],
         "target_price": row.get("Target Price", None),

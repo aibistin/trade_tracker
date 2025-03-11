@@ -20,20 +20,17 @@ class CSVProcessor:
         # os.makedirs(self.processed_dir, exist_ok=True)
 
 
-
-    @staticmethod
-    def extract_quantity(quantity_str):
+    def extract_quantity(self,quantity_str):
         """Extract numeric quantity (int or float) from string."""
 
-        quantity = CSVProcessor.convert_to_float(quantity_str)
+        quantity = self.convert_to_float(quantity_str)
         if quantity is not None:
             return quantity
         else:
             print(f"Warning: Unexpected quantity format: {quantity_str}")
             return 0
 
-    @staticmethod
-    def convert_trade_date(trade_date_str, date_format="%m/%d/%Y"):
+    def convert_trade_date(self, trade_date_str, date_format="%m/%d/%Y"):
         """Convert trade date string to YYYY-MM-DD format."""
         try:
             trade_datetime = datetime.strptime(trade_date_str, date_format)
@@ -42,8 +39,7 @@ class CSVProcessor:
             print(f"Warning: Invalid date format: {trade_date_str}")
             return None
 
-    @staticmethod
-    def convert_to_float(some_input):
+    def convert_to_float(self, some_input):
 
         if isinstance(some_input, str):
             new_input = re.sub(r"[^\d\.]", "", some_input)
@@ -57,20 +53,17 @@ class CSVProcessor:
             result = None
         return result
 
-    @staticmethod
-    def validate_price(price_str):
+    def validate_price(self, price_str):
         """Validate price format (number or number with '$')."""
         if not price_str:
             return False
 
-        price = CSVProcessor.convert_to_float(price_str)
+        price = self.convert_to_float(price_str)
         if price is None:
             print(f"Warning: Invalid price format: {price_str}")
             return False
 
         return price
-
-
 
     def extract_symbol_from_description(self, row):
         """Extracts the Symbol from the row["Description"].
@@ -98,7 +91,6 @@ class CSVProcessor:
             print(f"Warning: Symbol and Description field are empty, use '{default_symbol}'")
 
         return default_symbol
-
 
     def is_option_label_patttern(self, string):
         """Checks if the string matches the option label pattern."""
@@ -134,13 +126,13 @@ class CSVProcessor:
         if not row["Action"].startswith(("Buy", "Sell", "Reinvest")):
             return None
 
-        price = CSVProcessor.convert_to_float(row["Price"])
+        price = self.convert_to_float(row["Price"])
         if price is None:
             print(f"Warning: Invalid format for security: {row['Symbol']}")
             print(f"Price: {row['Price']},  Action: {row['Action']}")
             return 0
 
-        quantity = CSVProcessor.convert_to_float(row["Quantity"])
+        quantity = self.convert_to_float(row["Quantity"])
         if quantity is None:
             print(f"Warning: Invalid Quantity for security: {row['Symbol']}")
             print(f"Price: {row['Quantity']},  Action: {row['Action']}")
@@ -190,7 +182,7 @@ class CSVProcessor:
                 option_fields["Trade Type"] = "O"
 
             option_fields["Expiration Date"] = label.split()[1]
-            option_fields["Target Price"] = CSVProcessor.convert_to_float(
+            option_fields["Target Price"] = self.convert_to_float(
                 label.split()[2]
             )
             return option_fields
@@ -203,7 +195,7 @@ class CSVProcessor:
         if not row["Action"].startswith("Buy"):
             return None
 
-        price = CSVProcessor.convert_to_float(row["Price"])
+        price = self.convert_to_float(row["Price"])
 
         try:
             return round(price * 0.95)
@@ -216,7 +208,7 @@ class CSVProcessor:
         if not row["Action"].startswith("Buy"):
             return 0.0
 
-        price = CSVProcessor.convert_to_float(row["Price"])
+        price = self.convert_to_float(row["Price"])
 
         try:
             return round(price * 1.15)
