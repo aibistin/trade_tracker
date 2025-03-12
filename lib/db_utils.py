@@ -47,7 +47,7 @@ class DatabaseInserter:
         }
 
         # Return acronym if found, else 'UK' for 'Unknown'
-        return action_map.get(action, action) if action in action_map else "UK"
+        return action_map.get(action, "UK")
 
     def insert_security(self, security):
         """Inserts security into the 'security' table using a dictionary.
