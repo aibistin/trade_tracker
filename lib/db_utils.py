@@ -61,43 +61,49 @@ class DatabaseInserter:
             )
             self.conn.commit()
         except sqlite3.IntegrityError:
-            print(f"Warning: Security symbol {security['symbol']} already exists.")
+            print(f"INFO: Security symbol {security['symbol']} already exists.")
 
     def transaction_exists(self, trade_transaction):
         """Checks if a transaction with the given details already exists in the database."""
 
         action_acronym = self.convert_action(trade_transaction["action"])
-        price_float = self.validate_price(trade_transaction["price"])
-        target_price_float = self.validate_price(trade_transaction["target_price"])
+        stock_symbol = trade_transaction["symbol"];
+
+        price_float = self._get_price(trade_transaction["price"], action_acronym, stock_symbol)
+
+        print('[db_utils]: Checking if transaction exists in the database...')
+        print(f'[db_utils]: Symbol: {stock_symbol} Action: {action_acronym} Date: {trade_transaction["trade_date"]}')
 
         self.cursor.execute(
             """
             SELECT * FROM trade_transaction
-            WHERE symbol = ?   AND action = ? AND label = ? AND trade_type = ? 
-            AND trade_date = ? AND expiration_date = ?      AND quantity = ? 
-            AND price = ?      AND amount = ? AND target_price = ? AND account = ?
+            WHERE symbol = ?  AND action = ?  AND trade_type = ? 
+            AND trade_date = ? AND  quantity = ? 
+            AND price = ?  AND amount = ? AND account = ?
             """,
             (
-                trade_transaction["symbol"],
+                stock_symbol,
                 action_acronym,
-                trade_transaction["label"],
                 trade_transaction["trade_type"],
                 trade_transaction["trade_date"],
-                trade_transaction["expiration_date"],
                 trade_transaction["quantity"],
                 price_float,
                 trade_transaction["amount"],
-                target_price_float,
-                trade_transaction["account"],
+                trade_transaction["account"] or 'U',
             ),
         )
         return self.cursor.fetchone() is not None
 
     def insert_transaction(self, trade_transaction):
         """Inserts a transaction into the 'trade_transaction' table using a dictionary."""
+
         action_acronym = self.convert_action(trade_transaction["action"])
-        price_float = self.validate_price(trade_transaction["price"])
-        target_price_float = self.validate_price(trade_transaction["target_price"])
+        stock_symbol = trade_transaction["symbol"];
+
+        # Call the new method
+        price_float = self._get_price(trade_transaction["price"], action_acronym, stock_symbol)
+
+        target_price_float = self._get_price(trade_transaction["target_price"], action_acronym, stock_symbol)
 
         self.cursor.execute(
             """
@@ -109,25 +115,50 @@ class DatabaseInserter:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                trade_transaction["symbol"],
+                stock_symbol,
                 action_acronym,
-                trade_transaction["label"],
+                trade_transaction["label"] or None,
                 trade_transaction["trade_type"],
                 trade_transaction["trade_date"],
-                trade_transaction["expiration_date"],
-                trade_transaction["reason"],
+                trade_transaction["expiration_date"] or None,
+                trade_transaction["reason"] or None,
                 trade_transaction["quantity"],
                 price_float,
                 trade_transaction["amount"],
-                target_price_float,
-                trade_transaction["initial_stop_price"],
-                trade_transaction["projected_sell_price"],
-                trade_transaction["account"],
+                target_price_float or None,
+                trade_transaction["initial_stop_price"] or None,
+                trade_transaction["projected_sell_price"] or None,
+                trade_transaction["account"] or None,
             ),
         )
         self.conn.commit()
 
-    def validate_price(self, price_in):
+    def _get_price(self, price, action_acronym, symbol):
+        """
+        Converts price to float based on various conditions.
+            
+        Args:
+            price: The price value to convert
+            action_acronym: The action type acronym
+            symbol: The stock symbol for logging
+            
+        Returns:
+            float: Converted price or None
+        """
+        price_float = None
+        if price not in ["", None]:
+            price_float = self.validate_and_convert_to_float(price)
+        elif action_acronym in ('EE', 'EXP'):
+            # For Option Exercise/Expiration, we allow price to be None
+            print(f"INFO[db_utils][{symbol}]: Entering 0.0 for price when Action = {action_acronym}")
+            price_float =  0.0
+        else:
+            print(f"Warning[db_utils][{symbol}]: Price is None for Action = {action_acronym}.")
+
+        return price_float
+
+
+    def validate_and_convert_to_float(self, price_in):
         """Validate price format (number or number with '$')."""
         if not price_in:
             return False

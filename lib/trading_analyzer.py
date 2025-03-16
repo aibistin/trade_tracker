@@ -4,6 +4,9 @@ import warnings
 import logging
 import os
 import time
+import numpy as np
+from functools import lru_cache
+
 from datetime import datetime
 from typing import Any, List, Dict, Optional, Tuple, Union
 from lib.dataclasses.Trade import Trade
@@ -18,6 +21,12 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(lineno)d> %(message)s",
 )
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s - %(levelname)s - %(lineno)d> %(message)s",
+)
+
 
 class TradingAnalyzer:
 
@@ -43,32 +52,58 @@ class TradingAnalyzer:
             },
         }
 
+    # def _validate_trade_data(self, trade: Dict) -> None:
+    #     """Validate trade data to ensure required fields are present.
 
-    def _validate_trade_data(self, trade: Dict) -> None:
-        """Validate trade data to ensure required fields are present.
-    
+    #     Args:
+    #         trade (Dict): A trade transaction.
+
+    #     Raises:
+    #         ValueError: If required fields are missing or invalid.
+    #     """
+    #     required_fields = ["Id", "Symbol", "Action", "Quantity", "Price", "Trade Date"]
+    #     for field in required_fields:
+    #         if field not in trade:
+    #             raise ValueError(f"Missing required field in trade: {field}")
+
+    #     if not isinstance(trade["Quantity"], (int, float)) or trade["Quantity"] <= 0:
+    #         raise ValueError(f"Invalid quantity in trade: {trade['Quantity']}")
+
+    #     if not isinstance(trade["Price"], (int, float)) or trade["Price"] <= 0:
+    #         raise ValueError(f"Invalid price in trade: {trade['Price']}")
+
+    def _validate_trade(self, trade: Dict[str, Any]) -> None:
+        """Validate a trade to ensure it has the required fields and valid data.
+
         Args:
-            trade (Dict): A trade transaction.
-    
+            trade (Dict[str, Any]): A trade transaction.
+
         Raises:
-            ValueError: If required fields are missing or invalid.
+            ValueError: If the trade is missing required fields or contains invalid data.
         """
         required_fields = ["Id", "Symbol", "Action", "Quantity", "Price", "Trade Date"]
         for field in required_fields:
             if field not in trade:
-                raise ValueError(f"Missing required field in trade: {field}")
-    
+                raise ValueError(f"Trade is missing required field: {field}")
+
         if not isinstance(trade["Quantity"], (int, float)) or trade["Quantity"] <= 0:
             raise ValueError(f"Invalid quantity in trade: {trade['Quantity']}")
-    
+
         if not isinstance(trade["Price"], (int, float)) or trade["Price"] <= 0:
             raise ValueError(f"Invalid price in trade: {trade['Price']}")
-    
-    
 
-    def _sell_adder( self, buy_trade: Trade, sell_trade: Dict[str, Any], symbol: str) -> SellTrade:
+            # Check that Trade Date is either a string or datetime
+        if not isinstance(trade["Trade Date"], (str, datetime)):
+            raise ValueError(f"Invalid trade date in trade: {trade['Trade Date']}, must be a string or datetime object")
+        # if not isinstance(trade["Trade Date"], str):
+            # raise ValueError(f"Invalid trade date in trade: {trade['Trade Date']}")
+
+
+    def _sell_adder(
+        self, buy_trade: Trade, sell_trade: Dict[str, Any], symbol: str
+    ) -> SellTrade:
         """Create a SellTrade object from a sell trade dictionary.
-    
+
         Args:
             buy_trade (Trade): The buy trade object.
             sell_trade (dict): A dictionary containing sell trade data.
@@ -125,25 +160,27 @@ class TradingAnalyzer:
 
 
     def _get_average_bought_price(
-        self, trade: Dict[str, Any], multiplier: int
+        self, summary: Dict[str, Any], multiplier: int
     ) -> float:
-        return (
-            round(
-                trade["bought_amount"] / (trade["bought_quantity"] * multiplier),
-                2,
-            )
-            if trade["bought_quantity"] != 0
-            else 0
+        """Calculate the average bought price using numpy."""
+        bought_quantity = np.array(summary["bought_quantity"])
+        bought_amount = np.array(summary["bought_amount"])
+        if np.sum(bought_quantity) == 0:
+            return 0.0
+        return round(
+            float(np.sum(bought_amount) / (np.sum(bought_quantity)) * multiplier), 2
         )
 
-    def _get_average_sold_price(self, trade: Dict[str, Any], multiplier: int) -> float:
-        return (
-            round(
-                trade["sold_amount"] / (trade["sold_quantity"] * multiplier),
-                2,
-            )
-            if trade["sold_quantity"] != 0
-            else 0
+    def _get_average_sold_price(
+        self, summary: Dict[str, Any], multiplier: int
+    ) -> float:
+        """Calculate the average sold price using numpy."""
+        sold_quantity = np.array(summary["sold_quantity"])
+        sold_amount = np.array(summary["sold_amount"])
+        if np.sum(sold_quantity) == 0:
+            return 0.0
+        return round(
+            float(np.sum(sold_amount) / (np.sum(sold_quantity)) * multiplier), 2
         )
 
     def _get_percent_profit_loss(self, trade: Dict[str, Any]) -> float:
@@ -202,7 +239,6 @@ class TradingAnalyzer:
             f"Closed trade: {buy_trade.trade_id} with quantity: {qty_to_close} and amount: {amt_to_close}"
         )
 
-
     def _partially_close_trade(
         self,
         buy_trade: Trade,
@@ -232,7 +268,6 @@ class TradingAnalyzer:
             f"Partially closed trade: {buy_trade.trade_id} with quantity: {qty_to_close} and amount: {amt_to_close}"
         )
 
-
     def _keep_trade_open(
         self,
         buy_trade: Trade,
@@ -256,33 +291,34 @@ class TradingAnalyzer:
             f"Kept trade open: {buy_trade.trade_id} with quantity: {sell_trade['Quantity']} and amount: {sell_trade['Amount']}"
         )
 
-
     def _calculate_profit_loss(
         self,
         buy_trade: Trade,
         sell_trade: Dict[str, Any],
         sell_rec_for_trade: Dict[str, Any],
     ) -> None:
-        """Calculate profit/loss for a sell trade and update the sell record.
-
-        Args:
-            buy_trade (Trade): The buy trade object.
-            sell_trade (dict): The sell trade dictionary.
-            sell_rec_for_trade (dict): The sell record for the trade.
-        """
-
+        """Calculate profit/loss using numpy."""
         multiplier = 100 if buy_trade.is_option else 1
-        # Calculate the price difference between the sell and buy trades
-        price_difference = sell_trade["Price"] - buy_trade.price
 
-        # Calculate the profit/loss for the sell trade
-        sell_rec_for_trade["profit_loss"] = round(
-            price_difference * sell_rec_for_trade["quantity"] * multiplier, 2
+        # Calculate the price difference
+        price_difference = np.array(sell_trade["Price"]) - np.array(buy_trade.price)
+
+        # Calculate the profit/loss
+        profit_loss = round(
+            float(
+                np.sum(price_difference * sell_rec_for_trade["quantity"] * multiplier)
+            ),
+            2,
         )
+
         # Calculate the percentage profit/loss
-        sell_rec_for_trade["percent_profit_loss"] = round(
-            (price_difference / buy_trade.price) * 100, 2
+        percent_profit_loss = round(
+            float(np.sum(price_difference / buy_trade.price * 100)), 2
         )
+
+        # Update the sell record
+        sell_rec_for_trade["percent_profit_loss"] = percent_profit_loss
+        sell_rec_for_trade["profit_loss"] = profit_loss
 
     def _add_sells_to_this_trade(
         self, buy_trade: Trade, sell_trades: List[dict], symbol: str
@@ -310,7 +346,6 @@ class TradingAnalyzer:
                 sell_trades.pop(0)
 
             buy_trade.sells.append(sell_rec_for_trade)
-
 
     def _create_current_buy_trade_record(self, buy_record: Dict[str, Any]) -> Trade:
         """Create a Trade object from a buy record dictionary.
@@ -345,7 +380,6 @@ class TradingAnalyzer:
             is_option=buy_record["is_option"],
             expiration_date_iso=expiration_date_iso,
         )
-
 
     def _stock_option_summary_sanity_check(
         self, stock_summary: Dict[str, Any], option_summary: Dict[str, Any]
@@ -436,6 +470,10 @@ class TradingAnalyzer:
             action = TradeAction(trade["Action"])  # Convert string to TradeAction enum
             summary = option_summary if trade["is_option"] else stock_summary
 
+            logging.debug(
+                f'[{self.stock_symbol}] Action: {action}, Type: {trade["Trade Type"]} IsOption: {trade["is_option"]}'
+            )
+
             # Handle buy actions
             if action in (
                 TradeAction.BUY,
@@ -472,7 +510,6 @@ class TradingAnalyzer:
 
         return stock_summary, option_summary
 
-
     def _add_buy_trade_to_summary(
         self, summary_dict: Dict[str, Any], buy_trade: Trade, multiplier: int
     ) -> None:
@@ -495,25 +532,37 @@ class TradingAnalyzer:
         symbol = self.stock_symbol
         logging.info(f"Working on symbol: {symbol}")
 
-        # Sort trades
-        sorted_trades = self._sort_trades()
+        try:
 
-        # Create stock and option summaries
-        stock_summary, option_summary = self._create_stock_and_option_summary(
-            sorted_trades
-        )
+            # Validate all trades before processing
 
-        # Initialize profit/loss data
-        self.profit_loss_data = self._initialize_profit_loss_data(
-            stock_summary, option_summary
-        )
+            for trade in self.trade_transactions:
+                self._validate_trade(trade)
 
-        # Sanity check summaries
-        self._stock_option_summary_sanity_check(stock_summary, option_summary)
+            # Sort trades
+            sorted_trades = self._sort_trades()
 
-        # Process stock and option trades
-        self._process_trades_by_type("stock", stock_summary, symbol)
-        self._process_trades_by_type("option", option_summary, symbol)
+            # Create stock and option summaries
+            stock_summary, option_summary = self._create_stock_and_option_summary(
+                sorted_trades
+            )
+
+            # Initialize profit/loss data
+            self._initialize_profit_loss_data(stock_summary=stock_summary, option_summary=option_summary)
+
+            # Sanity check summaries
+            self._stock_option_summary_sanity_check(stock_summary, option_summary)
+
+            # Process stock and option trades
+            self._process_trades_by_type("stock", stock_summary, symbol)
+            self._process_trades_by_type("option", option_summary, symbol)
+
+        except ValueError as e:
+            logging.error(f"[{symbol} Error analyzing trades: {e}")
+            raise
+        except Exception as e:
+            logging.error(f"[{symbol} Unexpected error analyzing trades: {e}")
+            raise
 
     def _sort_trades(self) -> List[Dict[str, Any]]:
         """Sort trades by trade date, type, and action."""
@@ -523,10 +572,10 @@ class TradingAnalyzer:
         )
 
     def _initialize_profit_loss_data(
-        self, stock_summary: Dict[str, Any], option_summary: Dict[str, Any] 
-    ) -> Dict[str, Any]:    
+        self, stock_summary: Dict[str, Any], option_summary: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Initialize the profit/loss data structure."""
-        return {
+        self.profit_loss_data = {
             "stock": {
                 "summary": stock_summary,
                 "all_trades": [],
@@ -536,8 +585,9 @@ class TradingAnalyzer:
                 "all_trades": [],
             },
         }
+        return self.profit_loss_data
 
-
+    
     def _process_trades_by_type(
         self, trade_type: str, trade_summary: Dict[str, Any], symbol: str
     ) -> None:
@@ -608,6 +658,8 @@ class TradingAnalyzer:
             trade_summary, running_sold_quantity, running_sold_amount, multiplier
         )
 
+
+
     def _calculate_trade_summary(
         self,
         trade_summary: Dict[str, Any],
@@ -615,26 +667,32 @@ class TradingAnalyzer:
         running_sold_amount: float,
         multiplier: int,
     ) -> None:
-        """Calculate summary metrics for a trade type."""
+        """Calculate summary metrics using numpy."""
         trade_summary["closed_bought_quantity"] = running_sold_quantity
         trade_summary["closed_bought_amount"] = running_sold_amount
 
         # Calculate open shares for this symbol
         trade_summary["open_bought_quantity"] = round(
-            trade_summary["bought_quantity"] - trade_summary["closed_bought_quantity"],
+            float(
+                np.sum(trade_summary["bought_quantity"])
+                - np.sum(trade_summary["closed_bought_quantity"])
+            ),
             2,
         )
 
         trade_summary["open_bought_amount"] = -round(
-            abs(trade_summary["bought_amount"])
-            - abs(trade_summary["closed_bought_amount"]),
+            float(
+                np.sum(np.abs(trade_summary["bought_amount"]))
+                - np.sum(np.abs(trade_summary["closed_bought_amount"]))
+            ),
             2,
         )
 
         # Calculate Profit/Loss
-        if abs(trade_summary["closed_bought_amount"]) != 0:
-            trade_summary["profit_loss"] = trade_summary["sold_amount"] - abs(
-                trade_summary["closed_bought_amount"]
+        if np.sum(np.abs(trade_summary["closed_bought_amount"])) != 0:
+            trade_summary["profit_loss"] = float(
+                np.sum(trade_summary["sold_amount"])
+                - np.sum(np.abs(trade_summary["closed_bought_amount"]))
             )
 
         trade_summary["percent_profit_loss"] = self._get_percent_profit_loss(
@@ -642,17 +700,18 @@ class TradingAnalyzer:
         )
 
         # Calculate Average Basis Sold Price
-        if abs(trade_summary["sold_quantity"]) != 0:
-            trade_summary["average_basis_sold_price"] = abs(
-                trade_summary["closed_bought_amount"]
-            ) / (abs(trade_summary["sold_quantity"] * multiplier))
+        if np.sum(np.abs(trade_summary["sold_quantity"])) != 0:
+            trade_summary["average_basis_sold_price"] = float(
+                np.sum(np.abs(trade_summary["closed_bought_amount"]))
+                / (np.sum(np.abs(trade_summary["sold_quantity"])) * multiplier)
+            )
 
         # Calculate Average Basis Un-Sold Price
-        if abs(trade_summary["open_bought_quantity"]) != 0:
-            trade_summary["average_basis_open_price"] = abs(
-                trade_summary["open_bought_amount"]
-            ) / (abs(trade_summary["open_bought_quantity"] * multiplier))
-
+        if np.sum(np.abs(trade_summary["open_bought_quantity"])) != 0:
+            trade_summary["average_basis_open_price"] = float(
+                np.sum(np.abs(trade_summary["open_bought_amount"]))
+                / (np.sum(np.abs(trade_summary["open_bought_quantity"])) * multiplier)
+            )
 
     def get_results(self) -> Dict[str, Any]:
         # TODO: Replace this with 'get_profit_loss_data' method
@@ -786,7 +845,6 @@ class TradingAnalyzer:
             summary["average_basis_open_price"] = abs(summary["open_bought_amount"]) / (
                 abs(summary["open_bought_quantity"] * multiplier)
             )
-
 
     def get_open_trades(
         self, trade_transactions: Optional[List[Dict[str, Any]]] = None

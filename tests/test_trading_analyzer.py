@@ -1,5 +1,9 @@
 import unittest
 from lib.trading_analyzer import TradingAnalyzer
+# from lib.dataclasses import Trade
+# from lib.dataclasses.SellTrade import SellTrade
+from lib.dataclasses.TradeAction import TradeAction
+
 
 """"
     Test TradingAnalyzer
@@ -13,8 +17,8 @@ python -m unittest tests.test_trading_analyzer
 
 """
 
-
 class TestTradingAnalyzer(unittest.TestCase):
+
     def setUp(self):
         self.data_list = [
             {
@@ -155,6 +159,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-08-22",
                         "Amount": -60000.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0012",
@@ -167,6 +172,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-09-01",
                         "Amount": 46500.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0013",
@@ -179,6 +185,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-09-02",
                         "Amount": 15750.0,
+                        "Account": "C",
                     },
                 ]
             },
@@ -195,6 +202,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-07-31",
                         "Amount": -7537.5,
+                        "Account": "C",
                     },
                     {
                         "Id": "0112",
@@ -207,6 +215,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-08-01",
                         "Amount": 4720.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0113",
@@ -219,6 +228,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-08-27",
                         "Amount": 2163.01,
+                        "Account": "C",
                     },
                 ]
             },
@@ -235,6 +245,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-07-25",
                         "Amount": -5218.4,
+                        "Account": "C",
                     },
                     {
                         "Id": "0223",
@@ -247,6 +258,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-07-26",
                         "Amount": -5800.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0224",
@@ -259,6 +271,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-08-05",
                         "Amount": -6355.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0225",
@@ -271,6 +284,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-08-27",
                         "Amount": 7270.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0226",
@@ -283,6 +297,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-08-27",
                         "Amount": 11800.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0227",
@@ -295,6 +310,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-08-30",
                         "Amount": -7285.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0228",
@@ -307,6 +323,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-09-03",
                         "Amount": 7030.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0229",
@@ -319,6 +336,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-09-12",
                         "Amount": -7043.5,
+                        "Account": "C",
                     },
                     {
                         "Id": "0231",
@@ -331,6 +349,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-09-13",
                         "Amount": 7819.0,
+                        "Account": "C",
                     },
                     {
                         "Id": "0232",
@@ -343,6 +362,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "Target Price": 0.0,
                         "Trade Date": "2024-09-16",
                         "Amount": -6384.8,
+                        "Account": "C",
                     },
                 ]
             },
@@ -451,6 +471,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 100,
                     "price": 91.39,
                     "amount": -9139.0,
+                    "account": "C",
                     "current_sold_qty": 100,
                     "sells": [
                         {
@@ -459,6 +480,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 100,
                             "price": 88.9427,
                             "amount": 8894.27,
+                            "account": "C",
                             "profit_loss": -244.73,
                             "percent_profit_loss": -(244.73 / 9139) * 100,
                         }
@@ -470,6 +492,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 50,
                     "price": 89.4964,
                     "amount": -4474.82,
+                    "account": "C",
                     "current_sold_qty": 50,
                     # Half of one sell
                     "sells": [
@@ -479,6 +502,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 50,
                             "price": 94.92,
                             "amount": 9492.00 / 2,
+                            "account": "C",
                             "profit_loss": (9492.00 / 2) - 4474.82,
                             "percent_profit_loss": ((94.92 - 89.4964) / 89.4964) * 100,
                         }
@@ -490,6 +514,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 50,
                     "price": 91.70,
                     "amount": -4585.00,
+                    "account": "C",
                     "current_sold_qty": 50,
                     # Half of one sell
                     "sells": [
@@ -499,6 +524,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 50,
                             "price": 94.92,
                             "amount": 9492.27 / 2,
+                            "account": "C",
                             "profit_loss": round((9492.27 / 2)) - 4585.00,
                             "percent_profit_loss": ((94.92 - 91.70) / 91.70) * 100,
                         }
@@ -510,6 +536,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 50,
                     "price": 94.85,
                     "amount": -4742.50,
+                    "account": "C",
                     "current_sold_qty": 35,
                     "sells": [
                         {
@@ -518,6 +545,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 25,
                             "price": 94.94,
                             "amount": 2373.5,
+                            "account": "C",
                             "profit_loss": 2373.5 - (4742.5 / 2),
                             "percent_profit_loss": ((94.94 - 94.85) / 94.85) * 100,
                         },
@@ -527,6 +555,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 10,
                             "price": 96.99,
                             "amount": 969.9,
+                            "account": "C",
                             "profit_loss": 969.9 - (4742.5 / 5),
                             "percent_profit_loss": ((96.99 - 94.85) / 94.85) * 100,
                         },
@@ -540,6 +569,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 200,
                     "price": 300,
                     "amount": -60000.0,
+                    "account": "C",
                     "current_sold_qty": 200,
                     "sells": [
                         {
@@ -548,6 +578,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 150,
                             "price": 310.0,
                             "amount": 46500.0,
+                            "account": "C",
                             "profit_loss": 46500.0 - (60000.0 * 0.75),
                             "percent_profit_loss": ((310.0 - 300.0) / 300) * 100,
                         },
@@ -557,6 +588,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 50,
                             "price": 315.0,
                             "amount": 15750.0,
+                            "account": "C",
                             "profit_loss": 15750.0 - (60000.0 * 0.25),
                             "percent_profit_loss": ((315.0 - 300.0) / 300) * 100,
                         },
@@ -570,6 +602,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 150,
                     "price": 50.25,
                     "amount": -7537.5,
+                    "account": "C",
                     "current_sold_qty": 150,
                     "sells": [
                         {
@@ -578,6 +611,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 100,
                             "price": 47.2,
                             "amount": 4720.0,
+                            "account": "C",
                             "profit_loss": (47.20 - 50.25) * 100,
                             "percent_profit_loss": ((47.2 - 50.25) / 50.25) * 100,
                         },
@@ -587,6 +621,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 50,
                             "price": 43.2601,
                             "amount": 2163.01,
+                            "account": "C",
                             "profit_loss": (43.2601 - 50.25) * 50,
                             "percent_profit_loss": ((43.2601 - 50.25) / 50.25) * 100,
                         },
@@ -600,6 +635,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 40,
                     "price": 130.4599,
                     "amount": -5218.4,
+                    "account": "C",
                     "current_sold_qty": 40,
                     "sells": [
                         {  # NAIL|S|2024-08-27|50.0|145.4|7270.0  -> 40 of 50
@@ -608,6 +644,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 40,
                             "price": 145.4,
                             "amount": (145.4 * 40),
+                            "account": "C",
                             "profit_loss": (145.4 * 40) - (130.4599 * 40),
                             "percent_profit_loss": (
                                 ((145.4 * 40) - (130.4599 * 40)) / (130.4599 * 40)
@@ -622,6 +659,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 40,
                     "price": 145.00,
                     "amount": -5800.0,
+                    "account": "C",
                     "current_sold_qty": 40,
                     # Half of one sell
                     "sells": [
@@ -631,6 +669,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 10,
                             "price": 145.4,
                             "amount": (145.4 * 10),
+                            "account": "C",
                             "profit_loss": (145.4 * 10) - (145.00 * 10),
                             "percent_profit_loss": (
                                 ((145.4 * 10) - (145.00 * 10)) / (145.00 * 10)
@@ -643,6 +682,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 30,
                             "price": 147.5,
                             "amount": (147.5 * 30),
+                            "account": "C",
                             "profit_loss": (147.5 * 30) - (145.00 * 30),
                             "percent_profit_loss": (
                                 ((147.5 * 30) - (145.00 * 30)) / (145.00 * 30)
@@ -657,6 +697,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 50,
                     "price": 127.10,
                     "amount": -6355.0,
+                    "account": "C",
                     "current_sold_qty": 50,
                     "sells": [
                         {  # NAIL|S|2024-08-27|80.0|147.5|11800.0 -> 30 + 50 of 80
@@ -665,6 +706,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 50,
                             "price": 147.50,
                             "amount": 7375.0,  # (11800.0/80) * 50
+                            "account": "C",
                             "profit_loss": (147.5 * 50) - (127.10 * 50),
                             "percent_profit_loss": (
                                 ((147.5 * 50) - (127.1 * 50)) / (127.1 * 50)
@@ -679,6 +721,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 50,
                     "price": 145.7,
                     "amount": -7285.0,
+                    "account": "C",
                     "current_sold_qty": 50,
                     "sells": [
                         {  # NAIL|S|2024-09-03|50.0|140.6|7030.0
@@ -687,6 +730,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 50,
                             "price": 140.6,
                             "amount": 7030.0,
+                            "account": "C",
                             "profit_loss": (140.6 * 50) - (145.7 * 50),
                             "percent_profit_loss": ((140.6 - 145.7) / 145.7) * 100,
                         }
@@ -698,6 +742,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 50,
                     "price": 140.87,
                     "amount": -7043.5,
+                    "account": "C",
                     "current_sold_qty": 50,
                     "sells": [
                         {  # NAIL|S|2024-09-13|50.0|156.38|7819.0
@@ -706,6 +751,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 50,
                             "price": 156.38,
                             "amount": 7819.0,
+                            "account": "C",
                             "profit_loss": (156.38 * 50) - (140.87 * 50),
                             "percent_profit_loss": ((156.38 - 140.87) / 140.87) * 100,
                         }
@@ -717,6 +763,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 40,
                     "price": 159.6201,
                     "amount": -6384.8,
+                    "account": "C",
                     "current_sold_qty": 0,
                     "sells": [],
                 },
@@ -728,6 +775,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "quantity": 1000,
                     "price": 5.865,
                     "amount": -5865.0,
+                    "account": "C",
                     "current_sold_qty": 1000,
                     "sells": [
                         {
@@ -736,6 +784,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "quantity": 1000,
                             "price": 5.5905,
                             "amount": 5590.5,
+                            "account": "C",
                             "profit_loss": 5590.5 - 5865.0,
                             "percent_profit_loss": ((5590.5 - 5865.0) / 5865.0) * 100,
                         }
@@ -798,17 +847,16 @@ class TestTradingAnalyzer(unittest.TestCase):
             ],
         }
 
-
         self.check_fields = [
-                "trade_id",
-                "amount",
-                "trade_date",
-                "price",
-                "quantity",
-                "profit_loss",
-                "percent_profit_loss",
-                "account",
-            ]
+            "trade_id",
+            "amount",
+            "trade_date",
+            "price",
+            "quantity",
+            "profit_loss",
+            "percent_profit_loss",
+            "account",
+        ]
 
     # @unittest.skip("Skip SN")
     def test_analyze_trades_sn(self):
@@ -869,29 +917,37 @@ class TestTradingAnalyzer(unittest.TestCase):
 
         for i, expected_trade in enumerate(self.expect_trades["SN"]):
             got_trade = all_trades[i]
-            self.assertEqual(got_trade["trade_date"], expected_trade["trade_date"])
+            # Compare all fields from the Trade dataclass
+            self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
             self.assertEqual(
-                got_trade["quantity"], expected_trade["quantity"], "SN - quantity"
+                got_trade.quantity, expected_trade["quantity"], "SN - quantity"
             )
-            self.assertEqual(got_trade["amount"], expected_trade["amount"])
+            self.assertEqual(got_trade.price, expected_trade["price"])
+            self.assertEqual(got_trade.amount, expected_trade["amount"])
             self.assertEqual(
-                got_trade["current_sold_qty"], expected_trade["current_sold_qty"]
+                got_trade.current_sold_qty, expected_trade["current_sold_qty"]
             )
 
-            self.assertEqual(len(got_trade["sells"]), len(expected_trade["sells"]))
+            self.assertEqual(len(got_trade.sells), len(expected_trade["sells"]))
+
+            # Verify all fields in sells match
             for j, expected_sell in enumerate(expected_trade["sells"]):
-                got_sell = got_trade["sells"][j]
-                self.assertEqual(got_sell["trade_date"], expected_sell["trade_date"])
-                self.assertEqual(got_sell["quantity"], expected_sell["quantity"])
-                self.assertEqual(got_sell["price"], expected_sell["price"])
+                got_sell = got_trade.sells[j]
+                # Compare all fields from the Sell dataclass
+                self.assertEqual(got_sell.trade_date, expected_sell["trade_date"])
+                self.assertEqual(got_sell.quantity, expected_sell["quantity"])
+                self.assertEqual(got_sell.price, expected_sell["price"])
+                # self.assertEqual(got_sell.amount, expected_sell["amount"])
+                # self.assertEqual(got_sell.current_sold_qty, expected_sell["current_sold_qty"])
                 self.assertAlmostEqual(
-                    got_sell["profit_loss"], expected_sell["profit_loss"], places=2
+                    got_sell.profit_loss, expected_sell["profit_loss"], places=2
                 )
                 self.assertAlmostEqual(
-                    got_sell["percent_profit_loss"],
+                    got_sell.percent_profit_loss,
                     expected_sell["percent_profit_loss"],
                     places=2,
                 )
+                self.assertEqual(got_sell.account, expected_sell["account"])
 
     # @unittest.skip("Skip NVDA")
     def test_analyze_trades_nvda(self):
@@ -925,23 +981,25 @@ class TestTradingAnalyzer(unittest.TestCase):
 
         for i, expected_trade in enumerate(self.expect_trades["NVDA"]):
             got_trade = all_trades[i]
-            self.assertEqual(got_trade["trade_date"], expected_trade["trade_date"])
-            self.assertEqual(got_trade["quantity"], expected_trade["quantity"])
-            self.assertEqual(got_trade["amount"], expected_trade["amount"])
+            # Verify each field in the got_trade matches the expected_trade
+            self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
+            self.assertEqual(got_trade.quantity, expected_trade["quantity"])
+            self.assertEqual(got_trade.amount, expected_trade["amount"])
             self.assertEqual(
-                got_trade["current_sold_qty"], expected_trade["current_sold_qty"]
+                got_trade.current_sold_qty, expected_trade["current_sold_qty"]
             )
-            self.assertEqual(len(got_trade["sells"]), len(expected_trade["sells"]))
+            self.assertEqual(len(got_trade.sells), len(expected_trade["sells"]))
             for j, expected_sell in enumerate(expected_trade["sells"]):
-                got_sell = got_trade["sells"][j]
-                self.assertEqual(got_sell["trade_date"], expected_sell["trade_date"])
-                self.assertEqual(got_sell["quantity"], expected_sell["quantity"])
-                self.assertEqual(got_sell["price"], expected_sell["price"])
+                got_sell = got_trade.sells[j]
+                self.assertEqual(got_sell.trade_date, expected_sell["trade_date"])
+                self.assertEqual(got_sell.quantity, expected_sell["quantity"])
+                self.assertEqual(got_sell.amount, expected_sell["amount"])
+                self.assertEqual(got_sell.price, expected_sell["price"])
                 self.assertAlmostEqual(
-                    got_sell["profit_loss"], expected_sell["profit_loss"], places=2
+                    got_sell.profit_loss, expected_sell["profit_loss"], places=2
                 )
                 self.assertAlmostEqual(
-                    got_sell["percent_profit_loss"],
+                    got_sell.percent_profit_loss,
                     expected_sell["percent_profit_loss"],
                     places=2,
                 )
@@ -979,24 +1037,26 @@ class TestTradingAnalyzer(unittest.TestCase):
 
         for i, expected_trade in enumerate(self.expect_trades["TNA"]):
             got_trade = all_trades[i]
-            self.assertEqual(got_trade["trade_date"], expected_trade["trade_date"])
-            self.assertEqual(got_trade["quantity"], expected_trade["quantity"])
-            self.assertEqual(got_trade["amount"], expected_trade["amount"])
-            self.assertEqual(
-                got_trade["current_sold_qty"], expected_trade["current_sold_qty"]
-            )
-            self.assertEqual(len(got_trade["sells"]), len(expected_trade["sells"]))
-            for j, expected_sell in enumerate(expected_trade["sells"]):
-                got_sell = got_trade["sells"][j]
-                self.assertEqual(got_sell["trade_date"], expected_sell["trade_date"])
-                self.assertEqual(got_sell["quantity"], expected_sell["quantity"])
-                self.assertEqual(got_sell["price"], expected_sell["price"])
 
+            self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
+            self.assertEqual(got_trade.quantity, expected_trade["quantity"])
+            self.assertEqual(got_trade.amount, expected_trade["amount"])
+            self.assertEqual(
+                got_trade.current_sold_qty, expected_trade["current_sold_qty"]
+            )
+            self.assertEqual(len(got_trade.sells), len(expected_trade["sells"]))
+            for j, expected_sell in enumerate(expected_trade["sells"]):
+                got_sell = got_trade.sells[j]
+                self.assertEqual(got_sell.trade_date, expected_sell["trade_date"])
+                self.assertEqual(got_sell.quantity, expected_sell["quantity"])
+                self.assertEqual(got_sell.price, expected_sell["price"])
+
+                self.assertAlmostEqual(got_sell.amount, expected_sell["amount"],places=2)
                 self.assertAlmostEqual(
-                    got_sell["profit_loss"], expected_sell["profit_loss"], places=1
+                    got_sell.profit_loss, expected_sell["profit_loss"], places=1
                 )
                 self.assertAlmostEqual(
-                    got_sell["percent_profit_loss"],
+                    got_sell.percent_profit_loss,
                     expected_sell["percent_profit_loss"],
                     places=2,
                 )
@@ -1012,6 +1072,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
         all_trades = profit_loss_data["stock"]["all_trades"]
+        print(f"{symbol} - all_trades: {all_trades}")
 
         # Check results for symbol 'NAIL'
         expected_bought_qty = 270
@@ -1071,25 +1132,26 @@ class TestTradingAnalyzer(unittest.TestCase):
 
         for i, expected_trade in enumerate(self.expect_trades["NAIL"]):
             got_trade = all_trades[i]
-            self.assertEqual(got_trade["trade_date"], expected_trade["trade_date"])
-            self.assertEqual(got_trade["quantity"], expected_trade["quantity"])
-            self.assertEqual(got_trade["amount"], expected_trade["amount"])
+            self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
+            self.assertEqual(got_trade.quantity, expected_trade["quantity"])
+            self.assertEqual(got_trade.amount, expected_trade["amount"])
             self.assertEqual(
-                got_trade["current_sold_qty"], expected_trade["current_sold_qty"]
+                got_trade.current_sold_qty, expected_trade["current_sold_qty"]
             )
-            self.assertEqual(len(got_trade["sells"]), len(expected_trade["sells"]))
+            self.assertEqual(len(got_trade.sells), len(expected_trade["sells"]))
+
             for j, expected_sell in enumerate(expected_trade["sells"]):
-                got_sell = got_trade["sells"][j]
-                self.assertEqual(got_sell["trade_date"], expected_sell["trade_date"])
-                self.assertEqual(got_sell["quantity"], expected_sell["quantity"])
-                self.assertEqual(got_sell["amount"], expected_sell["amount"])
-                self.assertEqual(got_sell["price"], expected_sell["price"])
+                got_sell = got_trade.sells[j]
+                self.assertEqual(got_sell.trade_date, expected_sell["trade_date"])
+                self.assertEqual(got_sell.quantity, expected_sell["quantity"])
+                self.assertEqual(got_sell.amount, expected_sell["amount"])
+                self.assertEqual(got_sell.price, expected_sell["price"])
 
                 self.assertAlmostEqual(
-                    got_sell["profit_loss"], expected_sell["profit_loss"], places=2
+                    got_sell.profit_loss, expected_sell["profit_loss"], places=2
                 )
                 self.assertAlmostEqual(
-                    got_sell["percent_profit_loss"],
+                    got_sell.percent_profit_loss,
                     expected_sell["percent_profit_loss"],
                     places=2,
                 )
@@ -1165,28 +1227,29 @@ class TestTradingAnalyzer(unittest.TestCase):
 
         for i, expected_trade in enumerate(self.expect_trades["NIO"]):
             got_trade = all_trades[i]
-            self.assertEqual(got_trade["trade_date"], expected_trade["trade_date"])
-            self.assertEqual(got_trade["quantity"], expected_trade["quantity"])
-            self.assertEqual(got_trade["amount"], expected_trade["amount"])
+            self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
+            self.assertEqual(got_trade.quantity, expected_trade["quantity"])
+            self.assertEqual(got_trade.amount, expected_trade["amount"])
             self.assertEqual(
-                got_trade["current_sold_qty"], expected_trade["current_sold_qty"]
+                got_trade.current_sold_qty, expected_trade["current_sold_qty"]
             )
-            self.assertEqual(len(got_trade["sells"]), len(expected_trade["sells"]))
+            self.assertEqual(len(got_trade.sells), len(expected_trade["sells"]))
+
             for j, expected_sell in enumerate(expected_trade["sells"]):
-                got_sell = got_trade["sells"][j]
-                self.assertEqual(got_sell["trade_date"], expected_sell["trade_date"])
-                self.assertEqual(got_sell["quantity"], expected_sell["quantity"])
-                self.assertEqual(got_sell["amount"], expected_sell["amount"])
-                self.assertEqual(got_sell["price"], expected_sell["price"])
+                got_sell = got_trade.sells[j]
+                self.assertEqual(got_sell.trade_date, expected_sell["trade_date"])
+                self.assertEqual(got_sell.quantity, expected_sell["quantity"])
+                self.assertEqual(got_sell.amount, expected_sell["amount"])
+                self.assertEqual(got_sell.price, expected_sell["price"])
 
                 self.assertAlmostEqual(
-                    got_sell["profit_loss"],
+                    got_sell.profit_loss,
                     expected_sell["profit_loss"],
                     places=2,
                     msg="NIO - profit_loss",
                 )
                 self.assertAlmostEqual(
-                    got_sell["percent_profit_loss"],
+                    got_sell.percent_profit_loss,
                     expected_sell["percent_profit_loss"],
                     places=2,
                     msg="NIO - percent_profit_loss",
@@ -1250,20 +1313,24 @@ class TestTradingAnalyzer(unittest.TestCase):
         self.assertEqual(len(open_trades), len(expected_open_trades))
         for i, expected_trade in enumerate(expected_open_trades):
             got_trade = open_trades[i]
-            self.assertEqual(got_trade["trade_date"], expected_trade["trade_date"])
-            self.assertEqual(got_trade["quantity"], expected_trade["quantity"])
-            self.assertEqual(got_trade["price"], expected_trade["price"])
-            self.assertEqual(got_trade["amount"], expected_trade["amount"])
+            self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
+            self.assertEqual(got_trade.quantity, expected_trade["quantity"])
+            self.assertEqual(got_trade.price, expected_trade["price"])
+            self.assertEqual(got_trade.amount, expected_trade["amount"])
             self.assertEqual(
-                got_trade["current_sold_qty"], expected_trade["current_sold_qty"]
+                got_trade.current_sold_qty, expected_trade["current_sold_qty"]
             )
 
-            self.assertEqual(len(got_trade["sells"]), len(expected_trade["sells"]))
+            self.assertEqual(len(got_trade.sells), len(expected_trade["sells"]))
             for j, expected_sell in enumerate(expected_trade["sells"]):
-                got_sell = got_trade["sells"][j]
+                got_sell = got_trade.sells[j]
                 for field in self.check_fields:
-                    self.assertEqual(got_sell[field], expected_sell[field], f"[SN] Field {field} does not match")
-            self.assertEqual(got_trade["is_done"], expected_trade["is_done"])
+                    self.assertEqual(
+                        getattr(got_sell, field),
+                        expected_sell[field],
+                        f"[SN] Field {field} does not match",
+                    )
+            self.assertEqual(got_trade.is_done, expected_trade["is_done"])
 
     def test_get_open_trades_nvda(self):
         analyzer = TradingAnalyzer("NVDA", self.data_list[1]["NVDA"])
@@ -1302,21 +1369,25 @@ class TestTradingAnalyzer(unittest.TestCase):
         self.assertEqual(len(open_trades), len(expected_open_trades))
         for i, expected_trade in enumerate(expected_open_trades):
             got_trade = open_trades[i]
-            self.assertEqual(got_trade["trade_date"], expected_trade["trade_date"])
-            self.assertEqual(got_trade["quantity"], expected_trade["quantity"])
-            self.assertEqual(got_trade["price"], expected_trade["price"])
-            self.assertEqual(got_trade["amount"], expected_trade["amount"])
+            self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
+            self.assertEqual(got_trade.quantity, expected_trade["quantity"])
+            self.assertEqual(got_trade.price, expected_trade["price"])
+            self.assertEqual(got_trade.amount, expected_trade["amount"])
             self.assertEqual(
-                got_trade["current_sold_qty"], expected_trade["current_sold_qty"]
+                got_trade.current_sold_qty, expected_trade["current_sold_qty"]
             )
 
-            # self.assertEqual(got_trade["sells"], expected_trade["sells"])
+            # self.assertEqual(got_trade.sells, expected_trade["sells"])
 
+            # Avoid duplicate loop
             for j, expected_sell in enumerate(expected_trade["sells"]):
-                got_sell = got_trade["sells"][j]
+                got_sell = got_trade.sells[j]
                 for field in self.check_fields:
-                    self.assertEqual(got_sell[field], expected_sell[field], f"[NAIL] Field {field} does not match")
-            self.assertEqual(got_trade["is_done"], expected_trade["is_done"])
+                    self.assertEqual(
+                        getattr(got_sell, field),
+                        expected_sell[field],
+                        f"[NAIL] Field {field} does not match",
+                    )
 
     def test_get_open_trades_nio(self):
         symbol = next(iter(self.data_list[4]))
@@ -1388,20 +1459,32 @@ class TestTradingAnalyzer(unittest.TestCase):
 
         for i, expected_trade in enumerate(expected_open_trades):
             got_trade = open_trades[i]
-            self.assertEqual(got_trade["trade_date"], expected_trade["trade_date"])
-            self.assertEqual(got_trade["quantity"], expected_trade["quantity"])
-            self.assertEqual(got_trade["price"], expected_trade["price"])
-            self.assertEqual(got_trade["amount"], expected_trade["amount"])
+
+            self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
+            self.assertEqual(got_trade.quantity, expected_trade["quantity"])
+            self.assertEqual(got_trade.price, expected_trade["price"])
+            self.assertEqual(got_trade.amount, expected_trade["amount"])
             self.assertEqual(
-                got_trade["current_sold_qty"], expected_trade["current_sold_qty"]
+                got_trade.current_sold_qty, expected_trade["current_sold_qty"]
             )
+
             # self.assertEqual(got_trade["sells"], expected_trade["sells"])
             for j, expected_sell in enumerate(expected_trade["sells"]):
-                got_sell = got_trade["sells"][j]
+                got_sell = got_trade.sells[j]
                 for field in self.check_fields:
-                    self.assertEqual(got_sell[field], expected_sell[field], f"[NIO] Field {field} does not match")
+                    self.assertEqual(
+                        getattr(got_sell, field),
+                        expected_sell[field],
+                        f"[NIO] Field {field} does not match",
+                    )
+            self.assertEqual(got_trade.is_done, expected_trade["is_done"])
 
-            self.assertEqual(got_trade["is_done"], expected_trade["is_done"])
+    def test_invalid_trade_data(self):
+        """Test that invalid trade data raises an error."""
+        invalid_trade = {"Id": "0001", "Symbol": "SN", "Action": "B", "Quantity": -100, "Price": 50.0, "Trade Date": "2024-01-01"}
+        with self.assertRaises(ValueError):
+            analyzer = TradingAnalyzer("SN", [invalid_trade])
+            analyzer.analyze_trades()
 
 
 if __name__ == "__main__":

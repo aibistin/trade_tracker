@@ -92,7 +92,7 @@ class CSVProcessor:
 
         return default_symbol
 
-    def is_option_label_patttern(self, string):
+    def is_option_label_pattern(self, string):
         """Checks if the string matches the option label pattern."""
         return bool(re.search(option_label_pattern, string))
 

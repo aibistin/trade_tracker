@@ -259,11 +259,6 @@ def open_positions(stock_symbol):
         stock_symbol=stock_symbol,
     )
 
-# trade_type
-# label
-# expiration_date
-# target_price
-
 # API
 @app.route("/trade/symbols_json")
 def get_symbols():
@@ -327,7 +322,7 @@ def get_positions_json(scope, stock_symbol):
         "transaction_stats": {},
         "requested": f"{scope}_trades",
     }
-
+   
     trade_transactions = get_trade_data_for_analysis(stock_symbol)
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
 

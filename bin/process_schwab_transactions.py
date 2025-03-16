@@ -19,11 +19,14 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
     """Processes a row from the Schwab Transactions CSV file and inserts into the database."""
 
     # Populate missing Symbol field if necessary
-    print(f"Before Extract Symbol: {row['Symbol']}, Description row: {row['Description']}")
+    print(
+        f"Before Extract Symbol: {row['Symbol']}, Description row: {row['Description']}"
+    )
     if not len(row["Symbol"]) > 0:
         row["Symbol"] = csv_processor.extract_symbol_from_description(row)
-    print(f"After Extract Symbol: {row['Symbol']}, Description row: {row['Description']}")
-
+    print(
+        f"After Extract Symbol: {row['Symbol']}, Description row: {row['Description']}"
+    )
 
     db_inserter = kwargs["db_inserter"] if "db_inserter" in kwargs else None
     account = kwargs["account"] if "account" in kwargs else None
@@ -36,12 +39,12 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
     symbol = row["Symbol"]
     # Some "Symbol" fields have an option pattern but are not option trades.
     # Example: "Exchange or Exercise","EE", "SOUN 09/20/2024 4.00 C".
-    if csv_processor.is_option_label_patttern(row["Symbol"]):
+    if csv_processor.is_option_label_pattern(row["Symbol"]):
         new_fields = csv_processor.extract_option_label(row)
         if new_fields:
             print(f"[{symbol}] Extracted option fields: {new_fields}")
             symbol = new_fields["Symbol"]
-            add_option_fields( row, new_fields, csv_processor)
+            add_option_fields(row, new_fields, csv_processor)
 
     if csv_processor.is_option_trade(row):
         if not new_fields:
@@ -83,20 +86,29 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
         "account": account,  # 'C', 'R', 'I'
     }
 
-    db_inserter.insert_security(trade_transaction)
+    try:
+        db_inserter.insert_security(trade_transaction)
+    except Exception as e:
+        if "Security symbol" in str(e) and "already exists" in str(e):
+            print(f"[{symbol}] INFO: Security {symbol} already exists")
+        else:
+            print(f"[{symbol}] ERROR: Failed to insert security: {e}")
+            return None
 
-    print(f"[{symbol}] Inserting Transaction: {trade_transaction}")
     if not db_inserter.transaction_exists(trade_transaction):
-        db_inserter.insert_transaction(trade_transaction)
+        print(f"[{symbol}] Inserting Transaction: {trade_transaction}")
+        try:
+            db_inserter.insert_transaction(trade_transaction)
+        except Exception as e:
+            if "Duplicate" in str(e):
+                print(f"[{symbol}] INFO: {e}")
+            else:
+                print(f"[{symbol}] ERROR: Failed to insert transaction: {e}")
+            return None
         print(f'[{symbol}] Inserted transaction for: {trade_transaction["trade_date"]}')
     else:
-        print(
-            f'[{symbol}] Transaction already exists for: {trade_transaction["trade_date"]}'
-        )
+        print(f'[{symbol}] Transaction exists: {trade_transaction["trade_date"]}')
 
-    print(
-        f'[{symbol}] Date:{trade_transaction["trade_date"]}, Action: {trade_transaction["action"]}, Qty:{trade_transaction["quantity"]}, Price:{trade_transaction["price"]}'
-    )
 
     return trade_transaction
 

@@ -313,7 +313,8 @@ def get_trade_data_for_analysis(stock_symbol):
     trade_transactions = []
     raw_trade_data = get_raw_trade_data(stock_symbol)
     for id, symbol, action, trade_type, label, trade_date, expiration_date, quantity, price, target_price, amount in raw_trade_data:
-        trade_transactions[symbol].append(
+
+        trade_transactions.append(
             {
                 "Id": id,
                 "Symbol": symbol,
