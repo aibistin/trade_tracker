@@ -5,6 +5,9 @@ from sqlalchemy import func, case, cast, Numeric, select
 # from app import db
 from ..extensions import db
 
+#TODO Not handling "BC" (Buy to Close) and "SO" (Sell to Open)
+common_actions = ["B", "BO", "EE","S","SC"]
+
 
 class Security(db.Model):
     symbol = db.Column(db.String(30), primary_key=True)
@@ -89,7 +92,7 @@ class TradeTransaction(db.Model):
                     )
                 ).label("profit_loss"),
             )
-            .filter(TradeTransaction.action.in_(["B", "S", "RS"]))
+            .filter(TradeTransaction.action.in_(common_actions))
             .group_by(TradeTransaction.symbol)
             .subquery()
         )
@@ -136,10 +139,10 @@ class TradeTransaction(db.Model):
 
         return result
 
-#TODO Not being called. Remove
+    # TODO Not being called. Remove
     def get_open_positions():
         """Fetches open positions (where bought quantity exceeds sold quantity)."""
- 
+
         buy_sum = (
             select(
                 TradeTransaction.symbol,
@@ -152,8 +155,8 @@ class TradeTransaction(db.Model):
                 func.abs(func.sum(TradeTransaction.amount)).label("bamount"),
             )
             .where(TradeTransaction.action.in_(["B", "RS", "BO"]))
-            .group_by(TradeTransaction.symbol,TradeTransaction.trade_type)
-            .order_by(TradeTransaction.symbol,TradeTransaction.trade_type)
+            .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
+            .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
             .cte("buy_sum")
         )
 
@@ -164,9 +167,9 @@ class TradeTransaction(db.Model):
                 func.sum(TradeTransaction.quantity).label("ssum"),
                 func.sum(TradeTransaction.amount).label("samount"),
             )
-            .where(TradeTransaction.action.in_(["S","SC"]))
-            .group_by(TradeTransaction.symbol,TradeTransaction.trade_type)
-            .order_by(TradeTransaction.symbol,TradeTransaction.trade_type)
+            .where(TradeTransaction.action.in_(["S", "SC"]))
+            .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
+            .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
             .cte("sell_sum")
         )
 
@@ -178,6 +181,7 @@ class TradeTransaction(db.Model):
 
         open_positions = db.session.execute(result).all()
         return open_positions
+
 
 # trade_type
 # label
@@ -203,7 +207,6 @@ def get_current_holdings(symbol=None):
         .cte("symbol_names")
     )
 
-
     buy_sum = (
         select(
             TradeTransaction.symbol,
@@ -215,8 +218,8 @@ def get_current_holdings(symbol=None):
             func.abs(func.sum(TradeTransaction.amount)).label("bamount"),
         )
         .where(TradeTransaction.action.in_(["B", "RS", "BO"]))
-            .group_by(TradeTransaction.symbol,TradeTransaction.trade_type)
-            .order_by(TradeTransaction.symbol,TradeTransaction.trade_type)
+        .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
+        .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
         .cte("buy_sum")
     )
 
@@ -230,8 +233,8 @@ def get_current_holdings(symbol=None):
             func.sum(TradeTransaction.amount).label("samount"),
         )
         .where(TradeTransaction.action.in_(["S", "SC"]))
-            .group_by(TradeTransaction.symbol,TradeTransaction.trade_type)
-            .order_by(TradeTransaction.symbol,TradeTransaction.trade_type)
+        .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
+        .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
         .cte("sell_sum")
     )
 
@@ -262,7 +265,6 @@ def get_current_holdings(symbol=None):
 
     current_holdings = db.session.execute(result).all()
     return current_holdings
-
 
 
 def get_current_holdings_symbols():
@@ -296,13 +298,19 @@ def get_raw_trade_data(symbol):
             TradeTransaction.price,
             TradeTransaction.target_price,
             TradeTransaction.amount,
+            TradeTransaction.account,
         )
         .filter(
             TradeTransaction.symbol == symbol,
-            TradeTransaction.action.in_(["B", "RS", "S"]),
+            TradeTransaction.action.in_(common_actions),
             # TradeTransaction.symbol != "ET",
         )
-        .order_by(TradeTransaction.trade_date, TradeTransaction.action, TradeTransaction.trade_type)
+        .order_by(
+            TradeTransaction.trade_date,
+            TradeTransaction.action,
+            TradeTransaction.trade_type,
+            TradeTransaction.account,
+        )
         .all()
     )
 
@@ -312,7 +320,20 @@ def get_trade_data_for_analysis(stock_symbol):
 
     trade_transactions = []
     raw_trade_data = get_raw_trade_data(stock_symbol)
-    for id, symbol, action, trade_type, label, trade_date, expiration_date, quantity, price, target_price, amount in raw_trade_data:
+    for (
+        id,
+        symbol,
+        action,
+        trade_type,
+        label,
+        trade_date,
+        expiration_date,
+        quantity,
+        price,
+        target_price,
+        amount,
+        account,
+    ) in raw_trade_data:
 
         trade_transactions.append(
             {
@@ -327,6 +348,7 @@ def get_trade_data_for_analysis(stock_symbol):
                 "Price": price,
                 "Target Price": target_price,
                 "Amount": amount,
+                "Account": account,
             }
         )
     return trade_transactions

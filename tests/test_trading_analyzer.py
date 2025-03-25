@@ -1,5 +1,6 @@
 import unittest
 from lib.trading_analyzer import TradingAnalyzer
+
 # from lib.dataclasses import Trade
 # from lib.dataclasses.SellTrade import SellTrade
 from lib.dataclasses.TradeAction import TradeAction
@@ -16,6 +17,7 @@ To run this test file:
 python -m unittest tests.test_trading_analyzer
 
 """
+
 
 class TestTradingAnalyzer(unittest.TestCase):
 
@@ -461,6 +463,104 @@ class TestTradingAnalyzer(unittest.TestCase):
                     },
                 ]
             },
+            {
+                "SOUN": [
+                    # 1 - One Buy and Two Sells
+                    # 542|SOUN|BO|SOUN 09/20/2024 4.00 C|C|2024-07-16|2024-09-20||3.0|1.8|-540.0|4.0|||C
+                    {
+                        "Id": "542",
+                        "Symbol": "SOUN",
+                        "Action": "BO",
+                        "Trade Type": "C",
+                        "Trade Date": "2024-07-16",
+                        "Expiration Date": "2024-09-20",
+                        "Label": "SOUN 09/20/2024 4.00 C",
+                        "Quantity": 3.0,
+                        "Price": 1.8,
+                        "Target Price": 4.0,
+                        "Amount": -540.0,
+                        "Account": "C",
+                    },
+                    # 520|SOUN|SC|SOUN 09/20/2024 4.00 C|C|2024-09-18|2024-09-20||2.0|0.87|174.0|4.0|||C
+                    {
+                        "Id": "520",
+                        "Symbol": "SOUN",
+                        "Action": "SC",
+                        "Trade Type": "C",
+                        "Trade Date": "2024-09-18",
+                        "Expiration Date": "2024-09-20",
+                        "Label": "SOUN 09/20/2024 4.00 C",
+                        "Quantity": 2.00,
+                        "Price": 0.87,
+                        "Target Price": 4.0,
+                        "Amount": 174.0,
+                        "Account": "C",
+                    },
+                    # 529|SOUN|EE|SOUN 09/20/2024 4.00 C|O|2024-09-19|2024-09-20||1.0|0.0|None|4.0|||C
+                    {
+                        # Exchanged for 100 SOUN @ 4.0/shr
+                        "Id": "529",
+                        "Symbol": "SOUN",
+                        "Action": "EE",
+                        "Trade Type": "C",
+                        "Trade Date": "2024-09-19",
+                        "Expiration Date": "2024-09-20",
+                        "Label": "SOUN 09/20/2024 4.00 C",
+                        "Quantity": 1.00,
+                        "Price": 0.0,
+                        "Target Price": 4.0,
+                        "Amount": None,
+                        "Account": "C",
+                    },
+                    # 2 - One Buy and One Sell
+                    # 526|SOUN|BO|SOUN 04/17/2025 5.00 C|C|2024-10-09|2025-04-17||1.0|0.92|-92.0|5.0|||I
+                    {
+                        "Id": "526",
+                        "Symbol": "SOUN",
+                        "Action": "BO",
+                        "Trade Type": "C",
+                        "Trade Date": "2024-10-09",
+                        "Expiration Date": "2025-04-17",
+                        "Label": "SOUN 04/17/2025 5.00 C",
+                        "Quantity": 1.00,
+                        "Price": 0.92,
+                        "Target Price": 5.0,
+                        "Amount": -92.0,
+                        "Account": "I",
+                    },
+                    # 521|SOUN|SC|SOUN 04/17/2025 5.00 C|C|2025-02-21|2025-04-17||1.0|5.5|550.0|5.0|||I
+                    {
+                        "Id": "521",
+                        "Symbol": "SOUN",
+                        "Action": "SC",
+                        "Trade Type": "C",
+                        "Trade Date": "2025-02-21",
+                        "Expiration Date": "2025-04-17",
+                        "Label": "SOUN 04/17/2025 5.00 C",
+                        "Quantity": 1.0,
+                        "Price": 5.5,
+                        "Target Price": 5.0,
+                        "Amount": 550.0,
+                        "Account": "I",
+                    },
+                    # 2 - One Buy and No Sell
+                    # 462|SOUN|BO|SOUN 07/18/2025 8.00 C|C|2025-02-24|2025-07-18||1.0|3.05|-305.0|8.0|||C
+                    {
+                        "Id": "462",
+                        "Symbol": "SOUN",
+                        "Action": "BO",
+                        "Trade Type": "C",
+                        "Trade Date": "2025-02-24",
+                        "Expiration Date": "2025-07-18",
+                        "Label": "SOUN 07/18/2025 8.00 C",
+                        "Quantity": 1.0,
+                        "Price": 3.05,
+                        "Target Price": 8.0,
+                        "Amount": -305.0,
+                        "Account": "C",
+                    },
+                ],
+            },
         ]
 
         self.expect_trades = {
@@ -845,6 +945,120 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "account": "C",
                 },
             ],
+            # SOUN
+            # expect_soun
+            # 542|SOUN|BO|SOUN 09/20/2024 4.00 C|C|2024-07-16|2024-09-20||3.0|1.8|-540.0|4.0|||C
+            # 520|SOUN|SC|SOUN 09/20/2024 4.00 C|C|2024-09-18|2024-09-20||2.0|0.87|174.0|4.0|||C
+            # 529|SOUN|EE|SOUN 09/20/2024 4.00 C|O|2024-09-19|2024-09-20||1.0|0.0|None|4.0|||C
+            "SOUN": [
+                {
+                    "trade_id": "542",
+                    "trade_date": "2024-07-16",
+                    "trade_date_iso": "2024-07-16T00:00:00",
+                    "quantity": 3,
+                    "trade_label": "SOUN 09/20/2024 4.00 C",
+                    "trade_type": "C",
+                    "price": 1.8,
+                    "amount": -540.0,
+                    "account": "C",
+                    "current_sold_qty": 3,
+                    "is_option": True,
+                    "is_done": True,
+                    "target_price": 4.0,
+                    "expiration_date_iso": "2024-09-20T00:00:00",
+                    "sells": [
+                        {
+                            "trade_id": "520",
+                            "trade_date": "2024-09-18",
+                            "trade_date_iso": "2024-09-18T00:00:00",
+                            "trade_label": "SOUN 09/20/2024 4.00 C",
+                            "is_option": True,
+                            "quantity": 2,
+                            "price": 0.87,
+                            "amount": 174.0,
+                            "target_price": 4.0,
+                            "account": "C",
+                            "profit_loss": 174.0 - 360.0,
+                            "percent_profit_loss": round(
+                                ((174.0 - 360.0) / 360.0) * 100, 2
+                            ),
+                            "expiration_date_iso": "2024-09-20T00:00:00",
+                        },
+                        {
+                            # Exercised option
+                            "trade_id": "529",
+                            "trade_date": "2024-09-19",
+                            "trade_date_iso": "2024-09-19T00:00:00",
+                            "trade_label": "SOUN 09/20/2024 4.00 C",
+                            "is_option": True,
+                            "quantity": 1,
+                            "price": 0.0,
+                            # Amount will eventually be 4.0 * 100
+                            "amount": None,
+                            "target_price": 4.0,
+                            "account": "C",
+                            "profit_loss": 0.0,
+                            "percent_profit_loss": 0.0,
+                            "expiration_date_iso": "2024-09-20T00:00:00",
+                        },
+                    ],
+                },
+                # 526|SOUN|BO|SOUN 04/17/2025 5.00 C|C|2024-10-09|2025-04-17||1.0|0.92|-92.0|5.0|||I
+                # 521|SOUN|SC|SOUN 04/17/2025 5.00 C|C|2025-02-21|2025-04-17||1.0|5.5|550.0|5.0|||I
+                {
+                    "trade_id": "526",
+                    "trade_date": "2024-10-09",
+                    "trade_date_iso": "2024-10-09T00:00:00",
+                    "quantity": 1,
+                    "trade_label": "SOUN 04/17/2025 5.00 C",
+                    "trade_type": "C",
+                    "price": 0.92,
+                    "amount": -92.0,
+                    "account": "I",
+                    "current_sold_qty": 1,
+                    "is_option": True,
+                    "is_done": True,
+                    "target_price": 5.0,
+                    "expiration_date_iso": "2025-04-17T00:00:00",
+                    "sells": [
+                        {
+                            "trade_id": "521",
+                            "trade_date": "2025-02-21",
+                            "trade_date_iso": "2025-02-21T00:00:00",
+                            "trade_label": "SOUN 04/17/2025 5.00 C",
+                            "is_option": True,
+                            "quantity": 1,
+                            "price": 5.5,
+                            "amount": 550.0,
+                            "target_price": 5.0,
+                            "account": "I",
+                            "profit_loss": 550.0 - 92.0,
+                            "percent_profit_loss": round(
+                                ((550.0 - 92.0) / 92.0) * 100, 2
+                            ),
+                            "expiration_date_iso": "2025-04-17T00:00:00",
+                        },
+                    ],
+                },
+                # 462|SOUN|BO|SOUN 07/18/2025 8.00 C|C|2025-02-24|2025-07-18||1.0|3.05|-305.0|8.0|||C
+                {
+                    "trade_id": "462",
+                    "trade_date": "2025-02-24",
+                    "trade_date_iso": "2025-02-24T00:00:00",
+                    "quantity": 1,
+                    "trade_label": "SOUN 07/18/2025 8.00 C",
+                    "trade_type": "C",
+                    "price": 3.05,
+                    "amount": -305.0,
+                    "account": "C",
+                    "current_sold_qty": 0,
+                    "is_option": True,
+                    "is_done": False,
+                    "target_price": 8.0,
+                    "expiration_date_iso": "2025-07-18T00:00:00",
+                    "sells": [],
+                },
+            ],
         }
 
         self.check_fields = [
@@ -857,6 +1071,266 @@ class TestTradingAnalyzer(unittest.TestCase):
             "percent_profit_loss",
             "account",
         ]
+
+        self.check_option_fields = [
+            "trade_type",
+            "is_option",
+            "trade_label",
+            "target_price",
+            "expiration_date_iso",
+        ]
+
+    # @unittest.skip("Skip SOUN")
+    def test_analyze_trades_soun(self):
+        # Expected:
+        symbol = next(iter(self.data_list[5]))
+        transactions = self.data_list[5][symbol]
+        self.assertEqual(symbol, "SOUN")
+        analyzer = TradingAnalyzer(symbol, transactions)
+        analyzer.analyze_trades()
+        profit_loss_data = analyzer.get_profit_loss_data()
+        stock_summary = profit_loss_data["stock"]["summary"]
+        all_stock_trades = profit_loss_data["stock"]["all_trades"]
+        option_summary = profit_loss_data["option"]["summary"]
+        all_option_trades = profit_loss_data["option"]["all_trades"]
+
+        # Check stock results for symbol 'SOUN'
+        expected_bought_qty = 0
+        expected_bought_amount = 0
+        expected_sold_qty = 0
+        expected_sold_amount = 0
+        expected_closed_bought_amount = 0
+        expected_open_bought_amount = 0
+
+        expected_profit_loss = expected_sold_amount + expected_closed_bought_amount
+        expected_profit_loss_percent = (
+            (abs(expected_profit_loss / expected_closed_bought_amount) * 100)
+            if expected_closed_bought_amount != 0
+            else 0
+        )
+
+        # Check option results for symbol 'SOUN'
+        expected_option_bought_qty = 5
+        expected_option_bought_amount = -540.0 - 92.0 - 305.0
+
+        expected_option_sold_qty = 4
+        # $1124.00
+        expected_option_sold_amount = 174.0 + 550.0 + 400
+
+        # -$632.00
+        # AssertionError: -845.0 != -632.0 within 2 places (213.0 difference) : SOUN closed_bought_amount
+
+
+        expected_option_closed_bought_amount = -540.0 - 92.0
+        expected_option_open_bought_amount = -305.0
+        expected_option_open_bought_qty = 1
+        expect_option_trade_count = len(self.expect_trades["SOUN"])
+
+        expected_option_profit_loss = (
+            expected_option_sold_amount + expected_option_closed_bought_amount
+        )
+
+        expected_option_profit_loss_percent = (
+            abs(expected_option_profit_loss / expected_option_closed_bought_amount)
+            * 100
+        )
+
+        # Stodk Checks
+        self.assertEqual(stock_summary["bought_quantity"], expected_bought_qty)
+        self.assertAlmostEqual(
+            stock_summary["bought_amount"], expected_bought_amount, places=2
+        )
+        self.assertEqual(stock_summary["sold_quantity"], expected_sold_qty)
+        self.assertAlmostEqual(
+            stock_summary["sold_amount"], expected_sold_amount, places=2
+        )
+        self.assertEqual(
+            stock_summary["closed_bought_quantity"],
+            expected_sold_qty,
+            "SOUN closed_bought_quantity",
+        )
+
+        self.assertAlmostEqual(
+            stock_summary["closed_bought_amount"],
+            expected_closed_bought_amount,
+            places=2,
+            msg="SOUN closed_bought_amount",
+        )
+
+        self.assertEqual(stock_summary["open_bought_quantity"], 0)
+
+        self.assertAlmostEqual(
+            stock_summary["open_bought_amount"], expected_open_bought_amount, places=2
+        )
+        self.assertAlmostEqual(
+            stock_summary["profit_loss"], expected_profit_loss, places=2
+        )
+        self.assertAlmostEqual(
+            stock_summary["percent_profit_loss"],
+            expected_profit_loss_percent,
+            places=2,
+        )
+
+        # Complete Trades
+        self.assertEqual(len(all_stock_trades), 0)
+
+        # Option Checks
+        print("SOUN Option Summary:", option_summary)
+
+        print("SOUN profit_loss data:", profit_loss_data)
+
+        self.assertEqual(
+            option_summary["bought_quantity"],
+            expected_option_bought_qty,
+            msg=f"Option bought_quantity mismatch. Got {option_summary['bought_quantity']}, expected {expected_option_bought_qty}",
+        )
+
+        self.assertAlmostEqual(
+            option_summary["bought_amount"],
+            expected_option_bought_amount,
+            places=2,
+            msg=f"Option bought amount mismatch. Got {option_summary['bought_amount']}, expected {expected_option_bought_amount}",
+        )
+        self.assertEqual(
+            option_summary["sold_quantity"],
+            expected_option_sold_qty,
+            "Option sold quantity mismatch",
+        )
+        self.assertAlmostEqual(
+            option_summary["sold_amount"],
+            expected_option_sold_amount,
+            places=2,
+            msg=f"Option sold amount mismatch. Got {option_summary['sold_amount']}, expected {expected_option_sold_amount}",
+        )
+        self.assertEqual(
+            option_summary["closed_bought_quantity"],
+            expected_option_sold_qty,
+            "SOUN option closed_bought_quantity mismatch",
+        )
+        self.assertEqual(option_summary["bought_quantity"], expected_option_bought_qty)
+        self.assertAlmostEqual(
+            option_summary["bought_amount"], expected_option_bought_amount, places=2
+        )
+        self.assertEqual(option_summary["sold_quantity"], expected_option_sold_qty)
+        self.assertAlmostEqual(
+            option_summary["sold_amount"], expected_option_sold_amount, places=2
+        )
+        self.assertEqual(
+            option_summary["closed_bought_quantity"],
+            expected_option_sold_qty,
+            "SOUN closed_bought_quantity",
+        )
+
+        self.assertAlmostEqual(
+            option_summary["closed_bought_amount"],
+            expected_option_closed_bought_amount,
+            places=2,
+            msg="SOUN closed_bought_amount",
+        )
+
+        self.assertEqual(
+            option_summary["open_bought_quantity"], expected_option_open_bought_qty
+        )
+
+        self.assertAlmostEqual(
+            option_summary["open_bought_amount"],
+            expected_option_open_bought_amount,
+            places=2,
+        )
+        self.assertAlmostEqual(
+            option_summary["profit_loss"], expected_option_profit_loss, places=2
+        )
+        self.assertAlmostEqual(
+            option_summary["percent_profit_loss"],
+            expected_option_profit_loss_percent,
+            places=2,
+        )
+
+        # Complete Option Trades for SOUN
+        self.assertEqual(
+            len(all_option_trades),
+            expect_option_trade_count,
+            f"Expect {expect_option_trade_count} option trdes for SOUN",
+        )
+
+        for i, expected_trade in enumerate(self.expect_trades["SOUN"]):
+
+            got_trade = all_option_trades[i]
+
+            for field in self.check_option_fields:
+                self.assertEqual(
+                    getattr(got_trade, field),
+                    expected_trade[field],
+                    f"[SOUN] Field option {field} does not match",
+                )
+
+            self.assertEqual(got_trade.is_done, expected_trade["is_done"])
+
+            # self.assertEqual(got_trade.is_option, expected_trade["is_option"])
+            # self.assertEqual(got_trade.trade_label, expected_trade["trade_label"])
+            # self.assertEqual(got_trade.expiration_date_iso, expected_trade["expiration_date_iso"])
+            # self.assertEqual(got_trade.target_price, expected_trade["target_price"])
+            self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
+            self.assertEqual(got_trade.quantity, expected_trade["quantity"])
+            self.assertEqual(got_trade.amount, expected_trade["amount"])
+            self.assertEqual(
+                got_trade.current_sold_qty, expected_trade["current_sold_qty"]
+            )
+
+            self.assertEqual(len(got_trade.sells), len(expected_trade["sells"]))
+
+            # [ "trade_id", "amount", "trade_date", "price", "quantity", "profit_loss", "percent_profit_loss", "account"]
+            # [ "trade_type", "is_option", "trade_label","target_price", "expiration_date_iso", "profit_loss", "percent_profit_loss", "account", ]
+            for j, expected_sell in enumerate(expected_trade["sells"]):
+                got_sell = got_trade.sells[j]
+                if got_sell.trade_id != "529":
+                    for field in self.check_fields:
+                        self.assertEqual(
+                            getattr(got_sell, field),
+                            expected_sell[field],
+                            f"[SOUN] Got field {field} doesnt match: {expected_sell[field]}",
+                        )
+                else:
+                    # This trade was modified because it was exercised
+                    self.assertEqual(got_sell.trade_id, "529")
+                    self.assertEqual(got_sell.trade_date_iso, "2024-09-19T00:00:00")
+                    self.assertEqual(got_sell.price, 4.0)
+                    self.assertEqual(got_sell.target_price, 4.0)
+                    self.assertEqual(got_sell.amount, 400.0)
+                    self.assertEqual(
+                        got_sell.expiration_date_iso,
+                        "2024-09-20T00:00:00",
+                        f"[SOUN] Got field {got_sell.expiration_date_iso} doesnt match: 2024-09-20T00:00:00",
+                    )
+
+                if got_sell.trade_id != "529":
+                    self.assertAlmostEqual(
+                        got_sell.profit_loss,
+                        expected_sell["profit_loss"],
+                        places=2,
+                        msg=f'SOUN - Got profit/loss: {got_sell.profit_loss}, expected profit/loss={expected_sell["profit_loss"]}',
+                    )
+                    self.assertAlmostEqual(
+                        got_sell.percent_profit_loss,
+                        expected_sell["percent_profit_loss"],
+                        places=2,
+                        msg=f'SOUN - Got % profit/loss: {got_sell.percent_profit_loss}, expected % profit/loss={expected_sell["percent_profit_loss"]}',
+                    )
+                else:
+                    # This trade was modified because it was exercised
+                    self.assertAlmostEqual(
+                        got_sell.profit_loss,
+                        400 - 180.00,
+                        msg=f"SOUN EXE trade - Got profit/loss: {got_sell.profit_loss}, expected profit/loss={400 -180.00}",
+                    )
+                    self.assertAlmostEqual(
+                        got_sell.percent_profit_loss,
+                        ((400.0 - 180.0) / 180.0) * 100,
+                        places=2,
+                        msg=f"SOUN - Got % profit/loss: {got_sell.percent_profit_loss}, expected % profit/loss={((400.0 - 180.0) /180360.0) * 100}",
+                    )
+
+    # end_soun
 
     # @unittest.skip("Skip SN")
     def test_analyze_trades_sn(self):
@@ -1051,7 +1525,9 @@ class TestTradingAnalyzer(unittest.TestCase):
                 self.assertEqual(got_sell.quantity, expected_sell["quantity"])
                 self.assertEqual(got_sell.price, expected_sell["price"])
 
-                self.assertAlmostEqual(got_sell.amount, expected_sell["amount"],places=2)
+                self.assertAlmostEqual(
+                    got_sell.amount, expected_sell["amount"], places=2
+                )
                 self.assertAlmostEqual(
                     got_sell.profit_loss, expected_sell["profit_loss"], places=1
                 )
@@ -1072,7 +1548,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
         all_trades = profit_loss_data["stock"]["all_trades"]
-        print(f"{symbol} - all_trades: {all_trades}")
+        # print(f"{symbol} - all_trades: {all_trades}")
 
         # Check results for symbol 'NAIL'
         expected_bought_qty = 270
@@ -1481,7 +1957,14 @@ class TestTradingAnalyzer(unittest.TestCase):
 
     def test_invalid_trade_data(self):
         """Test that invalid trade data raises an error."""
-        invalid_trade = {"Id": "0001", "Symbol": "SN", "Action": "B", "Quantity": -100, "Price": 50.0, "Trade Date": "2024-01-01"}
+        invalid_trade = {
+            "Id": "0001",
+            "Symbol": "SN",
+            "Action": "B",
+            "Quantity": -100,
+            "Price": 50.0,
+            "Trade Date": "2024-01-01",
+        }
         with self.assertRaises(ValueError):
             analyzer = TradingAnalyzer("SN", [invalid_trade])
             analyzer.analyze_trades()

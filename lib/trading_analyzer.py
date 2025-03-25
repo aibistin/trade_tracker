@@ -51,6 +51,7 @@ class TradingAnalyzer:
                 "all_trades": [],
             },
         }
+        self.buy_sell_actions = ["Buy", "BO", "S", "SC"]
 
     # def _validate_trade_data(self, trade: Dict) -> None:
     #     """Validate trade data to ensure required fields are present.
@@ -89,15 +90,30 @@ class TradingAnalyzer:
         if not isinstance(trade["Quantity"], (int, float)) or trade["Quantity"] <= 0:
             raise ValueError(f"Invalid quantity in trade: {trade['Quantity']}")
 
-        if not isinstance(trade["Price"], (int, float)) or trade["Price"] <= 0:
-            raise ValueError(f"Invalid price in trade: {trade['Price']}")
+        # Experimental
+        if trade["Action"] not in TradeAction._value2member_map_:
+            raise ValueError(f"Invalid action in trade: {trade['Action']}")
 
-            # Check that Trade Date is either a string or datetime
+        if trade["Action"] == "EXP":
+            # Expired Option. Convert it to a Sell trade for price=0, amount=0
+            trade["Action"] = "SC"
+            trade["Amount"] = 0
+        elif trade["Action"] == "EE":
+            # The Option is Exercised. Convert it to a Sell trade for price=0, amount=0
+            # TODO Find subsequent Buy Trade and
+            trade["Action"] = "SC"
+            trade["Price"] = trade["Target Price"]
+            trade["Amount"] = trade["Target Price"] * trade["Quantity"] * 100
+
+        if trade["Action"] in (self.buy_sell_actions):
+            if not isinstance(trade["Price"], (int, float)) or trade["Price"] <= 0:
+                raise ValueError(f"Invalid price in trade: {trade['Price']}")
+
+        # Check that Trade Date is either a string or datetime
         if not isinstance(trade["Trade Date"], (str, datetime)):
-            raise ValueError(f"Invalid trade date in trade: {trade['Trade Date']}, must be a string or datetime object")
-        # if not isinstance(trade["Trade Date"], str):
-            # raise ValueError(f"Invalid trade date in trade: {trade['Trade Date']}")
-
+            raise ValueError(
+                f"Invalid trade date in trade: {trade['Trade Date']}, must be a string or datetime object"
+            )
 
     def _sell_adder(
         self, buy_trade: Trade, sell_trade: Dict[str, Any], symbol: str
@@ -150,14 +166,19 @@ class TradingAnalyzer:
             trade_id=sell_trade["Id"],
             trade_date=sell_trade["Trade Date"],
             trade_date_iso=self._convert_to_iso_format(sell_trade["Trade Date"]),
+            trade_type=sell_trade.get("Trade Type", None),
+            trade_label=sell_trade.get("Label", None),
             quantity=sell_rec_for_trade["quantity"],
             price=sell_trade["Price"],
             amount=round(sell_rec_for_trade["amount"], 2),
             profit_loss=sell_rec_for_trade["profit_loss"],
             percent_profit_loss=sell_rec_for_trade["percent_profit_loss"],
+            target_price=sell_trade.get("Target Price", None),
+            expiration_date_iso=self._convert_to_iso_format(
+                sell_trade.get("Expiration Date", "1970-01-01")
+            ),
             account=sell_trade.get("Account", None),
         )
-
 
     def _get_average_bought_price(
         self, summary: Dict[str, Any], multiplier: int
@@ -205,8 +226,12 @@ class TradingAnalyzer:
             "trade_id": sell_trade["Id"],
             "trade_date_iso": self._convert_to_iso_format(sell_trade["Trade Date"]),
             "trade_date": sell_trade["Trade Date"],
+            "trade_type": sell_trade.get("Trade Type", None),
+            "trade_label": sell_trade.get("Label", None),
             "quantity": 0,
             "price": sell_trade["Price"],
+            "target_price": sell_trade.get("Target Price", None),
+            "expiration_date_iso": sell_trade.get("Expiration Date Iso", None),
             "amount": 0,
             "profit_loss": 0,
             "percent_profit_loss": 0,
@@ -458,10 +483,10 @@ class TradingAnalyzer:
                 )
 
             # Check if the trade has a valid amount
-            amount = trade.get("Amount")
-            if isinstance(amount, str):
-                logging.info(f"[{self.stock_symbol}] - Amount: <{amount}>")
-                continue
+            # amount = trade.get("Amount")
+            # if isinstance(amount, str):
+            #     logging.info(f"[{self.stock_symbol}] - Amount: <{amount}>")
+            #     continue
 
             # Determine if the trade is an option
             trade["is_option"] = trade["Trade Type"] in ("C", "P")
@@ -471,7 +496,7 @@ class TradingAnalyzer:
             summary = option_summary if trade["is_option"] else stock_summary
 
             logging.debug(
-                f'[{self.stock_symbol}] Action: {action}, Type: {trade["Trade Type"]} IsOption: {trade["is_option"]}'
+                f'[{self.stock_symbol}] Action: {TradeAction(action)}, Type: {trade["Trade Type"]} IsOption: {trade["is_option"]}'
             )
 
             # Handle buy actions
@@ -548,7 +573,9 @@ class TradingAnalyzer:
             )
 
             # Initialize profit/loss data
-            self._initialize_profit_loss_data(stock_summary=stock_summary, option_summary=option_summary)
+            self._initialize_profit_loss_data(
+                stock_summary=stock_summary, option_summary=option_summary
+            )
 
             # Sanity check summaries
             self._stock_option_summary_sanity_check(stock_summary, option_summary)
@@ -568,7 +595,7 @@ class TradingAnalyzer:
         """Sort trades by trade date, type, and action."""
         return sorted(
             self.trade_transactions,
-            key=lambda x: (x["Trade Date"], x["Trade Type"], x["Action"]),
+            key=lambda x: (x["Trade Date"], x["Trade Type"], x["Action"], x["Account"]),
         )
 
     def _initialize_profit_loss_data(
@@ -587,7 +614,6 @@ class TradingAnalyzer:
         }
         return self.profit_loss_data
 
-    
     def _process_trades_by_type(
         self, trade_type: str, trade_summary: Dict[str, Any], symbol: str
     ) -> None:
@@ -601,6 +627,13 @@ class TradingAnalyzer:
         buy_trades = trade_summary.pop("buy_trades")
 
         while running_bought_quantity < trade_summary["bought_quantity"]:
+            if not buy_trades:
+                missing = trade_summary["bought_quantity"] - running_bought_quantity
+                logging.error(
+                    f"[{symbol}] No buy trades.There should be {missing} trades"
+                )
+                break
+
             buy_record = buy_trades.pop(0)
             running_bought_quantity += buy_record["Quantity"]
 
@@ -657,8 +690,6 @@ class TradingAnalyzer:
         self._calculate_trade_summary(
             trade_summary, running_sold_quantity, running_sold_amount, multiplier
         )
-
-
 
     def _calculate_trade_summary(
         self,
