@@ -1,12 +1,17 @@
 #!/bin/bash
 # Script Name: process_schwab_data.sh
 TODAY=`date +%Y%m%d`
-WORK_DIR="/home/austin/Apps/python/Trading/"
-JAIL_DIR="/home/austin/Documents/Finance/Stocks/tradefiles"
-INPUT_DIR="/home/austin/Apps/python/Trading/data/input"
-LOG_FILE_RUNNER="/home/austin/Apps/python/Trading/logs/run_file_processors_$TODAY.log"
-LOG_FILE_TRANS="/home/austin/Apps/python/Trading/logs/process_schwab_transactions_$TODAY.log"
-LOG_FILE_ORDER="/home/austin/Apps/python/Trading/logs/process_schwab_orders_$TODAY.log" 
+#TODO Use Environment Variables
+WORK_DIR="${HOME}/Apps/python/Trading/"
+JAIL_DIR="${HOME}/Documents/Finance/Stocks/tradefiles"
+INPUT_DIR="${HOME}/Apps/python/Trading/data/input"
+LOG_DIR="${HOME}/Apps/python/Trading/logs"
+LOG_FILE_RUNNER="${LOG_DIR}/run_file_processors_$TODAY.log"
+LOG_FILE_TRANS="${LOG_DIR}/process_schwab_transactions_$TODAY.log"
+LOG_FILE_ORDER="${LOG_DIR}/process_schwab_orders_$TODAY.log" 
+
+# Move out all logs older than 12 hours
+find "${LOG_DIR}" -maxdepth 1 -type f -name ".log" -mmin +720 -exec mv {} "${LOG_DIR}"/old \;
 
 # WFH
 pushd $WORK_DIR

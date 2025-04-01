@@ -3,7 +3,7 @@
   <table class="table table-primary table-hover table-bordered border-primary table-striped-columns text-center">
     <thead>
       <tr>
-        <th colspan="13"><span class="text-primary-emphasis">{{ stockSymbol }}</span> Transaction Summary</th>
+        <th colspan="13"> {{ stockType }} Transaction Summary - <span class="text-primary-emphasis">{{ stockSymbol }}</span></th>
       </tr>
       <tr >
         <!-- <th colspan="1"></th> -->
@@ -19,12 +19,12 @@
         <th>Cost Basis</th>
 
         <th>Qty</th>
-        <th>Avg Cost Price</th>
+        <th>Avg Price</th>
         <th>Cost Basis</th>
         <th>Revenue</th>
 
         <th>Qty</th>
-        <th>Avg Cost Price</th>
+        <th>Avg Price</th>
         <th>Cost Basis</th>
         <th>Profit/Loss</th>
         <th>Profit/Loss %</th>
@@ -75,6 +75,10 @@
 export default {
   props: {
     stockSymbol: {
+      type: String,
+      required: true
+    },
+    stockType: {
       type: String,
       required: true
     },

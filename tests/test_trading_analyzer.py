@@ -1117,10 +1117,6 @@ class TestTradingAnalyzer(unittest.TestCase):
         # $1124.00
         expected_option_sold_amount = 174.0 + 550.0 + 400
 
-        # -$632.00
-        # AssertionError: -845.0 != -632.0 within 2 places (213.0 difference) : SOUN closed_bought_amount
-
-
         expected_option_closed_bought_amount = -540.0 - 92.0
         expected_option_open_bought_amount = -305.0
         expected_option_open_bought_qty = 1

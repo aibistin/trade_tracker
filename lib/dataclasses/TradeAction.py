@@ -1,4 +1,5 @@
 from enum import Enum
+#TODO Merge this dataclass with ActionType.py
 
 class TradeAction(Enum):
     """Enum representing different trade actions."""
@@ -26,6 +27,7 @@ class TradeAction(Enum):
     INTERNAL_TRANSFER = "IT"
     JOURNAL = "J"
     JOURNALED_SHARES = "JS"
+    MANDATORY_REORG_EXC = "MRE",
     MONEYLINK_TRANSFER = "MT"
     PR_YR_DIV_REINVEST = "PYDR"
     QUAL_DIV_REINVEST = "QDR"

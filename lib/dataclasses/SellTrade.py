@@ -6,6 +6,8 @@ from typing import Optional
 @dataclass
 class SellTrade:
     trade_id: str
+    symbol: str
+    action: str
     trade_date: datetime
     trade_date_iso: str
     trade_label: str

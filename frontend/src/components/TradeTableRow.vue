@@ -1,7 +1,8 @@
 <template>
-    <td>{{ buyTrade.trade_id }}</td>
-    <td>{{ buyTrade.isBuy ? "Buy" : "Sell" }}</td>
-    <td>{{ buyTrade.account }}</td>
+    <td>{{ buyTrade.trade_id + "-" + buyTrade.account }}</td>
+    <td>{{ formatTradeType(buyTrade) }}</td>
+    <!-- <td>{{ buyTrade.action }}</td> -->
+    <td>{{ formatAction(buyTrade) }}</td>
     <td>{{ formatDate(buyTrade.trade_date_iso) }}</td>
 
     <td v-if="buyTrade.isBuy">
@@ -32,7 +33,7 @@
 </template>
 
 <script>
-import { formatCurrency, profitLossClass, formatValue, formatDate, rowClass } from '@/utils/tradeUtils.js';
+import { formatAction, formatCurrency, formatTradeType, profitLossClass, formatValue, formatDate, rowClass } from '@/utils/tradeUtils.js';
 
 export default {
     components: {},
@@ -41,9 +42,15 @@ export default {
             type: Object,
             required: true
         },
+        stockType: {
+            type: String,
+            required: false
+        },
     },
     methods: {
+        formatAction,
         formatCurrency,
+        formatTradeType, 
         profitLossClass,
         formatValue,
         formatDate,

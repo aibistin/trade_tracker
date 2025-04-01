@@ -2,6 +2,7 @@ import csv
 import os
 import re
 from datetime import datetime
+from lib.dataclasses.ActionType import ActionMapping
 
 option_label_pattern = r"\s*\S+\s+\d{1,2}/\d{1,2}/\d{2,4}\s+\d+\.\d+\s+[CP]"
 default_symbol = "NONE"  # Ex: Moneylink transfer transactions.
@@ -14,24 +15,27 @@ class CSVProcessor:
         self.processed_dir = processed_dir
         print("CSVProcessor: Input Dir: " + self.input_dir)
 
-        # Ensure directories exist
-        # os.makedirs(self.input_dir, exist_ok=True)
-        # os.makedirs(self.output_dir, exist_ok=True)
-        # os.makedirs(self.processed_dir, exist_ok=True)
+        self.action_mapping = ActionMapping()  # Initialize action mapping
 
 
     def extract_quantity(self,quantity_str):
         """Extract numeric quantity (int or float) from string."""
 
         quantity = self.convert_to_float(quantity_str)
-        if quantity is not None:
-            return quantity
-        else:
+        if quantity is None:
             print(f"Warning: Unexpected quantity format: {quantity_str}")
-            return 0
+
+        return quantity
 
     def convert_trade_date(self, trade_date_str, date_format="%m/%d/%Y"):
         """Convert trade date string to YYYY-MM-DD format."""
+        # Handle cases where date might have multiple formats
+
+        if " as of " in trade_date_str:
+            # 'Bank Interest' and Options Expirations.
+            # Get Second date for this type: '11/04/2024 as of 11/01/2024'
+            trade_date_str = trade_date_str.split(" as of ")[1].strip()
+
         try:
             trade_datetime = datetime.strptime(trade_date_str, date_format)
             return trade_datetime.strftime("%Y-%m-%d")
@@ -116,9 +120,10 @@ class CSVProcessor:
         if row["Action"] in ("Buy", "Sell"):
             return "L"
         elif "Trade Type" in row and row["Trade Type"] in ["C", "P"]:
-            return ["Trade Type"]
+            return row["Trade Type"]
 
-        return "O"  # Other
+        return self.action_mapping.get_acronym(row["Action"])  # Use action mapping to determine trade type
+
 
     def calculate_amount(self, row):
         """Calculates the amount based on quantity and price. For Buy Sell & Re-Invest Orders"""
@@ -141,7 +146,6 @@ class CSVProcessor:
 
         amount = 0
         try:
-            # TODO Check trade_type for 'C' or 'P', "Call or Put"
             if self.is_option_trade(row):
                 # Convert an Option Open/Close to standard 100*price
                 amount = round((quantity * price) * 100, 2)
@@ -222,25 +226,6 @@ class CSVProcessor:
             line_count = len(f.readlines())
             return line_count > 1
 
-    def sort_output_file(self, file_path):
-        """Sorts a CSV file by Symbol (ascending) and Trade Date (ascending)."""
-        data = []
-        with open(file_path, "r") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                data.append(row)
-
-        # Sort the data using a lambda function for multiple keys
-        sorted_data = sorted(
-            data, key=lambda row: (row["Symbol"], row["Trade Date"], row["Action"])
-        )
-
-        # Write the sorted data back to the file
-        with open(file_path, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(reader.fieldnames)  # Write header
-            for row in sorted_data:
-                writer.writerow(row.values())
 
     def sort_output_file(self, file_path):
         """Sorts a CSV file by Symbol (ascending) and Trade Date (ascending),

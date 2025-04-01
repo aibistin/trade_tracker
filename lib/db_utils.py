@@ -1,4 +1,5 @@
 import sqlite3
+from lib.dataclasses.ActionType import ActionMapping
 
 
 class DatabaseInserter:
@@ -12,42 +13,16 @@ class DatabaseInserter:
             self.conn = sqlite3.connect(db_path)
             self.cursor = self.conn.cursor()
 
+        self.action_mapping = ActionMapping()  # Initialize action mapping
+
+
     def convert_action(self, action):
         """Converts the full action name to its corresponding acronym.
         Any updates to this should also be added to the database, "validate_action_trigger" function.
         """
-
-        action_map = {
-            "Bank Interest": "BI",
-            "Bond Interest": "BOI",
-            "Buy": "B",
-            "Buy to Close": "BC",
-            "Buy to Open": "BO",
-            "Cash Dividend": "CD",
-            "Cash Merger": "CM",
-            "Cash Merger Adj": "CMJ",
-            "Exchange or Exercise": "EE",
-            "Expired": "EXP",
-            "Funds Received": "FR",
-            "Internal Transfer": "IT",
-            "Journal": "J",
-            "Journaled Shares": "JS",
-            "MoneyLink Transfer": "MT",
-            "Pr Yr Div Reinvest": "PYDR",
-            "Qual Div Reinvest": "QDR",
-            "Qualified Dividend": "QD",
-            "Reinvest Shares": "RS",
-            "Reinvest Dividend": "RD",
-            "Reverse Split": "RSP",
-            "Sell": "S",
-            "Sell to Close": "SC",
-            "Sell to Open": "SO",
-            "Stock Split": "SSP",
-            "Tax Withholding": "TXW",
-        }
-
         # Return acronym if found, else 'UK' for 'Unknown'
-        return action_map.get(action, "UK")
+        return self.action_mapping.get_acronym(action)
+
 
     def insert_security(self, security):
         """Inserts security into the 'security' table using a dictionary.
@@ -73,6 +48,7 @@ class DatabaseInserter:
 
         print('[db_utils]: Checking if transaction exists in the database...')
         print(f'[db_utils]: Symbol: {stock_symbol} Action: {action_acronym} Date: {trade_transaction["trade_date"]}')
+        print(f'[db_utils]: TradeType: {trade_transaction["trade_type"]}')
 
         self.cursor.execute(
             """

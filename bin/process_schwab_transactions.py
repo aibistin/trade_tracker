@@ -3,6 +3,19 @@ from lib.db_utils import DatabaseInserter
 import os
 from datetime import datetime
 
+SKIPPED_ROWS = []
+
+def write_skipped_rows(file_path, skipped_rows):
+    """Writes skipped rows to a CSV file."""
+    if skipped_rows:
+        with open(file_path, "w") as f:
+            for row in skipped_rows:
+                f.write(",".join(str(value) for value in row.values()) + "\n")
+        print(f"Skipped rows written to: {file_path}")
+        print(f"Skipped rows: {len(skipped_rows)}")
+    else:
+        print("No skipped rows to write.")
+
 
 def add_option_fields(row, new_fields, csv_processor):
     """Adds new fields to the row dictionary."""
@@ -34,7 +47,11 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
     if not csv_processor.validate_price(row["Price"]):
         if row["Action"].startswith(("B", "S")) and len(row["Action"]) <= 3:
             print(f"Skipping row due to invalid price: {row}")
+            SKIPPED_ROWS.append(row)    
             return None
+        else:
+            row["Price"] = 0
+
 
     symbol = row["Symbol"]
     # Some "Symbol" fields have an option pattern but are not option trades.
@@ -51,21 +68,33 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
             print(
                 f"[{symbol}] ERROR: Skipping Option Trade. Invalid option trade row: {row}"
             )
+            SKIPPED_ROWS.append(row)
             return None
 
-    row["Trade Type"] = row.get("Trade Type", csv_processor.determine_trade_type(row))
+    # row["Trade Type"] = row.get("Trade Type", csv_processor.determine_trade_type(row))
+    row["Trade Type"] = csv_processor.determine_trade_type(row)
     row["Amount"] = str(csv_processor.calculate_amount(row))
     row["Stop@"] = str(csv_processor.calculate_stop(row))
     row["Sell@"] = str(csv_processor.calculate_sell(row))
-
     trade_date_str = csv_processor.convert_trade_date(row["Date"], "%m/%d/%Y")
+    quantity = csv_processor.extract_quantity(row["Quantity"])
+    if quantity is None:
+        if row["Action"].startswith(("B", "S")):
+            print(f"[{symbol}] Skipping row due to zero quantity: {row}")
+            SKIPPED_ROWS.append(row)
+            return None
+        else:
+            quantity = 0
+
     if not trade_date_str:
-        if row["Trade Type"] == "O":
+        if row["Trade Type"] == "UK":
             print(
                 f"[{symbol}] Skipping row due to invalid or missing trade date: {row}"
             )
         else:
             print(f"[{symbol}] ERROR: Trade has invalid or missing trade date: {row}")
+
+        SKIPPED_ROWS.append(row)
         return None
 
     trade_transaction = {
@@ -73,16 +102,16 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
         "name": row["Description"],
         "action": row["Action"],
         "label": row.get("Label", None),
-        "trade_type": row.get("Trade Type", "O"),
+        "trade_type": row["Trade Type"],
         "trade_date": trade_date_str,
         "expiration_date": row.get("Expiration Date", None),
-        "reason": "",
-        "quantity": csv_processor.extract_quantity(row["Quantity"]),
+        "reason": row.get( "Reason", ""),  # For internal use, 
+        "quantity": quantity,
         "price": row["Price"],
         "amount": row["Amount"],
         "target_price": row.get("Target Price", None),
-        "initial_stop_price": "",
-        "projected_sell_price": "",
+        "initial_stop_price": row.get("Initial Stop Price", ""),
+        "projected_sell_price": row.get("Projected Sell Price", ""),
         "account": account,  # 'C', 'R', 'I'
     }
 
@@ -93,6 +122,7 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
             print(f"[{symbol}] INFO: Security {symbol} already exists")
         else:
             print(f"[{symbol}] ERROR: Failed to insert security: {e}")
+            SKIPPED_ROWS.append(row)      
             return None
 
     if not db_inserter.transaction_exists(trade_transaction):
@@ -104,11 +134,11 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
                 print(f"[{symbol}] INFO: {e}")
             else:
                 print(f"[{symbol}] ERROR: Failed to insert transaction: {e}")
+                SKIPPED_ROWS.append(row)    
             return None
         print(f'[{symbol}] Inserted transaction for: {trade_transaction["trade_date"]}')
     else:
         print(f'[{symbol}] Transaction exists: {trade_transaction["trade_date"]}')
-
 
     return trade_transaction
 
@@ -116,6 +146,9 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
 def main():
     processor = CSVProcessor("data/input", "data/output", "data/processed")
     db_path = "data/stock_trades.db"
+    # Generate a timestamp string for filenames
+    timestamp = datetime.now().strftime("%m%d%y%H%M%S")
+    skipped_rows_file = f"data/error/skipped_rows_{timestamp}.csv"
 
     db_inserter = DatabaseInserter(db_path=db_path)
     print(f"Connected to: {db_path}")
@@ -123,7 +156,6 @@ def main():
     input_files = processor.get_input_files("transaction")
 
     if input_files:
-        timestamp = datetime.now().strftime("%m%d%y%H%M%S")
         output_filename = f"transaction_record_{timestamp}.csv"
 
         output_header = [
@@ -152,14 +184,15 @@ def main():
             process_schwab_transactions_row,
             db_inserter=db_inserter,
         )
-
         print("Completed writing to: " + output_filename)
-
     else:
         print(f"Warning: No Transaction files to process!")
 
     db_inserter.close()
     print(f"Closed connection to: {db_path}")
+
+    write_skipped_rows(skipped_rows_file, SKIPPED_ROWS)
+
 
 
 if __name__ == "__main__":
