@@ -1,5 +1,5 @@
 import sqlite3
-from lib.dataclasses.ActionType import ActionMapping
+from lib.dataclasses.ActionMapping import ActionMapping
 
 
 class DatabaseInserter:

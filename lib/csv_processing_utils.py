@@ -2,7 +2,7 @@ import csv
 import os
 import re
 from datetime import datetime
-from lib.dataclasses.ActionType import ActionMapping
+from lib.dataclasses.ActionMapping import ActionMapping
 
 option_label_pattern = r"\s*\S+\s+\d{1,2}/\d{1,2}/\d{2,4}\s+\d+\.\d+\s+[CP]"
 default_symbol = "NONE"  # Ex: Moneylink transfer transactions.
@@ -115,6 +115,7 @@ class CSVProcessor:
         Long, Short, Call, Put, Other.
         TODO: Add logic to determine if it's a Call or Put based on the symbol.
         TODO: Add logic to determine if it's a short sell.
+        Return 'UK' (Unknown) if the action is not recognized.
         """
 
         if row["Action"] in ("Buy", "Sell"):
@@ -122,7 +123,7 @@ class CSVProcessor:
         elif "Trade Type" in row and row["Trade Type"] in ["C", "P"]:
             return row["Trade Type"]
 
-        return self.action_mapping.get_acronym(row["Action"])  # Use action mapping to determine trade type
+        return self.action_mapping.get_acronym(row["Action"]) or 'UK'  
 
 
     def calculate_amount(self, row):

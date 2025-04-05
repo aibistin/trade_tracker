@@ -1,11 +1,5 @@
 import unittest
 from lib.trading_analyzer import TradingAnalyzer
-
-# from lib.dataclasses import Trade
-# from lib.dataclasses.SellTrade import SellTrade
-from lib.dataclasses.TradeAction import TradeAction
-
-
 """"
     Test TradingAnalyzer
     - Test the TradingAnalyzer class with various stock transactions.
@@ -1121,6 +1115,24 @@ class TestTradingAnalyzer(unittest.TestCase):
         expected_option_open_bought_amount = -305.0
         expected_option_open_bought_qty = 1
         expect_option_trade_count = len(self.expect_trades["SOUN"])
+        # Bought :
+        #  3.0 * 1.08
+        #  1.00 * 0.92
+        #  1.00 * 3.05  # Not sold
+        # Sold :
+        # 2.00 * 0.87
+        # 1.00 * 0
+        # 1.0  * 5.5
+        # (1.8 * 3) + 0.92 + 3.05   =  9.47 
+
+        # 5.4 + 0.92 + 3.05 = 9.37/5 = 1.894   
+        expected_option_average_bought_price = -1.874
+        # (1.8 * 3) + 0.92  = 6.32/4 = 1.58 
+        expected_option_average_basis_closed_price = 1.58
+        expected_option_average_basis_open_price = 3.05
+        # Sold
+        # (2 * .87) + 4.0(Strike Price) + 5.5 = 7.24/4 = 1.81
+        expected_option_average_sold_price = 2.81
 
         expected_option_profit_loss = (
             expected_option_sold_amount + expected_option_closed_bought_amount
@@ -1131,7 +1143,7 @@ class TestTradingAnalyzer(unittest.TestCase):
             * 100
         )
 
-        # Stodk Checks
+        # Stock Checks
         self.assertEqual(stock_summary["bought_quantity"], expected_bought_qty)
         self.assertAlmostEqual(
             stock_summary["bought_amount"], expected_bought_amount, places=2
@@ -1158,9 +1170,11 @@ class TestTradingAnalyzer(unittest.TestCase):
         self.assertAlmostEqual(
             stock_summary["open_bought_amount"], expected_open_bought_amount, places=2
         )
+
         self.assertAlmostEqual(
             stock_summary["profit_loss"], expected_profit_loss, places=2
         )
+
         self.assertAlmostEqual(
             stock_summary["percent_profit_loss"],
             expected_profit_loss_percent,
@@ -1174,6 +1188,18 @@ class TestTradingAnalyzer(unittest.TestCase):
         print("SOUN Option Summary:", option_summary)
 
         print("SOUN profit_loss data:", profit_loss_data)
+
+        self.assertEqual(
+            option_summary["is_option"],
+            True,
+            msg="Option is_option mismatch. Got {option_summary['is_option']}, expected True",
+        )
+
+        self.assertEqual(
+            option_summary["symbol"],
+            'SOUN',
+            msg=f"Option symbol mismatch. Got {option_summary['symbol']}, expected 'SOUN'",
+        )
 
         self.assertEqual(
             option_summary["bought_quantity"],
@@ -1198,19 +1224,14 @@ class TestTradingAnalyzer(unittest.TestCase):
             places=2,
             msg=f"Option sold amount mismatch. Got {option_summary['sold_amount']}, expected {expected_option_sold_amount}",
         )
-        self.assertEqual(
-            option_summary["closed_bought_quantity"],
-            expected_option_sold_qty,
-            "SOUN option closed_bought_quantity mismatch",
-        )
-        self.assertEqual(option_summary["bought_quantity"], expected_option_bought_qty)
-        self.assertAlmostEqual(
-            option_summary["bought_amount"], expected_option_bought_amount, places=2
-        )
-        self.assertEqual(option_summary["sold_quantity"], expected_option_sold_qty)
-        self.assertAlmostEqual(
-            option_summary["sold_amount"], expected_option_sold_amount, places=2
-        )
+
+        # self.assertEqual(
+        #     option_summary["closed_bought_quantity"],
+        #     expected_option_sold_qty,
+        #     "SOUN option closed_bought_quantity mismatch",
+        # )
+        # self.assertEqual(option_summary["sold_quantity"], expected_option_sold_qty)
+
         self.assertEqual(
             option_summary["closed_bought_quantity"],
             expected_option_sold_qty,
@@ -1233,13 +1254,44 @@ class TestTradingAnalyzer(unittest.TestCase):
             expected_option_open_bought_amount,
             places=2,
         )
+
         self.assertAlmostEqual(
             option_summary["profit_loss"], expected_option_profit_loss, places=2
         )
+
         self.assertAlmostEqual(
             option_summary["percent_profit_loss"],
             expected_option_profit_loss_percent,
             places=2,
+        )
+
+        # Option price checks
+        self.assertAlmostEqual(
+            option_summary["average_bought_price"],
+            expected_option_average_bought_price,
+            places=3,
+            msg=f"Option average_bought_price mismatch. Got {option_summary['average_bought_price']}, expected {expected_option_average_bought_price}",
+        )
+
+        self.assertAlmostEqual(
+            option_summary["average_basis_sold_price"],
+            expected_option_average_basis_closed_price,
+            places=2,
+            msg=f"Option average_basis_sold_price mismatch. Got {option_summary['average_basis_sold_price']}, expected {expected_option_average_basis_closed_price}",
+        )
+
+        self.assertAlmostEqual(
+            option_summary["average_basis_open_price"],
+            expected_option_average_basis_open_price,
+            places=2,
+        )
+
+        # Sold
+        self.assertAlmostEqual(
+            option_summary["average_sold_price"],
+            expected_option_average_sold_price,
+            places=2,
+            msg=f"Option average_sold_price mismatch. Got {option_summary['average_sold_price']}, expected {expected_option_average_sold_price}",
         )
 
         # Complete Option Trades for SOUN

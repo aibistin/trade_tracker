@@ -335,6 +335,7 @@ def get_trade_data_for_analysis(stock_symbol):
         account,
     ) in raw_trade_data:
 
+#TODO There is no reason to convert snake_case to camelCase here.
         trade_transactions.append(
             {
                 "Id": id,
