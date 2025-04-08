@@ -5,6 +5,7 @@ from .models.models import (
     get_current_holdings,
     get_current_holdings_symbols,
     get_trade_data_for_analysis,
+    get_trade_data_for_analysis_new,
 )
 
 from lib.trading_analyzer import TradingAnalyzer
@@ -323,7 +324,9 @@ def get_positions_json(scope, stock_symbol):
         "requested": f"{scope}_trades",
     }
    
-    trade_transactions = get_trade_data_for_analysis(stock_symbol)
+    trade_transactions = get_trade_data_for_analysis_new(stock_symbol)
+    print(f"[Routes][get_posittions_json] raw_data: {trade_transactions}")
+
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
 
     getter_methods = {

@@ -315,6 +315,45 @@ def get_raw_trade_data(symbol):
     )
 
 
+def get_trade_data_for_analysis_new(stock_symbol):
+    """Returns all trade transactions for a given stock symbol."""
+
+    trade_transactions = []
+    raw_trade_data = get_raw_trade_data(stock_symbol)
+    for (
+        id,
+        symbol,
+        action,
+        trade_type,
+        label,
+        trade_date,
+        expiration_date,
+        quantity,
+        price,
+        target_price,
+        amount,
+        account,
+    ) in raw_trade_data:
+
+        trade_transactions.append(
+            {
+                "id": id,
+                "symbol": symbol,
+                "action": action,
+                "trade_type": trade_type,
+                "label": label,
+                "trade_date": trade_date,
+                "expiration_date": expiration_date,
+                "quantity": quantity,
+                "price": price,
+                "target_price": target_price,
+                "amount": amount,
+                "account": account,
+            }
+        )
+    return trade_transactions
+
+
 def get_trade_data_for_analysis(stock_symbol):
     """Returns all trade transactions for a given stock symbol."""
 
@@ -335,7 +374,6 @@ def get_trade_data_for_analysis(stock_symbol):
         account,
     ) in raw_trade_data:
 
-#TODO There is no reason to convert snake_case to camelCase here.
         trade_transactions.append(
             {
                 "Id": id,
