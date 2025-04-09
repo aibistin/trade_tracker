@@ -123,6 +123,7 @@ celerybeat.pid
 
 # Environments
 .env
+.flaskenv
 .venv
 env/
 venv/
@@ -278,5 +279,6 @@ old/*
 app/templates/old
 data/*
 docs/
+tags
 util/
 .vscode

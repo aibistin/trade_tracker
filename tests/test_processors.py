@@ -4,6 +4,7 @@ from datetime import datetime
 
 from lib.csv_processing_utils import CSVProcessor
 from lib.db_utils import DatabaseInserter
+#TODO This needs to test the DatabaseInserter class 
 
 class TestCSVProcessing(unittest.TestCase):
 
@@ -20,7 +21,16 @@ class TestCSVProcessing(unittest.TestCase):
 
         self.csv_processor = CSVProcessor(
             self.test_input_dir, self.test_output_dir, self.test_processed_dir)
+
         self.db_inserter = DatabaseInserter(self.test_db_path)
+        with DatabaseInserter(db_path='trades.db') as db:
+            transaction = {
+                #TODO Create a sample tradde_transaction for testing
+            }
+            # if not db.transaction_exists(transaction):
+                # db.insert_transaction(transaction)
+
+
 
     def tearDown(self):
         # Clean up test database and output files
@@ -69,6 +79,13 @@ class TestCSVProcessing(unittest.TestCase):
         # ...
 
     # Add more test methods as needed (e.g., for database insertion, sorting, etc.)
+
+
+
+        # with DatabaseInserter(db=db) as db_inserter:
+        #     for row in transaction_rows:
+        #         if not db.transaction_exists(row):
+        #             db.insert_transaction(row)
 
 
 if __name__ == '__main__':

@@ -205,25 +205,6 @@ def trade_stats_summary():
     return render_template("trade_stats_summary.html", trade_stats=trade_stats)
 
 
-# @app.route("/trade_stats_pl")
-# def trade_stats_pl(symbol):
-#     """Fetches trade statistics summary and renders the template."""
-
-#     # Fetch trade data from the database
-#     trade_transactions = get_trade_data_for_analysis(symbol)
-
-#     # Analyze trades for each symbol
-#     all_trade_stats = {}
-#     # Analyze for each symbol separately
-#     analyzer = TradingAnalyzer({symbol: trade_transactions})
-#     analyzer.analyze_trades()
-#     # Store results with symbol as key
-#     all_trade_stats = analyzer.get_profit_loss_data()
-
-#     print(f"[Routes] Trade Stats: {all_trade_stats}")
-#     return render_template("trade_stats_pl.html", trade_stats=all_trade_stats)
-
-
 # Ajax
 @app.route("/get_stock_data/<string:stock_symbol>")
 def get_stock_data(stock_symbol):

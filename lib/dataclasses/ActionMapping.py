@@ -45,17 +45,18 @@ class ActionMapping:
         """Get action acronym from full name"""
         return self.action_map.get(full_name, None)
 
-
     def is_buy_type_action(self, acronym: str) -> str:
         """Check if the acronym is a buy type action (Buy, Buy to Open, Sell to Open)"""
         return acronym in {"B", "BO", "RS", "RD", "PYDR", "QDR", "SO"}
-
 
     def is_sell_type_action(self, acronym: str) -> str:
         """Check if the acronym is a sell type action (Sell, Buy to Close , Sell to Close)"""
         return acronym in {"S", "BC", "SC"}
 
-
     def get_full_name(self, acronym: str) -> str:
         """Get full action name from acronym or None"""
         return self.reverse_map.get(acronym, None)
+
+    def acronym_exists(self, acronym: str) -> bool:
+        """Check if an acronym exists in the action map"""
+        return acronym in self.reverse_map

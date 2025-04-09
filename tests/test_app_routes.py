@@ -5,10 +5,8 @@ from app.models.models import (
     TradeTransaction,
 )
 
-# Make sure to import your db instance here
 from app.extensions import db
 from lib.db_utils import DatabaseInserter
-
 
 print(__file__)
 
@@ -105,14 +103,13 @@ class TestAppRoutes(unittest.TestCase):
 
         for row in transaction_rows:
             self.db_inserter.insert_transaction(row)
-            # print(f"Inserted transaction: {row}")
+            print(f"Inserted transaction: {row}")
 
         # Retrieve the ID of the first inserted transaction
         with app.app_context():
             self.first_transaction_id = TradeTransaction.query.filter_by(
                 reason="Test Buy FAKE1"
             ).first()
-
 
     def tearDown(self):
         # Clean up the test database
@@ -165,13 +162,54 @@ class TestAppRoutes(unittest.TestCase):
         }
         transaction_id = self.first_transaction_id.id
         print("Test update using transaction id: " + str(transaction_id))
-        response = self.app.post( "/update_transaction/" + str(transaction_id), data=data)
+        response = self.app.post(
+            "/update_transaction/" + str(transaction_id), data=data
+        )
 
         # Route is redirected to view_transaction route
         self.assertEqual(response.status_code, 302)
         # You might need to query the database to verify the update
 
-    # Add more test methods for other routes and error handling
+    # def get_positions_json(scope, stock_symbol):
+
+    def test_all_trades_route(self):
+        # all, open, closed
+        response = self.app.get("/trades/all/json/FAKE1")
+        self.assertEqual(response.status_code, 200)
+        trades_data = response.get_json()
+
+        self.assertEqual(
+            trades_data["stock_symbol"],
+            "FAKE1",
+            msg=f"Expected stock_symbol to be 'FAKE1', got {trades_data['stock_symbol']}",
+        )
+
+        self.assertEqual(
+            trades_data["requested"],
+            "all_trades",
+            msg=f"Expected requested to be 'all_trades', got {trades_data['requested']}",
+        )
+
+        self.assertIsInstance(trades_data["transaction_stats"], dict)
+
+        self.assertEqual(
+            len(trades_data["transaction_stats"]["stock"]["all_trades"]),
+            1,
+            msg=f"Expected 1 stock trades, got {len(trades_data["transaction_stats"]["stock"]["all_trades"])}",
+        )
+
+        self.assertEqual(
+            len(trades_data["transaction_stats"]["option"]["all_trades"]),
+            0,
+            msg=f"Expected 0 option trades, got {len(trades_data["transaction_stats"]["option"]["all_trades"])}",
+        )
+
+        self.assertIsInstance(
+            trades_data["transaction_stats"]["stock"]["summary"], dict
+        )
+        self.assertIsInstance(
+            trades_data["transaction_stats"]["option"]["summary"], dict
+        )
 
 
 if __name__ == "__main__":

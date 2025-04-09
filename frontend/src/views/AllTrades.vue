@@ -19,48 +19,27 @@
         <span class="text-primary-emphasis">{{ data.stock_symbol }}</span>
       </h4>
 
-      <TransactionSummary
-        :tradeSummary="data.transaction_stats.stock.summary"
-        :stockSymbol="data.stock_symbol"
-        stockType="Stock"
-        :allTradeCount="data.transaction_stats.stock.all_trades?.length"
-      />
+      <TransactionSummary :tradeSummary="data.transaction_stats.stock.summary" :stockSymbol="data.stock_symbol"
+        stockType="Stock" :allTradeCount="data.transaction_stats.stock.all_trades?.length" />
       <div v-if="data.transaction_stats.stock.all_trades?.length">
-        <buy-trade-summary :stockSymbol="data.stock_symbol"   
-            stockType="Stock">
-          <tr
-            v-for="trade in flattenTrades(
-              data.transaction_stats.stock.all_trades
-            )"
-            :key="trade.trade_id"
-            :class="tradeRowClass(trade)"
-          >
-            <TradeTableRow 
-            :buyTrade="transformTrade(trade)" 
-            />
+        <buy-trade-summary :stockSymbol="data.stock_symbol" stockType="Stock">
+          <tr v-for="trade in flattenTrades(
+            data.transaction_stats.stock.all_trades
+          )" :key="trade.trade_id" :class="tradeRowClass(trade)">
+            <TradeTableRow :buyTrade="transformTrade(trade)" />
           </tr>
         </buy-trade-summary>
       </div>
+
       <!-- Option trades here -->
-      <TransactionSummary
-        :tradeSummary="data.transaction_stats.option.summary"
-        :stockSymbol="data.stock_symbol"
-        stockType="Option"
-        :allTradeCount="data.transaction_stats.option.all_trades?.length"
-      />
+      <TransactionSummary :tradeSummary="data.transaction_stats.option.summary" :stockSymbol="data.stock_symbol"
+        stockType="Option" :allTradeCount="data.transaction_stats.option.all_trades?.length" />
       <div v-if="data.transaction_stats.option.all_trades?.length">
         <buy-trade-summary :stockSymbol="data.stock_symbol" stockType="Option">
-          <tr
-            v-for="trade in flattenTrades(
-              data.transaction_stats.option.all_trades
-            )"
-            :key="trade.trade_id"
-            :class="tradeRowClass(trade)"
-          >
-            <TradeTableRow 
-            :buyTrade="transformTrade(trade)"
-            stockType="Option"
-             />
+          <tr v-for="trade in flattenTrades(
+            data.transaction_stats.option.all_trades
+          )" :key="trade.trade_id" :class="tradeRowClass(trade)">
+            <TradeTableRow :buyTrade="transformTrade(trade)" stockType="Option" />
           </tr>
         </buy-trade-summary>
       </div>
@@ -153,9 +132,9 @@ export default {
         );
         newTrade.percent_profit_loss = trade.sells?.length
           ? trade.sells.reduce(
-              (sum, sell) => sum + sell.percent_profit_loss,
-              0
-            ) / trade.sells.length
+            (sum, sell) => sum + sell.percent_profit_loss,
+            0
+          ) / trade.sells.length
           : 0;
       }
       return newTrade;
