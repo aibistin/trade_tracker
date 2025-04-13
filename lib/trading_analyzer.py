@@ -12,6 +12,7 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Any, List, Dict, Optional, Tuple, Union
 from lib.dataclasses.Trade import BuyTrade, SellTrade
+from lib.dataclasses.TradeSummary import TradeSummary
 from lib.dataclasses.ActionMapping import ActionMapping
 
 
@@ -42,17 +43,8 @@ class TradingAnalyzer:
 
         self.stock_symbol = stock_symbol
         self.trade_transactions = trade_transactions
-        self.profit_loss_data = {
-            "stock_symbol": self.stock_symbol,
-            "stock": {
-                "summary": {},
-                "all_trades": [],
-            },
-            "option": {
-                "summary": {},
-                "all_trades": [],
-            },
-        }
+        self.profit_loss_data = {}
+
         self.buy_sell_actions = ["B", "Buy", "BO", "S", "SC"]
         self.action_mapping = ActionMapping()
 
@@ -169,34 +161,6 @@ class TradingAnalyzer:
         logging.debug(f"[{symbol}] Unapplied SellTrade: {sell_trade_unapplied}")
         return replace(sell_trade_applied)
 
-    def _get_average_bought_price(
-        self, summary: Dict[str, Any], multiplier: int
-    ) -> float:
-        """Calculate the average bought price."""
-        if summary["bought_quantity"] == 0:
-            return 0.0
-        return round(
-            float(summary["bought_amount"] / (summary["bought_quantity"] * multiplier)),
-            3,
-        )
-
-    def _get_average_sold_price(
-        self, summary: Dict[str, Any], multiplier: int
-    ) -> float:
-        """Calculate the average sold price."""
-        if summary["sold_quantity"] == 0:
-            return 0.0
-        return round(
-            float(summary["sold_amount"] / (summary["sold_quantity"] * multiplier)), 3
-        )
-
-    def _get_percent_profit_loss(self, trade: Dict[str, Any]) -> float:
-        if trade["closed_bought_amount"] != 0:
-            return round(
-                (trade["profit_loss"] / abs(trade["closed_bought_amount"])) * 100, 2
-            )
-        return 0
-
     def _initialize_buy_trade(self, buy_record: Dict[str, Any]) -> BuyTrade:
         """Create a BuyTrade object from a buy record dictionary.
 
@@ -274,7 +238,7 @@ class TradingAnalyzer:
             buy_trade.sells.append(sell_rec_for_trade)
 
     def _stock_option_summary_sanity_check(
-        self, stock_summary: Dict[str, Any], option_summary: Dict[str, Any]
+        self, stock_summary: TradeSummary, option_summary: TradeSummary
     ) -> None:
 
         symbol = self.stock_symbol
@@ -283,53 +247,31 @@ class TradingAnalyzer:
             type = "stock" if i == 0 else "option"
 
             log_msg = f"""
-                [{symbol}] Total {type} buy quantity: {summary["bought_quantity"]}
-                [{symbol}] Total {type} buy amount: {summary["bought_amount"]}
+                [{symbol}] Total {type} buy quantity: {summary.bought_quantity}
+                [{symbol}] Total {type} buy amount: {summary.bought_amount}
                 """
             logging.info(log_msg)
 
             # Validate that we are not selling more than we bought
-            if summary["sold_quantity"] > summary["bought_quantity"]:
+            if summary.sold_quantity > summary.bought_quantity:
                 warnings.warn(
-                    f'[{symbol}] Total {type} quantity sold ({summary["sold_quantity"]}) exceeds total {type} quantity bought ({summary["bought_quantity"]})'
+                    f"[{symbol}] Total {type} quantity sold ({summary.sold_quantity}) exceeds total {type} quantity bought ({summary.bought_quantity})"
                 )
 
-            if summary["bought_quantity"] > summary["sold_quantity"]:
+            if summary.bought_quantity > summary.sold_quantity:
                 logging.info(f"[{symbol}] has some open {type} trades")
             else:
                 logging.info(f"[{symbol}] All {type} trades have been closed")
 
             log_msg = f"""
-                [{symbol}] Total {type} Bought Q: {summary["bought_quantity"]}
-                [{symbol}] Total {type} Sold Q: {summary["sold_quantity"]}
+                [{symbol}] Total {type} Bought Q: {summary.bought_quantity}
+                [{symbol}] Total {type} Sold Q: {summary.sold_quantity}
                 """
             logging.info(log_msg)
 
-    def _get_summary_dict(self) -> Dict[str, Any]:
-        return {
-            "symbol": self.stock_symbol,
-            "bought_quantity": 0.0,
-            "bought_amount": 0.0,
-            "average_bought_price": 0.0,
-            "sold_quantity": 0.0,
-            "sold_amount": 0.0,
-            "average_basis_sold_price": 0,
-            "average_basis_open_price": 0,
-            "average_sold_price": 0.0,
-            "closed_bought_quantity": 0,
-            "closed_bought_amount": 0,
-            "open_bought_quantity": 0,
-            "open_bought_amount": 0,
-            "profit_loss": 0,
-            "percent_profit_loss": 0,
-            "is_option": False,
-            "buy_trades": [],
-            "sell_trades": [],
-        }
-
     def _create_stock_and_option_summary(
         self, sorted_trades: List[Dict[str, Any]]
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> Tuple[TradeSummary, TradeSummary]:
         """Create summaries for stock and option trades.
 
         Args:
@@ -339,9 +281,14 @@ class TradingAnalyzer:
             tuple: A tuple containing stock_summary and option_summary.
         """
         # Initialize summaries
-        stock_summary = self._get_summary_dict()
-        option_summary = self._get_summary_dict()
-        option_summary["is_option"] = True
+        stock_summary = TradeSummary(
+            symbol=self.stock_symbol,
+            is_option=False,
+        )
+        option_summary = TradeSummary(
+            symbol=self.stock_symbol,
+            is_option=True,
+        )
 
         for trade in sorted_trades:
             if trade["symbol"] != self.stock_symbol:
@@ -362,51 +309,36 @@ class TradingAnalyzer:
             )
 
             if self.action_mapping.is_buy_type_action(trade["action"]):
-                summary["bought_quantity"] += trade.get("quantity", 0)
-                summary["bought_amount"] += trade.get("amount", 0)
-                summary["buy_trades"].append(self._initialize_buy_trade(trade))
-
+                summary.bought_quantity += trade.get("quantity", 0)
+                summary.bought_amount += trade.get("amount", 0)
+                summary.buy_trades.append(self._initialize_buy_trade(trade))
             elif self.action_mapping.is_sell_type_action(trade["action"]):
-                summary["sold_quantity"] += trade.get("quantity", 0)
-                summary["sold_amount"] += trade.get("amount", 0)
-                summary["sell_trades"].append(self._initialize_sell_trade(trade))
+                summary.sold_quantity += trade.get("quantity", 0)
+                summary.sold_amount += trade.get("amount", 0)
+                summary.sell_trades.append(self._initialize_sell_trade(trade))
 
-        # Calculate average prices
-        stock_summary["average_bought_price"] = self._get_average_bought_price(
-            stock_summary, multiplier=STOCK_MULTIPLIER
-        )
-
-        option_summary["average_bought_price"] = self._get_average_bought_price(
-            option_summary, multiplier=OPTIONS_MULTIPLIER
-        )
-
-        stock_summary["average_sold_price"] = self._get_average_sold_price(
-            stock_summary, multiplier=STOCK_MULTIPLIER
-        )
-
-        option_summary["average_sold_price"] = self._get_average_sold_price(
-            option_summary, multiplier=OPTIONS_MULTIPLIER
-        )
+        stock_summary.get_average_bought_price()
+        option_summary.get_average_bought_price()
+        stock_summary.get_average_sold_price()
+        option_summary.get_average_sold_price()
 
         logging.debug(f"[{self.stock_symbol}] Stock Summary: {stock_summary}")
         return stock_summary, option_summary
 
     def _add_buy_trade_to_summary(
-        self, summary_dict: Dict[str, Any], buy_trade: BuyTrade, multiplier: int
+        self, summmary: TradeSummary, buy_trade: BuyTrade, multiplier: int
     ) -> None:
-        "In place update of summary_dict"
+        "In place update of summmary"
 
-        summary_dict["bought_amount"] += buy_trade.amount
-        summary_dict["bought_quantity"] += buy_trade.quantity
-        summary_dict["sold_quantity"] += buy_trade.current_sold_qty
-        summary_dict["closed_bought_amount"] += (
+        summmary.bought_amount += buy_trade.amount
+        summmary.bought_quantity += buy_trade.quantity
+        summmary.sold_quantity += buy_trade.current_sold_qty
+        summmary.closed_bought_amount += (
             buy_trade.current_sold_qty * buy_trade.price * multiplier
         )
-        summary_dict["sold_amount"] += sum([sell.amount for sell in buy_trade.sells])
+        summmary.sold_amount += sum([sell.amount for sell in buy_trade.sells])
 
-        summary_dict["profit_loss"] += sum(
-            [sell.profit_loss for sell in buy_trade.sells]
-        )
+        summmary.profit_loss += sum([sell.profit_loss for sell in buy_trade.sells])
 
     def analyze_trades(self) -> None:
         """Analyze trades and calculate profit/loss for each trade."""
@@ -414,30 +346,23 @@ class TradingAnalyzer:
         logging.info(f"Working on symbol: {symbol}")
 
         try:
-
             # Validate all trades before processing. Flag Options trades
             for trade in self.trade_transactions:
                 self._validate_trade(trade)
                 # self._initialize_sell_trade(sell_trade, buy_trade)
 
-            # Sort trades
             sorted_trades = self._sort_trades()
 
-            # Create stock and option summaries
             stock_summary, option_summary = self._create_stock_and_option_summary(
                 sorted_trades
             )
-            # logging.debug(f"[{symbol}] Stock Summary: {stock_summary}")
             logging.debug(f"[{symbol}] Option Summary: {option_summary}")
-            # Initialize profit/loss data
             self._initialize_profit_loss_data(
                 stock_summary=stock_summary, option_summary=option_summary
             )
 
-            # Sanity check summaries
             self._stock_option_summary_sanity_check(stock_summary, option_summary)
 
-            # Process stock and option trades
             self._process_trades_by_type("stock", stock_summary, symbol)
             self._process_trades_by_type("option", option_summary, symbol)
 
@@ -463,7 +388,7 @@ class TradingAnalyzer:
         )
 
     def _initialize_profit_loss_data(
-        self, stock_summary: Dict[str, Any], option_summary: Dict[str, Any]
+        self, stock_summary: TradeSummary, option_summary: TradeSummary
     ) -> Dict[str, Any]:
         """Initialize the profit/loss data structure."""
         self.profit_loss_data = {
@@ -479,26 +404,29 @@ class TradingAnalyzer:
         return self.profit_loss_data
 
     def _process_trades_by_type(
-        self, security_type: str, trade_summary: Dict[str, Any], symbol: str
+        self, security_type: str, trade_summary: TradeSummary, symbol: str
     ) -> None:
         """Process trades for a specific type (stock or option)."""
         multiplier = 100 if security_type == "option" else 1
         running_bought_quantity = 0
         running_sold_quantity = 0
         running_sold_amount = 0
-        sell_trades = trade_summary.pop("sell_trades")
-        buy_trades = trade_summary.pop("buy_trades")
+        # TODO If there is no reason to have buy_trades and sell_trades as lists in the TradeSummary
+        # Put them separately
 
-        while running_bought_quantity < trade_summary["bought_quantity"]:
+        sell_trades = trade_summary.sell_trades[:]
+        # trade_summary.sell_trades.clear()
+        sell_trades = trade_summary.sell_trades[:]
+        buy_trades = trade_summary.buy_trades[:]
+        # trade_summary.buy_trades.clear()
+
+        while running_bought_quantity < trade_summary.bought_quantity:
             if not buy_trades:
-                missing = trade_summary["bought_quantity"] - running_bought_quantity
-                logging.error(
-                    f"[{symbol}] No buy trades.There should be {missing} trades"
-                )
+                missing = trade_summary.bought_quantity - running_bought_quantity
+                logging.error(f"[{symbol}] You are missing {missing} buy trades")
                 break
 
             current_buy_record = buy_trades.pop(0)
-            # running_bought_quantity += buy_record["quantity"]
             running_bought_quantity += current_buy_record.quantity
 
             logging.debug(
@@ -508,7 +436,7 @@ class TradingAnalyzer:
 
             # The sold Quantity that can be matched with this buy record
             unmatched_sold_quantity = (
-                trade_summary["sold_quantity"] - running_sold_quantity
+                trade_summary.sold_quantity - running_sold_quantity
             )
             logging.info(
                 f"[{symbol}] Sell {security_type} trade count: {len(sell_trades)}"
@@ -516,11 +444,9 @@ class TradingAnalyzer:
             sold_quantity_this_trade = 0
             closed_bought_amount = 0
 
-            # if buy_record["quantity"] <= unmatched_sold_quantity:
             if current_buy_record.quantity <= unmatched_sold_quantity:
                 # This Buy record has matching sells
                 sold_quantity_this_trade = current_buy_record.quantity
-                # sold_quantity_this_trade = buy_record["quantity"]
             else:
                 # Buy record will have some open trades after this
                 sold_quantity_this_trade = unmatched_sold_quantity
@@ -553,61 +479,7 @@ class TradingAnalyzer:
             )
 
         # Calculate trade summary
-        self._calculate_trade_summary(
-            trade_summary, running_sold_quantity, running_sold_amount, multiplier
-        )
-
-    def _calculate_trade_summary(
-        self,
-        trade_summary: Dict[str, Any],
-        running_sold_quantity: float,
-        running_sold_amount: float,
-        multiplier: int,
-    ) -> None:
-        """Calculate summary metrics."""
-        trade_summary["closed_bought_quantity"] = running_sold_quantity
-        trade_summary["closed_bought_amount"] = running_sold_amount
-
-        # Calculate open shares for this symbol
-        trade_summary["open_bought_quantity"] = round(
-            float(
-                trade_summary["bought_quantity"]
-                - trade_summary["closed_bought_quantity"]
-            ),
-            2,
-        )
-
-        trade_summary["open_bought_amount"] = -round(
-            float(
-                abs(trade_summary["bought_amount"])
-                - abs(trade_summary["closed_bought_amount"])
-            ),
-            2,
-        )
-
-        # Calculate Profit/Loss
-        if abs(trade_summary["closed_bought_amount"]) != 0:
-            trade_summary["profit_loss"] = float(
-                trade_summary["sold_amount"]
-                - abs(trade_summary["closed_bought_amount"])
-            )
-        trade_summary["percent_profit_loss"] = self._get_percent_profit_loss(
-            trade_summary
-        )
-
-        # Calculate Average Basis Sold Price
-        if trade_summary["sold_quantity"] != 0:
-            trade_summary["average_basis_sold_price"] = float(
-                abs(trade_summary["closed_bought_amount"])
-                / (trade_summary["sold_quantity"] * multiplier)
-            )
-
-        # Calculate Average Basis Un-Sold Price
-        if trade_summary["open_bought_quantity"] != 0:
-            trade_summary["average_basis_open_price"] = float(
-                abs(trade_summary["open_bought_amount"])
-                / (trade_summary["open_bought_quantity"] * multiplier)
-            )
+        trade_summary.calculate_final_totals(running_sold_quantity, running_sold_amount)
 
     def get_results(self) -> Dict[str, Any]:
         # TODO: Replace this with 'get_profit_loss_data' method
@@ -644,33 +516,20 @@ class TradingAnalyzer:
             f'[filter_by_{trade_status}_trades] Getting all "{trade_status}" trades'
         )
 
-        # Initialize filtered profit/loss data
-        filtered_pl = self._initialize_filtered_pl()
-
-        # Process stock and option trades
-        self._process_filtered_trades(filtered_pl, trade_status, trade_transactions)
-
-        return filtered_pl
-
-    def _initialize_filtered_pl(self) -> dict:
-        """Initialize the filtered profit/loss data structure."""
-        stock_summary = self._get_summary_dict()
-        option_summary = stock_summary.copy()
-        option_summary["is_option"] = True
-
-        return {
+        filtered_pl = {
             "stock_symbol": self.stock_symbol,
             "stock": {
-                "summary": stock_summary,
+                "summary": TradeSummary(symbol=self.stock_symbol, is_option=False),
                 "all_trades": [],
             },
             "option": {
-                "summary": option_summary,
+                "summary": TradeSummary(symbol=self.stock_symbol, is_option=True),
                 "all_trades": [],
             },
         }
+        self._process_filtered_trades(filtered_pl, trade_status, trade_transactions)
+        return filtered_pl
 
-    # def _process_filtered_trades(
     def _process_filtered_trades(
         self,
         filtered_pl: Dict[str, Any],
@@ -683,7 +542,8 @@ class TradingAnalyzer:
             self.analyze_trades()
 
         symbol = self.stock_symbol
-        logging.debug(f"[filter_by_{trade_status}_trades] Symbol: [{symbol}]")
+
+        logging.debug(f"[{symbol}] [filter_by_{trade_status}_trades]")
 
         for i, type_info in enumerate(
             [self.profit_loss_data["stock"], self.profit_loss_data["option"]]
@@ -701,45 +561,16 @@ class TradingAnalyzer:
                 if (trade_status == "open" and not buy_trade.is_done) or (
                     trade_status == "closed" and buy_trade.is_done
                 ):
+
                     self._add_buy_trade_to_summary(
                         filtered_pl[type]["summary"], buy_trade, multiplier
                     )
+
                     filtered_pl[type]["all_trades"].append(buy_trade)
 
-            self._calculate_filtered_summary(filtered_pl[type]["summary"], multiplier)
-
-    def _calculate_filtered_summary(
-        self, summary: Dict[str, Any], multiplier: int
-    ) -> None:
-        """Calculate summary metrics for filtered trades."""
-        summary["average_bought_price"] = self._get_average_bought_price(
-            summary, multiplier
-        )
-        summary["average_sold_price"] = self._get_average_sold_price(
-            summary, multiplier
-        )
-
-        summary["open_bought_quantity"] = (
-            summary["bought_quantity"] - summary["sold_quantity"]
-        )
-
-        summary["open_bought_amount"] = round(
-            abs(summary["bought_amount"]) - abs(summary["closed_bought_amount"]),
-            2,
-        )
-
-        summary["percent_profit_loss"] = self._get_percent_profit_loss(summary)
-
-        # Calculate Average Basis Sold Price
-        if abs(summary["sold_quantity"]) != 0:
-            summary["average_basis_sold_price"] = abs(
-                summary["closed_bought_amount"]
-            ) / (abs(summary["sold_quantity"] * multiplier))
-
-        # Calculate Average Basis Un-Sold Price
-        if abs(summary["open_bought_quantity"]) != 0:
-            summary["average_basis_open_price"] = abs(summary["open_bought_amount"]) / (
-                abs(summary["open_bought_quantity"] * multiplier)
+            filtered_pl[type]["summary"].calculate_final_totals(
+                filtered_pl[type]["summary"].sold_quantity,
+                filtered_pl[type]["summary"].sold_amount,
             )
 
     def get_open_trades(

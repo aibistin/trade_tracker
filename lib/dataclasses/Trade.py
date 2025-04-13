@@ -65,14 +65,7 @@ class SellTrade(Trade):
 
     profit_loss: float = 0.0
     percent_profit_loss: float = 0.0
-    # buy_trade: Optional[Trade] = None
 
-    # def __post_init__(self):
-    #     super().__post_init__()
-    # if self.buy_trade:
-    #     # Ensure buy_trade is of type BuyTrade
-    #     if not isinstance(self.buy_trade, BuyTrade):
-    #         raise ValueError("buy_trade must be an instance of BuyTrade")
 
     def close_buy_and_sell_trade(
         self,
