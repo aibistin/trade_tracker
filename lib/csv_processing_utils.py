@@ -17,8 +17,7 @@ class CSVProcessor:
 
         self.action_mapping = ActionMapping()  # Initialize action mapping
 
-
-    def extract_quantity(self,quantity_str):
+    def extract_quantity(self, quantity_str):
         """Extract numeric quantity (int or float) from string."""
 
         quantity = self.convert_to_float(quantity_str)
@@ -53,7 +52,9 @@ class CSVProcessor:
         try:
             result = float(new_input)
         except ValueError:
-            print(f"Warning: Invalid float format: {some_input}")
+            print(
+                f"Warning: Unable to convert '{some_input}' to float. Please check the input format."
+            )
             result = None
         return result
 
@@ -87,12 +88,18 @@ class CSVProcessor:
             match = re.search(r"\((.*?)\)", row["Description"])
             if match:
                 symbol = match.group(1).strip()
-                print(f"Extracted Symbol, {symbol} from Description {row['Description']}")
+                print(
+                    f"Extracted Symbol, {symbol} from Description {row['Description']}"
+                )
                 return symbol
             else:
-                print(f"Warning: No 'symbol' in Description, {row['Description']} use '{default_symbol}'")
+                print(
+                    f"Warning: No 'symbol' in Description, {row['Description']} use '{default_symbol}'"
+                )
         else:
-            print(f"Warning: Symbol and Description field are empty, use '{default_symbol}'")
+            print(
+                f"Warning: Symbol and Description field are empty, use '{default_symbol}'"
+            )
 
         return default_symbol
 
@@ -100,14 +107,12 @@ class CSVProcessor:
         """Checks if the string matches the option label pattern."""
         return bool(re.search(option_label_pattern, string))
 
-
     def is_option_trade(self, row):
         """Checks if the row is an option trade."""
         if any(x in row["Action"] for x in ["Open", "Close"]):
             return True
         else:
             return False
-
 
     def determine_trade_type(self, row):
         """Determines the trade type based on the action.
@@ -123,8 +128,7 @@ class CSVProcessor:
         elif "Trade Type" in row and row["Trade Type"] in ["C", "P"]:
             return row["Trade Type"]
 
-        return self.action_mapping.get_acronym(row["Action"]) or 'UK'  
-
+        return self.action_mapping.get_acronym(row["Action"]) or "UK"
 
     def calculate_amount(self, row):
         """Calculates the amount based on quantity and price. For Buy Sell & Re-Invest Orders"""
@@ -172,7 +176,7 @@ class CSVProcessor:
         Note: This can also be used to extract "Exchange or Exercise" label data.
         """
         # First check if the symbol contains "\s*\S+\s+\d{1,2}/\d{1,2}/\d{2,4}\s+\d+\.\d+\s+[CP]"
-        match = re.search( option_label_pattern, row["Symbol"])
+        match = re.search(option_label_pattern, row["Symbol"])
 
         if match:
             option_fields = {}
@@ -187,9 +191,7 @@ class CSVProcessor:
                 option_fields["Trade Type"] = "O"
 
             option_fields["Expiration Date"] = label.split()[1]
-            option_fields["Target Price"] = self.convert_to_float(
-                label.split()[2]
-            )
+            option_fields["Target Price"] = self.convert_to_float(label.split()[2])
             return option_fields
         else:
             print(f"Info: Is not an Option trade: {row['Symbol']}")
@@ -226,7 +228,6 @@ class CSVProcessor:
         with open(file_path, "r") as f:
             line_count = len(f.readlines())
             return line_count > 1
-
 
     def sort_output_file(self, file_path):
         """Sorts a CSV file by Symbol (ascending) and Trade Date (ascending),
@@ -267,7 +268,43 @@ class CSVProcessor:
             if f.lower().endswith(file_extension) and keyword.lower() in f.lower()
         ]
 
-    # def process_files(self, input_files, output_filename, output_header, row_processor, field_names = None):
+    def determine_account_type(self, file_name):
+        """Determine account type based on the file name."""
+        if file_name.lower().startswith("c"):
+            return "C"
+        elif file_name.lower().startswith("r"):
+            return "R"
+        return "I"
+
+    def is_duplicate_row(self, row, seen_rows, account):
+        """Check for duplicate rows."""
+        row_tuple = tuple([row.values(), account])
+        if row_tuple in seen_rows:
+            return True
+        seen_rows.add(row_tuple)
+        return False
+
+    def format_trade_transaction(self, trade_transaction):
+        """Format the trade transaction for output."""
+        return [
+            trade_transaction["symbol"],
+            trade_transaction["name"],
+            trade_transaction["action"],
+            trade_transaction["label"],
+            trade_transaction["trade_type"],
+            trade_transaction["quantity"],
+            trade_transaction["price"],
+            "",  # Fees
+            trade_transaction["trade_date"],
+            trade_transaction["expiration_date"],
+            trade_transaction["amount"],
+            trade_transaction["target_price"],
+            trade_transaction["initial_stop_price"],
+            trade_transaction["projected_sell_price"],
+            "",  # P/L
+            trade_transaction["account"],
+        ]
+
     def process_files(
         self, input_files, output_filename, output_header, row_processor, **kwargs
     ):
@@ -283,50 +320,25 @@ class CSVProcessor:
             writer.writerow(output_header)
 
             for input_file in input_files:
-                account = "I"  # C = Contributory, R = Roth Contributory, I = Individual
+
+                account = self.determine_account_type(input_file)
                 print(f"Info: Reading file path: {input_file}")
                 file_name = os.path.basename(input_file)
                 print(f"Info: File Name: {file_name}")
 
-                if file_name.lower().startswith("c"):
-                    account = "C"
-                elif file_name.lower().startswith("r"):
-                    account = "R"
-
                 with open(input_file, "r") as in_csv:
                     reader = csv.DictReader(in_csv, fieldnames=field_names)
                     for row in reader:
-                        # Deduplication
-                        row_tuple = tuple([row.values(), account])
-                        if row_tuple in seen_rows:
+                        if self.is_duplicate_row(row, seen_rows, account):
                             continue
-                        seen_rows.add(row_tuple)
 
                         # Custom row processing
                         trade_transaction = row_processor(
                             self, row, db_inserter=db_inserter, account=account
                         )
                         if trade_transaction:
-                            # Convert trade_transaction dictionary to list in the same order as output_header
                             writer.writerow(
-                                [
-                                    trade_transaction["symbol"],
-                                    trade_transaction["name"],
-                                    trade_transaction["action"],
-                                    trade_transaction["label"],
-                                    trade_transaction["trade_type"],
-                                    trade_transaction["quantity"],
-                                    trade_transaction["price"],
-                                    "",  # Fees
-                                    trade_transaction["trade_date"],
-                                    trade_transaction["expiration_date"],
-                                    trade_transaction["amount"],
-                                    trade_transaction["target_price"],
-                                    trade_transaction["initial_stop_price"],
-                                    trade_transaction["projected_sell_price"],
-                                    "",  # P/L
-                                    trade_transaction["account"],
-                                ]
+                                self.format_trade_transaction(trade_transaction)
                             )
                             out_count += 1
                     # Move to processed

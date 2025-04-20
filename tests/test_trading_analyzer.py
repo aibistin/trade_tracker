@@ -1832,8 +1832,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                     msg="NIO - percent_profit_loss",
                 )
 
-                # Add the following test cases to the `tests/test_trading_analyzer.py` file
-
     def test_get_open_trades_sn(self):
 
         symbol = next(iter(self.data_list[0]))

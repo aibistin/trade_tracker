@@ -47,13 +47,33 @@ class YahooFinance:
         )
         self.session.headers["User-agent"] = "trade-analyzer/1.0"
 
+    def __init__(self, stock_symbol, ticker_class=yf.Ticker):
+        """
+        Initializes YahooFinance with a stock symbol and a ticker class.
+        Args:
+            stock_symbol (str): The stock symbol.
+            ticker_class: The class used to fetch stock data (default is yf.Ticker).
+        """
+        self.stock_symbol = stock_symbol
+        self.ticker_class = ticker_class  # Store the ticker class
+        self.results = {}
 
-    def get_stock_data(self, max_age_minutes=60):  # Add max_age_minutes parameter
+        self.session = CachedLimiterSession(
+            limiter=Limiter(
+                RequestRate(2, Duration.SECOND * 5)
+            ),  # max 2 requests per 5 seconds
+            bucket_class=MemoryQueueBucket,
+            backend=SQLiteCache("./data/yfinance/yfinance.cache"),
+        )
+        self.session.headers["User-agent"] = "trade-analyzer/1.0"
+
+    def get_stock_data(self, max_age_minutes=60):
         """
         Fetches stock data from Yahoo Finance and caches it in a JSON file.
         Args:
             max_age_minutes (int, optional): The maximum age of the cached file in minutes.
-                                             Defaults to 15 minutes.
+                                             Defaults to 60 minutes.
+
         """
         project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         data_dir = os.path.join(project_dir, "data", "yfinance")
@@ -63,31 +83,45 @@ class YahooFinance:
             raise FileNotFoundError(f"The directory '{data_dir}' does not exist.")
 
         # Check if local cached file exists and is recent
-        if (
-            os.path.exists(file_path)
-            and (time.time() - os.path.getmtime(file_path)) / 60 < max_age_minutes
-        ):
+        if self.is_cache_valid(file_path, max_age_minutes):
             logging.debug(f"Using cached data for {self.stock_symbol}")
-            try:
-                with open(file_path, "r") as f:
-                    self.results = json.load(f)
-                return  # Return cached data
-            except Exception as e:
-                logging.error(f"Error reading cached data for {self.stock_symbol}: {e}")
+            self.load_cached_data(file_path)
+            return  # Return cached data
 
         # Fetch fresh data from Yahoo Finance
         logging.info(f"Fetching fresh data for {self.stock_symbol}")
+        self.fetch_fresh_data(file_path)
+
+    def is_cache_valid(self, file_path, max_age_minutes):
+        """Check if the cached file is valid based on its age."""
+        return (
+            os.path.exists(file_path)
+            and (time.time() - os.path.getmtime(file_path)) / 60 < max_age_minutes
+        )
+
+    def load_cached_data(self, file_path):
+        """Load data from the cached JSON file."""
         try:
-            # Using the inbuilt yFinance cache
-            stock_results = yf.Ticker(self.stock_symbol, session=self.session)
-            stock_results.actions # This is a dummy call to trigger the cache   
+            with open(file_path, "r") as f:
+                self.results = json.load(f)
+                logging.debug(f"Loaded cached for {self.stock_symbol}: {self.results}")
+        except Exception as e:
+            logging.error(f"Error reading cached data for {self.stock_symbol}: {e}")
+            self.results = {}
+
+    def fetch_fresh_data(self, file_path):
+        """Fetch fresh stock data and cache it."""
+        try:
+            stock_results = self.ticker_class(
+                self.stock_symbol, session=self.session
+            )  # Use the injected ticker class
+            stock_results.actions  # This is a dummy call to trigger the cache
+            logging.debug(f"Got results for {self.stock_symbol}: {stock_results.info}")
 
             if all(value is None for value in stock_results.info.values()):
                 self.results = {}
             else:
                 self.results = stock_results.info
-                # ETFs don't have a currentPrice attribute
-                # EQUITY, ETF, INDEX, CRYPTOCURRENCY, FUTURE, CURRENCY, OPTION
                 if (
                     self.results["quoteType"] == "ETF"
                     and "currentPrice" not in stock_results.info

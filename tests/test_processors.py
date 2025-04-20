@@ -9,10 +9,12 @@ from lib.db_utils import DatabaseInserter
 class TestCSVProcessing(unittest.TestCase):
 
     def setUp(self):
+        self.test_dir = "test_data"
         self.test_input_dir = "test_data/input"
         self.test_output_dir = "test_data/output"
         self.test_processed_dir = "test_data/processed"
-        self.test_db_path = "test_stock_trades.db"
+        self.test_db_path = "test_data/test_stock_trades.db"
+        self.test_db_path_two = "test_data/test_trades.db"
 
         # Create test directories if they don't exist
         os.makedirs(self.test_input_dir, exist_ok=True)
@@ -23,9 +25,9 @@ class TestCSVProcessing(unittest.TestCase):
             self.test_input_dir, self.test_output_dir, self.test_processed_dir)
 
         self.db_inserter = DatabaseInserter(self.test_db_path)
-        with DatabaseInserter(db_path='trades.db') as db:
+        with DatabaseInserter(db_path=self.test_db_path_two) as db:
             transaction = {
-                #TODO Create a sample tradde_transaction for testing
+                #TODO Create a sample trade_transaction for testing
             }
             # if not db.transaction_exists(transaction):
                 # db.insert_transaction(transaction)
@@ -35,8 +37,20 @@ class TestCSVProcessing(unittest.TestCase):
     def tearDown(self):
         # Clean up test database and output files
         os.remove(self.test_db_path)
+        os.remove(self.test_db_path_two)
         for file in os.listdir(self.test_output_dir):
             os.remove(os.path.join(self.test_output_dir, file))
+        for file in os.listdir(self.test_input_dir):
+            os.remove(os.path.join(self.test_input_dir, file))
+        for file in os.listdir(self.test_processed_dir):
+            os.remove(os.path.join(self.test_processed_dir, file))
+        # Remove test directories
+        os.rmdir(self.test_input_dir)
+        os.rmdir(self.test_output_dir)
+        os.rmdir(self.test_processed_dir)
+        # Remove test directory
+        os.rmdir(self.test_dir)
+
 
     def test_convert_to_float(self):
         # Test cases for convert_to_float
