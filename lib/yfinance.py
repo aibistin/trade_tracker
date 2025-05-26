@@ -29,24 +29,6 @@ class YahooFinance:
         results (dict): A dictionary to store the retrieved stock data.
     """
 
-    def __init__(self, stock_symbol):
-        """
-        Initializes YahooFinance with a stock symbol.
-        Args:
-            stock_symbol (str): The stock symbol.
-        """
-        self.stock_symbol = stock_symbol
-        self.results = {}
-
-        self.session = CachedLimiterSession(
-            limiter=Limiter(
-                RequestRate(2, Duration.SECOND * 5)
-            ),  # max 2 requests per 5 seconds
-            bucket_class=MemoryQueueBucket,
-            backend=SQLiteCache("./data/yfinance/yfinance.cache"),
-        )
-        self.session.headers["User-agent"] = "trade-analyzer/1.0"
-
     def __init__(self, stock_symbol, ticker_class=yf.Ticker):
         """
         Initializes YahooFinance with a stock symbol and a ticker class.

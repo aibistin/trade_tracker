@@ -1,5 +1,4 @@
 # app/models/models.py
-# from sqlalchemy import func, select, case
 from sqlalchemy import func, case, cast, Numeric, select
 
 # from app import db
@@ -285,6 +284,7 @@ def get_current_holdings_symbols():
 
 
 def get_raw_trade_data(symbol):
+
     return (
         db.session.query(
             TradeTransaction.id,

@@ -42,7 +42,7 @@ class Trade:
         if isinstance(dt_obj_or_str, datetime):
             # If it's already a datetime object, format it directly
             return dt_obj_or_str.strftime("%Y-%m-%dT%H:%M:%S")
-    
+
         if isinstance(dt_obj_or_str, str):
             # Try to parse the string in the expected formats
             for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
@@ -51,7 +51,7 @@ class Trade:
                     return date_obj.strftime("%Y-%m-%dT%H:%M:%S")
                 except ValueError:
                     continue  # Try the next format if the current one fails
-        
+
             # If none of the formats worked, raise an error
             raise ValueError(f"Invalid date string format: {dt_obj_or_str}")
 
@@ -65,7 +65,6 @@ class SellTrade(Trade):
 
     profit_loss: float = 0.0
     percent_profit_loss: float = 0.0
-
 
     def close_buy_and_sell_trade(
         self,
@@ -81,8 +80,11 @@ class SellTrade(Trade):
             qty_to_close (float): The quantity to close the trade.
             amt_to_close (float): The amount to close the trade.
         """
-        self.quantity = qty_to_close
-        self.amount = amt_to_close
+        # print(
+            # f"{self.symbol} - ID {self.trade_id} - Qty: {self.quantity} - Quantity to close: {qty_to_close}"
+        # )
+        # self.quantity = qty_to_close
+        # self.amount = amt_to_close
         buy_trade.current_sold_qty += qty_to_close
         buy_trade.is_done = True
         sell_trade_unapplied.is_done = True

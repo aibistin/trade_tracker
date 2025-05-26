@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import List, Optional, Union
 from lib.dataclasses.Trade import BuyTrade, SellTrade
 
@@ -27,12 +28,25 @@ class TradeSummary:
     average_basis_sold_price: float = 0.0
     buy_trades: List["BuyTrade"] = field(default_factory=list)
     sell_trades: List["SellTrade"] = field(default_factory=list)
-    multiplier: Optional[int] = 1
+    multiplier: int = 1
+    after_date: Optional[str] = None
+
+    # def __post_init__(self):
+    #     self.multiplier = (
+    #         OPTIONS_MULTIPLIER if self.is_option == True else STOCK_MULTIPLIER
+    #     )
 
     def __post_init__(self):
+        """
+        Create a multiplier based on the type of trade.
+        Populate after_date with ISO format of after_date.
+        """
         self.multiplier = (
             OPTIONS_MULTIPLIER if self.is_option == True else STOCK_MULTIPLIER
         )
+
+        if self.after_date:
+            self.after_date = self._convert_to_iso_format(self.after_date)
 
     def get_average_bought_price(self) -> float:
         """Calculate the average bought price."""
@@ -103,8 +117,8 @@ class TradeSummary:
     ) -> None:
         """Calculate summary metrics."""
 
-        self.closed_bought_quantity = round(final_sold_quantity,2)
-        self.closed_bought_amount = round(final_sold_amount,2)
+        self.closed_bought_quantity = round(final_sold_quantity, 2)
+        self.closed_bought_amount = round(final_sold_amount, 2)
 
         self.get_open_bought_quantity()
         self.get_open_bought_amount()
@@ -114,3 +128,23 @@ class TradeSummary:
         self.get_average_basis_sold_price()
         # Calculate Average Basis Un-Sold Price
         self.get_average_basis_open_price()
+
+    def _convert_to_iso_format(self, dt_obj_or_str: Union[datetime, str]) -> str:
+        if isinstance(dt_obj_or_str, datetime):
+            # If it's already a datetime object, format it directly
+            return dt_obj_or_str.strftime("%Y-%m-%dT%H:%M:%S")
+
+        if isinstance(dt_obj_or_str, str):
+            # Try to parse the string in the expected formats
+            for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+                try:
+                    date_obj = datetime.strptime(dt_obj_or_str, fmt)
+                    return date_obj.strftime("%Y-%m-%dT%H:%M:%S")
+                except ValueError:
+                    continue
+
+            raise ValueError(
+                f"Invalid date string format for 'after_date': {dt_obj_or_str}"
+            )
+
+        raise TypeError("Input must be a string or a datetime object.")
