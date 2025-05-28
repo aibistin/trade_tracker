@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional, Union
-
 OPTIONS_MULTIPLIER = 100
 STOCK_MULTIPLIER = 1
 
@@ -18,9 +17,10 @@ class Trade:
     price: float = 0.0
     amount: float = 0.0
     is_option: bool = False
+    is_buy_trade: bool = False
     is_done: bool = False
     # Optional fields
-    trade_date_iso: Optional[str] = None
+    trade_date_iso: Optional[str] = field(default=None, init=False)
     account: Optional[str] = None
     expiration_date_iso: Optional[str] = None
     target_price: Optional[float] = None
@@ -29,8 +29,16 @@ class Trade:
     projected_sell_price: Optional[float] = None
 
     def __post_init__(self):
-        """Populate trade_date_iso with ISO format of trade_date."""
-        if self.trade_date and self.trade_date_iso is None:
+        """
+        Do some validation.
+        Populate trade_date_iso with ISO format of trade_date.
+        """
+
+        if self.quantity <= 0:
+            raise ValueError(f"{self.symbol} - ID: {self.trade_id} - Invalid quantity: {self.quantity}")
+
+        # if self.trade_date and self.trade_date_iso is None:
+        if self.trade_date:
             self.trade_date_iso = self._convert_to_iso_format(self.trade_date)
 
         if self.expiration_date_iso:
@@ -57,7 +65,6 @@ class Trade:
 
         # If the input is neither a string nor a datetime object, raise an error
         raise TypeError("Input must be a string or a datetime object.")
-
 
 @dataclass
 class SellTrade(Trade):
@@ -148,10 +155,10 @@ class SellTrade(Trade):
             2,
         )
 
-
 @dataclass
 class BuyTrade(Trade):
     """Dataclass for Buy Trade, inheriting from Trade."""
 
+    is_buy_trade: bool = True
     current_sold_qty: float = 0.0
     sells: List[SellTrade] = field(default_factory=list)

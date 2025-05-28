@@ -1532,6 +1532,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         analyzer.analyze_trades()
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
+        print(f"NVDA profit_loss_data: {profit_loss_data}")
         all_trades = profit_loss_data["stock"]["all_trades"]
 
         # Check results for symbol 'NVDA'

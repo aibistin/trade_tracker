@@ -26,8 +26,8 @@ class TradeSummary:
     average_bought_price: float = 0.0
     average_basis_open_price: float = 0.0
     average_basis_sold_price: float = 0.0
-    buy_trades: List["BuyTrade"] = field(default_factory=list)
-    sell_trades: List["SellTrade"] = field(default_factory=list)
+    buy_trades: List[BuyTrade] = field(default_factory=list)
+    sell_trades: List[SellTrade] = field(default_factory=list)
     multiplier: int = 1
     after_date: Optional[str] = None
 
