@@ -577,7 +577,61 @@ class TestTradeClasses(unittest.TestCase):
                     "price": 100.0,
                 }  # type: ignore
             )
+            
 
+    def test_expired_option_conversion(self):
+        """Test EXP action converts to SC trade with zero value"""
+        data = {
+            "trade_id": "exp-opt",
+            "symbol": "OLD",
+            "action": "EXP",
+            "trade_date": datetime(2024, 9, 1),
+            "quantity": 10,
+            "price": 1.25,  # Should be overridden
+            "is_option": True,
+            "target_price": 50.0
+        }
+        trade = SellTrade(cast(TradeData,data))
+        
+        self.assertEqual(trade.action, "SC")
+        self.assertEqual(trade.price, 0.0)
+        self.assertEqual(trade.amount, 0.0)
+        self.assertEqual(trade.reason, "Expired Option")
+    
+    def test_exercised_option_conversion(self):
+        """Test EE action converts to SC trade with target price"""
+        data = {
+            "trade_id": "exer-opt",
+            "symbol": "OLD",
+            "action": "EE",
+            "trade_date": datetime(2024, 9, 1),
+            "quantity": 5,
+            "price": 0.75,  # Should be overridden
+            "is_option": True,
+            "target_price": 95.50
+        }
+        trade = SellTrade(cast(TradeData,data))
+        
+        self.assertEqual(trade.action, "SC")
+        self.assertEqual(trade.price, 95.50)
+        self.assertAlmostEqual(trade.amount, 95.50 * 5 * 100)
+        self.assertEqual(trade.reason, "Exercised Option")
+    
+    def test_exercised_option_missing_target(self):
+        """Test EE action without target_price raises error"""
+        data = {
+            "trade_id": "exer-opt",
+            "symbol": "XX",
+            "action": "EE",
+            "trade_date": datetime(2024, 9, 1),
+            "quantity": 5,
+            "is_option": True,
+            # Missing target_price
+        }
+    
+        with self.assertRaises(ValueError):
+            SellTrade(cast(TradeData,data))
+            
 
 if __name__ == "__main__":
     unittest.main()

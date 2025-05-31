@@ -22,13 +22,11 @@ STOCK_MULTIPLIER = 1
 timestr = time.strftime("%Y%m%d")
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 
-
 # Set up logging to flush immediately (no buffering)
 class FlushStreamHandler(logging.StreamHandler):
     def emit(self, record):
         super().emit(record)
         self.flush()
-
 
 logging.getLogger().handlers.clear()
 # logging.getLogger().addHandler(FlushStreamHandler())
@@ -78,11 +76,6 @@ class TradingAnalyzer:
         self.buy_sell_actions = ["B", "Buy", "BO", "S", "SC"]
         self.action_mapping = ActionMapping()
 
-    def _is_option(self, trade: Dict[str, Any]) -> bool:
-        if "trade_type" not in trade:
-            raise ValueError(f"Trade is missing trade_type field: {trade}")
-        else:
-            return trade["trade_type"] in ("C", "P") or trade["action"] in ("EXP", "EE")
 
     def _convert_to_trade(self, trade: Dict[str, Any]) -> BuyTrade | SellTrade:
         """Validate a trade to ensure it has the required fields and valid data.
@@ -102,27 +95,6 @@ class TradingAnalyzer:
                 raise ValueError(
                     f"{self.stock_symbol} - is missing required field: {field}"
                 )
-
-        # TODO - Put in the Trade Dataclass
-        if self.action_mapping.get_full_name(trade["action"]) is None:
-            raise ValueError(
-                f"{trade['symbol']} ID: {trade['id']} - Invalid action acronym: {trade['Action']}"
-            )
-
-        trade["is_option"] = self._is_option(trade)
-
-        if trade["action"] == "EXP":
-            # Expired Option. Convert it to a Sell trade for price=0, amount=0
-            trade["action"] = "SC"
-            trade["amount"] = 0
-            trade["Reason"] = "Expired Option"
-        elif trade["action"] == "EE":
-            # The Option is Exercised. Convert it to a Sell trade for price=0, amount=0
-            # TODO Find subsequent Buy Trade and
-            trade["action"] = "SC"
-            trade["price"] = trade["target_price"]
-            trade["amount"] = trade["target_price"] * trade["quantity"] * 100
-            trade["Reason"] = "Exercised Option"
 
         if trade["action"] in (self.buy_sell_actions):
             if not isinstance(trade["price"], (int, float)) or trade["price"] <= 0:

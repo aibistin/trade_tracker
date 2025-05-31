@@ -3,6 +3,7 @@ import copy
 import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any, TypedDict
+from lib.models.ActionMapping import ActionMapping
 
 OPTIONS_MULTIPLIER = 100
 STOCK_MULTIPLIER = 1
@@ -87,7 +88,10 @@ class Trade:
         Initialize trade from dictionary with validation and defaults
         """
 
+        self.action_mapping = ActionMapping()
+
         # Set required attributes
+
         # The Database trade_transaction table uses "id" 
         setattr(self, "trade_id", trade_data.get("trade_id", trade_data.get("id")))
         if not self.trade_id:
@@ -107,19 +111,29 @@ class Trade:
         )
 
         self.expiration_date_iso = trade_data.get("expiration_date", None)
+        
+        self.is_option = self._determine_if_option()
+
+        # Validation
+        if self.action_mapping.get_full_name(self.action) is None:
+            raise ValueError( f"{self.symbol} ID: {self.trade_id} - Invalid action acronym: {self.action}")
+
+        if self.quantity <= 0:
+            raise ValueError(
+                f"Invalid quantity: {self.quantity} for trade {self.trade_id}"
+            )
 
         # Handle date conversions
         self.trade_date_iso = self._convert_to_iso_format(self.trade_date)
+
         if self.expiration_date_iso:
             self.expiration_date_iso = self._convert_to_iso_format(
                 self.expiration_date_iso
             )
 
-        # Validation
-        if self.quantity <= 0:
-            raise ValueError(
-                f"Invalid quantity: {self.quantity} for trade {self.trade_id}"
-            )
+
+        self._normalize_special_trade_types()
+
 
     def __repr__(self) -> str:
         """Human-readable representation showing all attributes"""
@@ -160,6 +174,47 @@ class Trade:
         return OPTIONS_MULTIPLIER if self.is_option else STOCK_MULTIPLIER
 
 
+    def _determine_if_option(self) -> bool:
+        """Determine if this trade is for an option based on trade type or action"""
+        if not hasattr(self, 'trade_type'):
+            raise AttributeError(f"Trade {self.trade_id} is missing trade_type attribute")
+    
+        # Option if trade type is Call/Put or action is expiration/exercise
+        return self.trade_type in ("C", "P") or self.action in ("EXP", "EE")
+
+    def _normalize_special_trade_types(self):
+        """Convert special trade types (EXP/EE) to standard sell trades"""
+        if self.action == "EXP":
+            self._convert_expired_option()
+        elif self.action == "EE":
+            self._convert_exercised_option()
+    
+    def _convert_expired_option(self):
+        """Convert expired option to sell trade with zero value"""
+        if not self.is_option:
+            logging.warning(f"Trade {self.trade_id} marked as EXP but is not option")
+            
+        self.action = "SC"
+        self.price = 0.0
+        self.amount = 0.0
+        self.reason = "Expired Option"
+        logging.debug(f"Converted EXP trade {self.trade_id} to SC with price=0")
+    
+    def _convert_exercised_option(self):
+        """Convert exercised option to sell trade with target price"""
+        if not self.is_option:
+            logging.warning(f"Trade {self.trade_id} marked as EE but is not option")
+        
+        if self.target_price is None:
+            raise ValueError(f"Exercised option {self.trade_id} missing target_price")
+            
+        self.action = "SC"
+        self.price = self.target_price
+        self.amount = self.price * self.quantity * OPTIONS_MULTIPLIER
+        self.reason = "Exercised Option"
+        logging.debug(f"Converted EE trade {self.trade_id} to SC at {self.target_price}")
+
+    
 # BuyTrade and SellTrade classes remain the same as before
 class BuyTrade(Trade):
     """Class representing a buy trade with position management"""

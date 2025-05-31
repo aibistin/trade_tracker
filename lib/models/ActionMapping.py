@@ -6,7 +6,7 @@ from typing import Dict
 class ActionMapping:
     """Dataclass for storing and managing trade action mappings"""
 
-    action_map: Dict[str, str] 
+    action_map: Dict[str, str]
 
     def __init__(self):
         self.action_map = {
@@ -41,18 +41,19 @@ class ActionMapping:
         # Create reverse mapping for potential future use
         self.reverse_map = {v: k for k, v in self.action_map.items()}
 
-
     def get_acronym(self, full_name: str) -> str | None:
         """Get action acronym from full name"""
         return self.action_map.get(full_name, None)
 
     def is_buy_type_action(self, acronym: str) -> bool:
         """Check if the acronym is a buy type action (Buy, Buy to Open, Sell to Open)"""
-        return True if acronym in {"B", "BO", "RS", "RD", "PYDR", "QDR", "SO"} else False
+        return (
+            True if acronym in {"B", "BO", "RS", "RD", "PYDR", "QDR", "SO"} else False
+        )
 
     def is_sell_type_action(self, acronym: str) -> bool:
         """Check if the acronym is a sell type action (Sell, Buy to Close , Sell to Close)"""
-        return acronym in {"S", "BC", "SC"}
+        return acronym in {"S", "EE", "EXP", "BC", "SC"}
 
     def get_full_name(self, acronym: str) -> str | None:
         """Get full action name from acronym or None"""
