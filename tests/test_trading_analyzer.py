@@ -1333,7 +1333,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                 self.assertEqual(
                     getattr(got_trade, field),
                     expected_trade[field],
-                    f"[{symbol}] {field} - Got {getattr(got_trade,field)} - expected {expected_trade[field]}",
+                    f"[{symbol}] {field} - Got '{getattr(got_trade,field)}' - expected {expected_trade[field]}",
                 )
 
             self.assertEqual(
@@ -1532,7 +1532,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         analyzer.analyze_trades()
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
-        print(f"NVDA profit_loss_data: {profit_loss_data}")
+        # print(f"NVDA profit_loss_data: {profit_loss_data}")
         all_trades = profit_loss_data["stock"]["all_trades"]
 
         # Check results for symbol 'NVDA'
@@ -1629,7 +1629,7 @@ class TestTradingAnalyzer(unittest.TestCase):
             stock_summary.sold_amount,
             4720.0 + 2163.01,
             places=2,
-            msg=f"{symbol} - sold_amount",
+            msg=f"{symbol} - sold_amount - Got {stock_summary.sold_amount} - expected {4720.0 + 2163.01}",
         )
 
         self.assertEqual(

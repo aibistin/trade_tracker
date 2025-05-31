@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional, Union
-from lib.dataclasses.Trade import BuyTrade, SellTrade
+from lib.models.Trade import BuyTrade, SellTrade
 
 OPTIONS_MULTIPLIER = 100
 STOCK_MULTIPLIER = 1

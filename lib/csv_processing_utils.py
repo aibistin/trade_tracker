@@ -2,7 +2,7 @@ import csv
 import os
 import re
 from datetime import datetime
-from lib.dataclasses.ActionMapping import ActionMapping
+from lib.models.ActionMapping import ActionMapping
 
 option_label_pattern = r"\s*\S+\s+\d{1,2}/\d{1,2}/\d{2,4}\s+\d+\.\d+\s+[CP]"
 default_symbol = "NONE"  # Ex: Moneylink transfer transactions.

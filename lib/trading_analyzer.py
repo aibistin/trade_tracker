@@ -1,20 +1,19 @@
 # lib/trading_analyzer.py
 from dotenv import load_dotenv
 import os
+
 load_dotenv()
 
 import warnings
 import logging
 import os
 import time
-import copy
-from dataclasses import replace
 from datetime import datetime
-from typing import Any, List, Dict, Optional
-from lib.dataclasses.Trade import BuyTrade, SellTrade, Trade
-from lib.dataclasses.Trades import Trades, BuyTrades
-from lib.dataclasses.TradeSummary import TradeSummary
-from lib.dataclasses.ActionMapping import ActionMapping
+from typing import Any, cast, Dict, List, Optional
+from lib.models.Trade import BuyTrade, SellTrade, TradeData
+from lib.models.Trades import Trades, BuyTrades
+from lib.models.TradeSummary import TradeSummary
+from lib.models.ActionMapping import ActionMapping
 
 
 OPTIONS_MULTIPLIER = 100
@@ -54,7 +53,6 @@ class TradingAnalyzer:
         self.stock_symbol = stock_symbol
         self.trade_transactions = trade_transactions
 
-        # TODO - put into a new trades Dataclass
         self.required_trade_fields = [
             "id",
             "symbol",
@@ -86,7 +84,6 @@ class TradingAnalyzer:
         else:
             return trade["trade_type"] in ("C", "P") or trade["action"] in ("EXP", "EE")
 
-
     def _convert_to_trade(self, trade: Dict[str, Any]) -> BuyTrade | SellTrade:
         """Validate a trade to ensure it has the required fields and valid data.
 
@@ -106,7 +103,7 @@ class TradingAnalyzer:
                     f"{self.stock_symbol} - is missing required field: {field}"
                 )
 
-        # TODO - A method in the new trades Dataclass
+        # TODO - Put in the Trade Dataclass
         if self.action_mapping.get_full_name(trade["action"]) is None:
             raise ValueError(
                 f"{trade['symbol']} ID: {trade['id']} - Invalid action acronym: {trade['Action']}"
@@ -140,159 +137,14 @@ class TradingAnalyzer:
             )
 
         if self.action_mapping.is_buy_type_action(trade["action"]):
-            return self._initialize_buy_trade(trade)
+            return BuyTrade(cast(TradeData, trade))
         elif self.action_mapping.is_sell_type_action(trade["action"]):
-            return self._initialize_sell_trade(trade)
+            return SellTrade(cast(TradeData, trade))
         else:
             logging.error(f"[{self.stock_symbol}] Unknown action: {trade['action']}")
             raise ValueError(
                 f"[{self.stock_symbol}] Unknown action: {trade['action']} - ID {trade['id']}"
             )
-
-    def _sell_adder(
-        self,
-        buy_trade: BuyTrade,
-        sell_trade_unapplied: SellTrade,
-        symbol: str,
-    ) -> SellTrade:
-        """Create a SellTrade object from a sell trade dictionary.
-
-        Args:
-            buy_trade (BuyTrade): The buy trade object.
-            sell_trade_unapplied (SellTrade): The SellTrade not applied to this BuyTrade.
-            symbol (str): The stock symbol.
-
-        Returns:
-            SellTrade: A SellTrade object to apply to the BuyTrade.
-        """
-
-        multiplier = OPTIONS_MULTIPLIER if buy_trade.is_option else STOCK_MULTIPLIER
-
-        # The sell trade that IS applied to the buy trade
-        sell_trade_applied = copy.deepcopy(sell_trade_unapplied)
-
-        logging.debug(f"[{symbol}] SellTrade applied: {sell_trade_applied}")
-        # Quantity and amount needed to close this buy trade
-        qty_to_close_the_trade = buy_trade.quantity - buy_trade.current_sold_qty
-        amt_to_close_the_trade = round(
-            sell_trade_applied.price * qty_to_close_the_trade * multiplier, 2
-        )
-
-        if sell_trade_applied.quantity == qty_to_close_the_trade:
-            sell_trade_applied.close_buy_and_sell_trade(
-                buy_trade,
-                sell_trade_unapplied,
-                qty_to_close_the_trade,
-                amt_to_close_the_trade,
-            )
-            sell_trade_unapplied = None
-
-            logging.debug(
-                f"Closed BuyTrade: {buy_trade.trade_id} with qty: {qty_to_close_the_trade} and amount: {amt_to_close_the_trade}"
-            )
-
-        elif sell_trade_applied.quantity > qty_to_close_the_trade:
-            # The BuyTrade is closed. The remaining SellTrade can be applied to the next BuyTrade
-            sell_trade_applied.close_buy_trade_update_sell_trade(
-                buy_trade,
-                sell_trade_unapplied,
-                qty_to_close_the_trade,
-                amt_to_close_the_trade,
-            )
-
-            logging.debug(
-                f"Closed BuyTrade: {buy_trade.trade_id} with quantity: {qty_to_close_the_trade} and amount: {amt_to_close_the_trade}"
-            )
-        else:
-            # sell_trade_applied .quantity < qty_to_close_the_trade:
-            sell_trade_applied.update_buy_trade_close_sell_trade(
-                buy_trade, sell_trade_unapplied
-            )
-            sell_trade_unapplied = None
-
-            logging.debug(
-                f"Update buy/sell trade: {buy_trade.trade_id} with quantity: {sell_trade_applied .quantity} and amount: {sell_trade_applied .amount}"
-            )
-
-        logging.debug(f"[{symbol}] Applied SellTrade: {sell_trade_applied }")
-        logging.debug(f"[{symbol}] Unapplied SellTrade: {sell_trade_unapplied}")
-        return replace(sell_trade_applied)
-
-    def _initialize_buy_trade(self, buy_record: Dict[str, Any]) -> BuyTrade:
-        """Create a BuyTrade object from a buy record dictionary.
-
-        Args:
-            buy_record (dict): A dictionary containing trade data.
-
-        Returns:
-            BuyTrade: A Trade object representing the buy trade.
-        """
-
-        return BuyTrade(
-            trade_id=buy_record["id"],
-            symbol=buy_record["symbol"],
-            action=buy_record["action"],
-            trade_date=buy_record["trade_date"],
-            trade_type=buy_record["trade_type"],
-            trade_label=buy_record["label"],
-            quantity=buy_record["quantity"],
-            price=buy_record["price"],
-            target_price=buy_record["target_price"],
-            amount=buy_record["amount"],
-            current_sold_qty=0,
-            is_option=buy_record.get("is_option", False),
-            is_done=buy_record.get("is_done", False),
-            account=buy_record.get("account", None),
-            expiration_date_iso=buy_record.get("expiration_date", None),
-        )
-
-    def _initialize_sell_trade(
-        self,
-        sell_trade: Dict[str, Any],
-    ) -> SellTrade:
-
-        return SellTrade(
-            trade_id=sell_trade["id"],
-            symbol=sell_trade["symbol"],
-            action=sell_trade["action"],
-            trade_date=sell_trade["trade_date"],
-            trade_type=sell_trade.get("trade_type", ""),
-            trade_label=sell_trade.get("label", ""),
-            quantity=sell_trade.get("quantity", 0.0),
-            price=sell_trade.get("price", 0.0),
-            amount=sell_trade.get("amount", 0.0),  # Ensure amount is set, default to 0
-            reason=sell_trade.get("reason", None),
-            initial_stop_price=sell_trade.get("initial_stop_price", None),
-            projected_sell_price=sell_trade.get("projected_sell_price", None),
-            account=sell_trade.get("account", None),
-            is_option=sell_trade.get("is_option", False),
-            is_done=sell_trade.get("is_done", False),
-            target_price=sell_trade.get("target_price", None),
-            expiration_date_iso=sell_trade.get("expiration_date", None),
-            profit_loss=0,
-            percent_profit_loss=0,
-        )
-
-    def _add_sells_to_this_trade(
-        self, buy_trade: BuyTrade, sell_trades: List[SellTrade], symbol: str
-    ) -> None:
-        """Add sell trades to a buy trade and update quantities and amounts.
-
-        Args:
-            buy_trade (BuyTrade): The buy trade object.
-            sell_trades (List[SellTrade]): A list of sell trade dictionaries.
-            symbol (str): The stock symbol.
-        """
-
-        while sell_trades and (buy_trade.current_sold_qty < buy_trade.quantity):
-            sell_trade = sell_trades[0]
-            sell_rec_for_trade = self._sell_adder(buy_trade, sell_trade, symbol)
-
-            # if sell_trade["is_done"]:
-            if sell_trade is None or sell_trade.is_done:
-                sell_trades.pop(0)
-
-            buy_trade.sells.append(sell_rec_for_trade)
 
     def _add_buy_trade_to_summary(
         self, summmary: TradeSummary, buy_trade: BuyTrade, multiplier: int
@@ -348,7 +200,9 @@ class TradingAnalyzer:
 
             try:
                 # Create BuyTrades - A subclass of Trades
-                buy_trades = self._add_sell_trades_to_their_buy_trade(trades, symbol, after_date)
+                buy_trades = self._add_sell_trades_to_their_buy_trade(
+                    trades, symbol, after_date
+                )
             except Exception as e:
                 logging.error(
                     f"[{symbol}] Error adding {security_type} sell trades: {e}"
@@ -405,7 +259,9 @@ class TradingAnalyzer:
             try:
                 datetime.strptime(after_date, "%Y-%m-%d")
             except ValueError:
-                raise ValueError(f"after_date must be in 'yyyy-mm-dd' format, got: {after_date}")
+                raise ValueError(
+                    f"after_date must be in 'yyyy-mm-dd' format, got: {after_date}"
+                )
 
         try:
             self._analyze_trades(after_date)
@@ -416,13 +272,10 @@ class TradingAnalyzer:
             logging.error(f"[{symbol} Unexpected error analyzing trades: {e}")
             raise
 
-    # TODO - put into a new trades Dataclass?
     def _add_sell_trades_to_their_buy_trade(
         self, trades: Trades, symbol: str, after_date: Optional[str] = None
-    ) -> BuyTrades | None:
+    ) -> Optional[BuyTrades]:
         """Group sell trades with their corresponding buy trades (stock or option)."""
-
-        running_bought_quantity = 0
 
         sell_trades_sorted = trades.sell_trades[:]
 
@@ -430,37 +283,26 @@ class TradingAnalyzer:
             logging.info(f"[{symbol}] No {trades.security_type} buy trades")
             return None
 
-        FilteredBuyTrades = BuyTrades(after_date_str=after_date, security_type=trades.security_type)
-
+        FilteredBuyTrades = BuyTrades(
+            after_date_str=after_date, security_type=trades.security_type
+        )
+        # TODO - New
         for current_buy_record in trades.buy_trades:
+            if sell_trades_sorted:
+                # REPLACE old logic with new method
+                current_buy_record.apply_sell_trades(sell_trades_sorted)
+            # TODO - End New
 
-            running_bought_quantity += current_buy_record.quantity
-
-            logging.info(
-                f"[{symbol}] Running {trades.security_type} bought qty: {running_bought_quantity}"
-                + f"[{symbol}] Sell {trades.security_type} trade count: {len(sell_trades_sorted)}"
-            )
-            logging.debug(f"[{symbol}] Current Buy Record: {current_buy_record}")
-
-            if len(sell_trades_sorted) > 0:
-                self._add_sells_to_this_trade(
-                    current_buy_record, sell_trades_sorted, symbol
-                )
-            else:
-                logging.info(
-                    f"[{symbol}] No more sell trades"
-                    + f"[{symbol}] Current bought quantity {running_bought_quantity}"
-                )
-
-            # buy_trades.append(current_buy_record)
             if FilteredBuyTrades.add_trade(current_buy_record) is None:
                 logging.warning(
                     f"[{symbol}] Buy trade trade_date {current_buy_record.trade_date} is after {after_date}"
                 )
 
-        return FilteredBuyTrades 
+        return FilteredBuyTrades
 
-    def _create_summary_record( self, buy_trades_dict: Trades, after_date: Optional[str] = None) -> TradeSummary:
+    def _create_summary_record(
+        self, buy_trades_dict: Trades, after_date: Optional[str] = None
+    ) -> TradeSummary:
         """Create a TradeSummary record for stock or option trades.
 
         Args:
@@ -526,7 +368,7 @@ class TradingAnalyzer:
         logging.debug(f"[{self.stock_symbol}] Stock Summary: {trade_summary}")
         return trade_summary
 
-    # TDO - put into a new TradeSummary Dataclass
+    # TODO - put into  TradeSummary Dataclass
     def _security_summary_sanity_check(
         self, trade_summary: TradeSummary, symbol: str
     ) -> None:
@@ -534,6 +376,7 @@ class TradingAnalyzer:
         security_type = "option" if trade_summary.is_option else "stock"
 
         log_msg = f"""
+            Sanity check for {security_type} trades for {symbol}
             [{symbol}] Total {security_type} buy quantity: {trade_summary.bought_quantity}
             [{symbol}] Total {security_type} buy amount: {trade_summary.bought_amount}
                 """
@@ -570,7 +413,7 @@ class TradingAnalyzer:
 
         return self.profit_loss_data
 
-    # TODO refactor this method
+    # TODO refactor this method and include in TradeSummary Dataclass
     def _add_final_totals_to_the_summary(
         self, trade_summary: TradeSummary, symbol: str
     ) -> None:

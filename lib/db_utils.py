@@ -3,7 +3,7 @@ import sqlite3
 from sqlite3 import Connection, Cursor
 from typing import Dict, Optional, Any, Union
 from contextlib import contextmanager
-from lib.dataclasses.ActionMapping import ActionMapping
+from lib.models.ActionMapping import ActionMapping
 
 logger = logging.getLogger(__name__)
 

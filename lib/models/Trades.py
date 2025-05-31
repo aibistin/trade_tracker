@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Tuple
-from lib.dataclasses.Trade import BuyTrade, SellTrade, Trade
+from lib.models.Trade import BuyTrade, SellTrade, Trade
 
 @dataclass
 class Trades:
