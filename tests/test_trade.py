@@ -1,4 +1,5 @@
 import unittest
+import json
 import logging, time, os
 from datetime import datetime
 from lib.models.Trade import Trade, BuyTrade, SellTrade, TradeData
@@ -577,7 +578,6 @@ class TestTradeClasses(unittest.TestCase):
                     "price": 100.0,
                 }  # type: ignore
             )
-            
 
     def test_expired_option_conversion(self):
         """Test EXP action converts to SC trade with zero value"""
@@ -589,15 +589,15 @@ class TestTradeClasses(unittest.TestCase):
             "quantity": 10,
             "price": 1.25,  # Should be overridden
             "is_option": True,
-            "target_price": 50.0
+            "target_price": 50.0,
         }
-        trade = SellTrade(cast(TradeData,data))
-        
+        trade = SellTrade(cast(TradeData, data))
+
         self.assertEqual(trade.action, "SC")
         self.assertEqual(trade.price, 0.0)
         self.assertEqual(trade.amount, 0.0)
         self.assertEqual(trade.reason, "Expired Option")
-    
+
     def test_exercised_option_conversion(self):
         """Test EE action converts to SC trade with target price"""
         data = {
@@ -608,15 +608,15 @@ class TestTradeClasses(unittest.TestCase):
             "quantity": 5,
             "price": 0.75,  # Should be overridden
             "is_option": True,
-            "target_price": 95.50
+            "target_price": 95.50,
         }
-        trade = SellTrade(cast(TradeData,data))
-        
+        trade = SellTrade(cast(TradeData, data))
+
         self.assertEqual(trade.action, "SC")
         self.assertEqual(trade.price, 95.50)
         self.assertAlmostEqual(trade.amount, 95.50 * 5 * 100)
         self.assertEqual(trade.reason, "Exercised Option")
-    
+
     def test_exercised_option_missing_target(self):
         """Test EE action without target_price raises error"""
         data = {
@@ -628,10 +628,75 @@ class TestTradeClasses(unittest.TestCase):
             "is_option": True,
             # Missing target_price
         }
-    
+
         with self.assertRaises(ValueError):
-            SellTrade(cast(TradeData,data))
-            
+            SellTrade(cast(TradeData, data))
+
+
+def test_json_serialization(self):
+    """Test trade objects can be serialized to JSON"""
+    # Create a buy trade with nested sells
+    buy_data = self.sample_trades[0]
+    buy = BuyTrade(buy_data)
+
+    # Create and apply a sell trade
+    sell_data = self.sample_trades[1]
+    sell = SellTrade(sell_data)
+    buy.apply_sell_trade(sell)
+
+    # Convert to dictionary
+    buy_dict = buy.to_dict()
+
+    # Verify basic attributes
+    self.assertEqual(buy_dict["trade_id"], "0001")
+    self.assertEqual(buy_dict["symbol"], "SN")
+    self.assertEqual(buy_dict["action"], "B")
+
+    # Verify datetime conversion
+    self.assertEqual(buy_dict["trade_date"], "2024-08-22T00:00:00")
+
+    # Verify nested sells
+    self.assertEqual(len(buy_dict["sells"]), 1)
+    self.assertEqual(buy_dict["sells"][0]["trade_id"], "0002")
+    self.assertAlmostEqual(
+        buy_dict["sells"][0]["profit_loss"], (88.9427 - 91.39) * 100, 2
+    )
+
+    try:
+        json_str = json.dumps(buy_dict)
+        self.assertIsInstance(json_str, str)
+        # Test we can round-trip the data
+        reconstructed = json.loads(json_str)
+        self.assertEqual(reconstructed["trade_id"], "0001")
+        self.assertEqual(len(reconstructed["sells"]), 1)
+    except Exception as e:
+        self.fail(f"JSON serialization failed: {str(e)}")
+
+
+def test_complex_serialization(self):
+    """Test serialization with multiple nested objects"""
+    # Create a buy trade with multiple sells
+    buy = BuyTrade(self.sample_trades[5])  # 50 shares
+    sells = [
+        SellTrade(self.sample_trades[6]),  # 25 shares
+        SellTrade(self.sample_trades[7]),  # 10 shares
+    ]
+    buy.apply_sell_trades(sells)
+
+    # Convert to dictionary
+    buy_dict = buy.to_dict()
+
+    # Verify structure
+    self.assertEqual(len(buy_dict["sells"]), 2)
+    self.assertEqual(buy_dict["sells"][0]["quantity"], 25.0)
+    self.assertEqual(buy_dict["sells"][1]["quantity"], 10.0)
+
+
+    json_str = json.dumps(buy_dict)
+    reconstructed = json.loads(json_str)
+    self.assertEqual(len(reconstructed["sells"]), 2)
+    self.assertEqual(reconstructed["sells"][0]["trade_id"], "0007")
+
 
 if __name__ == "__main__":
     unittest.main()

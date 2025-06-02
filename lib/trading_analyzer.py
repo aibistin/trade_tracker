@@ -22,11 +22,13 @@ STOCK_MULTIPLIER = 1
 timestr = time.strftime("%Y%m%d")
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 
+
 # Set up logging to flush immediately (no buffering)
 class FlushStreamHandler(logging.StreamHandler):
     def emit(self, record):
         super().emit(record)
         self.flush()
+
 
 logging.getLogger().handlers.clear()
 # logging.getLogger().addHandler(FlushStreamHandler())
@@ -75,7 +77,6 @@ class TradingAnalyzer:
 
         self.buy_sell_actions = ["B", "Buy", "BO", "S", "SC"]
         self.action_mapping = ActionMapping()
-
 
     def _convert_to_trade(self, trade: Dict[str, Any]) -> BuyTrade | SellTrade:
         """Validate a trade to ensure it has the required fields and valid data.
@@ -542,11 +543,15 @@ class TradingAnalyzer:
             Dict[str, Any]: Filtered profit_loss_data.
             profit_loss_data = {
                 "stock": {
+                     # Type Summary dataclass
                     "summary": {},
+                    # Type: Trades
                     "all_trades": [],
                 },
                 "option": {
+                     # Type Summary dataclass
                     "summary": {},
+                    # Type: Trades
                     "all_trades": [],
                 },
             }
@@ -554,3 +559,55 @@ class TradingAnalyzer:
         """
 
         return self.profit_loss_data
+
+    def get_profit_loss_data_json(self) -> Dict[str, Any]:
+        """
+        Returns profit/loss data in fully JSON-serializable format.
+        
+        Returns:
+            Dict[str, Any]: JSON-serializable profit_loss_data
+        """
+        profit_loss_data = self.get_profit_loss_data()
+        json_data = {}
+        
+        for security_type in ["stock", "option"]:
+            sec_data = profit_loss_data[security_type]
+            
+            # Convert all_trades to dictionaries
+            all_trades_dicts = []
+            for trade in sec_data["all_trades"]:
+                if hasattr(trade, 'to_dict'):
+                    all_trades_dicts.append(trade.to_dict())
+                else:
+                    # Fallback for unexpected types
+                    all_trades_dicts.append(str(trade))
+            
+            json_sec = {
+                "has_trades": sec_data["has_trades"],
+                "summary": self._convert_summary_to_dict(sec_data["summary"]),
+                "all_trades": all_trades_dicts
+            }
+            json_data[security_type] = json_sec
+            
+        return json_data
+    
+    def _convert_summary_to_dict(self, summary: Any) -> Dict[str, Any]:
+        """Convert TradeSummary to dictionary with proper serialization"""
+        if not hasattr(summary, '__dict__'):
+            return {}
+        
+        result = {}
+        for key, value in summary.__dict__.items():
+            # Skip special attributes
+            if key.startswith('__') and key.endswith('__'):
+                continue
+                
+            if key == "buy_trades" or key == "sell_trades":
+                result[key] = [t.to_dict() for t in value] if value else []
+            elif isinstance(value, datetime):
+                result[key] = value.isoformat()
+            elif hasattr(value, 'to_dict'):
+                result[key] = value.to_dict()
+            else:
+                result[key] = value
+        return result

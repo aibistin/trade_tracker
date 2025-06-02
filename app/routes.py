@@ -15,8 +15,8 @@ from app import app
 from flask import Flask, render_template, request
 from flask import jsonify, flash, redirect, url_for
 from datetime import datetime, timedelta
-import dumper
 import os
+import json 
 import pytz
 import re
 from flask_sqlalchemy import SQLAlchemy
@@ -249,7 +249,7 @@ def get_symbols():
 
     # print(f"[get_symbols] All Symbols: {all_symbol_names}")
     symbols_names = _filtered_symbols(all_symbol_names)
-    print(f"[get_symbols] symbols_names: {symbols_names}")
+    # print(f"[get_symbols] symbols_names: {symbols_names}")
     return jsonify(symbols_names)
 
 
@@ -306,23 +306,28 @@ def get_positions_json(scope, stock_symbol):
     }
    
     trade_transactions = get_trade_data_for_analysis_new(stock_symbol)
-    print(f"[Routes][get_posittions_json] raw_data: {trade_transactions}")
+    # print(f"[Routes][get_positions_json] raw_data: {trade_transactions}")
 
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
 
     getter_methods = {
-        "all": analyzer.get_profit_loss_data,
-        "open": analyzer.get_open_trades,
-        "closed": analyzer.get_closed_trades,
+        "all": analyzer.get_profit_loss_data_json,
+        # "open": analyzer.get_open_trades,
+        #TODO add new method to trading_analyzer.py
+        "open": analyzer.get_profit_loss_data_json,
+        # "closed": analyzer.get_closed_trades,
+        #TODO add new method to trading_analyzer.py
+        "closed": analyzer.get_profit_loss_data_json,
     }
 
     # Get the appropriate method based on the scope
-    getter_method = getter_methods.get(scope, analyzer.get_profit_loss_data)
+    getter_method = getter_methods.get(scope, analyzer.get_profit_loss_data_json)
 
     analyzer.analyze_trades()
     trade_record["transaction_stats"] = getter_method()
 
-    print(f"[Routes] {scope.capitalize()} positions for {stock_symbol}: {trade_record}")
+    # print(f"[Routes] {scope.capitalize()} positions for {stock_symbol}: {trade_record}")
+    print(f"[Routes] {scope.capitalize()} positions for {stock_symbol}: {json.dumps(trade_record, sort_keys=True, indent=2)}")
     return jsonify(trade_record)
 
 

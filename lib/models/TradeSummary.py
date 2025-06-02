@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from dataclasses_json import dataclass_json
 from typing import List, Optional, Union
 from lib.models.Trade import BuyTrade, SellTrade
 
@@ -7,6 +8,7 @@ OPTIONS_MULTIPLIER = 100
 STOCK_MULTIPLIER = 1
 
 
+@dataclass_json
 @dataclass
 class TradeSummary:
     """A dataclass for storing totals for all trades for a given stock symbol."""

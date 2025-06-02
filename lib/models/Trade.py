@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any, TypedDict
 from lib.models.ActionMapping import ActionMapping
 
+ACTION_MAP = ActionMapping()
 OPTIONS_MULTIPLIER = 100
 STOCK_MULTIPLIER = 1
 
@@ -88,11 +89,9 @@ class Trade:
         Initialize trade from dictionary with validation and defaults
         """
 
-        self.action_mapping = ActionMapping()
-
         # Set required attributes
 
-        # The Database trade_transaction table uses "id" 
+        # The Database trade_transaction table uses "id"
         setattr(self, "trade_id", trade_data.get("trade_id", trade_data.get("id")))
         if not self.trade_id:
             raise KeyError("Trade ID is required")
@@ -103,7 +102,7 @@ class Trade:
         # Set optional attributes with defaults
         for field, default in self._DEFAULTS.items():
             setattr(self, field, trade_data.get(field, default))
-        # The Database trade_transaction table uses "label" 
+        # The Database trade_transaction table uses "label"
         setattr(
             self,
             "trade_label",
@@ -111,12 +110,14 @@ class Trade:
         )
 
         self.expiration_date_iso = trade_data.get("expiration_date", None)
-        
+
         self.is_option = self._determine_if_option()
 
         # Validation
-        if self.action_mapping.get_full_name(self.action) is None:
-            raise ValueError( f"{self.symbol} ID: {self.trade_id} - Invalid action acronym: {self.action}")
+        if ACTION_MAP.get_full_name(self.action) is None:
+            raise ValueError(
+                f"{self.symbol} ID: {self.trade_id} - Invalid action acronym: {self.action}"
+            )
 
         if self.quantity <= 0:
             raise ValueError(
@@ -131,9 +132,7 @@ class Trade:
                 self.expiration_date_iso
             )
 
-
         self._normalize_special_trade_types()
-
 
     def __repr__(self) -> str:
         """Human-readable representation showing all attributes"""
@@ -151,6 +150,23 @@ class Trade:
             attrs.append(f"{key}={value}")
 
         return f"{self.__class__.__name__}({', '.join(attrs)})"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to a JSON-serializable dictionary"""
+        result = {}
+        for key, value in self.__dict__.items():
+            # Skip private attributes
+            if key.startswith("_"):
+                continue
+
+            # Convert datetimes to ISO strings
+            if isinstance(value, datetime):
+                result[key] = value.isoformat()
+            elif key == "sells" and isinstance(value, list):
+                result[key] = [sell.to_dict() for sell in value]
+            else:
+                result[key] = value
+        return result
 
     @staticmethod
     def _convert_to_iso_format(dt_obj: Any) -> Optional[str]:
@@ -173,12 +189,13 @@ class Trade:
         """Return multiplier based on security type"""
         return OPTIONS_MULTIPLIER if self.is_option else STOCK_MULTIPLIER
 
-
     def _determine_if_option(self) -> bool:
         """Determine if this trade is for an option based on trade type or action"""
-        if not hasattr(self, 'trade_type'):
-            raise AttributeError(f"Trade {self.trade_id} is missing trade_type attribute")
-    
+        if not hasattr(self, "trade_type"):
+            raise AttributeError(
+                f"Trade {self.trade_id} is missing trade_type attribute"
+            )
+
         # Option if trade type is Call/Put or action is expiration/exercise
         return self.trade_type in ("C", "P") or self.action in ("EXP", "EE")
 
@@ -188,34 +205,35 @@ class Trade:
             self._convert_expired_option()
         elif self.action == "EE":
             self._convert_exercised_option()
-    
+
     def _convert_expired_option(self):
         """Convert expired option to sell trade with zero value"""
         if not self.is_option:
             logging.warning(f"Trade {self.trade_id} marked as EXP but is not option")
-            
+
         self.action = "SC"
         self.price = 0.0
         self.amount = 0.0
         self.reason = "Expired Option"
         logging.debug(f"Converted EXP trade {self.trade_id} to SC with price=0")
-    
+
     def _convert_exercised_option(self):
         """Convert exercised option to sell trade with target price"""
         if not self.is_option:
             logging.warning(f"Trade {self.trade_id} marked as EE but is not option")
-        
+
         if self.target_price is None:
             raise ValueError(f"Exercised option {self.trade_id} missing target_price")
-            
+
         self.action = "SC"
         self.price = self.target_price
         self.amount = self.price * self.quantity * OPTIONS_MULTIPLIER
         self.reason = "Exercised Option"
-        logging.debug(f"Converted EE trade {self.trade_id} to SC at {self.target_price}")
+        logging.debug(
+            f"Converted EE trade {self.trade_id} to SC at {self.target_price}"
+        )
 
-    
-# BuyTrade and SellTrade classes remain the same as before
+
 class BuyTrade(Trade):
     """Class representing a buy trade with position management"""
 
@@ -233,6 +251,10 @@ class BuyTrade(Trade):
             ")",
             f", current_sold_qty={self.current_sold_qty}, sells_count={len(self.sells)})",
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to JSON-serializable dictionary"""
+        return super().to_dict()
 
     def apply_sell_trade(self, sell_trade: "SellTrade") -> "SellTrade":
         """Apply a sell trade to this position and return applied portion"""
@@ -297,6 +319,10 @@ class SellTrade(Trade):
             ")",
             f", profit_loss={self.profit_loss}, percent_profit_loss={self.percent_profit_loss})",
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to JSON-serializable dictionary"""
+        return super().to_dict()
 
     def calculate_profit_loss(self, buy_trade: BuyTrade) -> None:
         """Calculate profit/loss against a buy trade"""
