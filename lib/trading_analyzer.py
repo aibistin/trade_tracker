@@ -50,6 +50,8 @@ class TradingAnalyzer:
         if not isinstance(trade_transactions, list):
             raise TypeError("trade_transactions must be a list")
 
+        logging.warning(f"Log level set to: {log_level}")
+        logging.warning(f"Log level env: {os.getenv('LOG_LEVEL')}")
         self.stock_symbol = stock_symbol
         self.trade_transactions = trade_transactions
 
@@ -134,12 +136,12 @@ class TradingAnalyzer:
 
         summmary.profit_loss += sum([sell.profit_loss for sell in buy_trade.sells])
 
-    def _analyze_trades(self, after_date: Optional[str] = None) -> None:
-
+    def _analyze_trades(
+        self, after_date: Optional[str] = None, status: Optional[str] = None
+    ) -> None:
         symbol = self.stock_symbol
         stock_trades = Trades(security_type="stock")
         option_trades = Trades(security_type="option")
-
         try:
             for trade_dict in self.trade_transactions:
                 trade = self._convert_to_trade(trade_dict)
@@ -148,6 +150,7 @@ class TradingAnalyzer:
                     if not trade.is_option
                     else option_trades.add_trade(trade)
                 )
+
         except Exception as e:
             logging.error(f"[{symbol}] Error converting trades to Trade: {e}")
             raise
@@ -172,9 +175,12 @@ class TradingAnalyzer:
                 continue
 
             try:
-                # Create BuyTrades - A subclass of Trades
+                # Create BuyTrades with date filtering
                 buy_trades = self._add_sell_trades_to_their_buy_trade(
-                    trades, symbol, after_date
+                    trades,
+                    symbol,
+                    status=status,
+                    after_date=after_date,
                 )
             except Exception as e:
                 logging.error(
@@ -182,15 +188,13 @@ class TradingAnalyzer:
                 )
                 raise
 
-            logging.info(f"[{symbol}] {security_type} BuyTrades {buy_trades}")
-
+            # Apply status filter if requested
             if buy_trades is None:
                 logging.warning(f"[{symbol}] Has no {security_type} BuyTrades")
-                return
+                continue
 
             # Filter Buy trades by date if after_date is provided
             buy_trades.filter_buy_trades()
-
             try:
                 trade_summary = self._create_summary_record(buy_trades, after_date)
             except Exception as e:
@@ -201,10 +205,12 @@ class TradingAnalyzer:
 
             logging.debug(f"[{symbol}] {security_type} Summary: {trade_summary}")
 
+            # Update profit/loss data
             self.profit_loss_data[security_type]["has_trades"] = (
-                True if len(trade_summary.buy_trades) > 0 else False
+                len(trade_summary.buy_trades) > 0
             )
             self.profit_loss_data[security_type]["summary"] = trade_summary
+            # self.profit_loss_data[security_type]["all_trades"] = filtered_buys
 
             try:
                 self._security_summary_sanity_check(trade_summary, symbol)
@@ -216,37 +222,50 @@ class TradingAnalyzer:
 
             self._add_final_totals_to_the_summary(trade_summary, symbol)
 
-    def analyze_trades(self, after_date: Optional[str] = None) -> None:
+    def analyze_trades(
+        self, after_date: Optional[str] = None, status: Optional[str] = None
+    ) -> None:
         """
         Analyze trades and calculate profit/loss for each trade.
-        Args:
-          Optional:
-            Returns profit_loss_data for Buy trades after a given date (inclusive).
-            after_date (str): Date in 'yyyy-mm-dd' format.
 
+        Args:
+            after_date (str, optional): Date in 'yyyy-mm-dd' format. Only include
+                buy trades on or after this date.
+            status (str, optional): Filter by trade status. Valid values:
+                'open' - Only trades with unsold shares
+                'closed' - Only fully closed trades
+                None - All trades (default)
         """
-        symbol = self.stock_symbol
-        logging.info(f"Analyzing trades for: {symbol}")
+
+        # Validate status parameter
+        valid_statuses = [None, "open", "closed"]
+        if status not in valid_statuses:
+            logging.error(f"[{self.stock_symbol}] Invalid status: {status}")
+            raise ValueError(
+                f"Invalid status: '{status}'. Must be one of {valid_statuses}"
+            )
 
         if after_date is not None:
             try:
                 datetime.strptime(after_date, "%Y-%m-%d")
             except ValueError:
+                logging.error(
+                    f"[{self.stock_symbol}] Invalid after_date format: {after_date}"
+                )
                 raise ValueError(
                     f"after_date must be in 'yyyy-mm-dd' format, got: {after_date}"
                 )
 
-        try:
-            self._analyze_trades(after_date)
-        except ValueError as e:
-            logging.error(f"[{symbol} Error analyzing trades: {e}")
-            raise
-        except Exception as e:
-            logging.error(f"[{symbol} Unexpected error analyzing trades: {e}")
-            raise
+        logging.info( f"[{self.stock_symbol}] Analyzing trades after: {after_date}, status: {status}")
+
+        self._analyze_trades(after_date, status)
 
     def _add_sell_trades_to_their_buy_trade(
-        self, trades: Trades, symbol: str, after_date: Optional[str] = None
+        self,
+        trades: Trades,
+        symbol: str,
+        status: str = "all",
+        after_date: Optional[str] = None,
     ) -> Optional[BuyTrades]:
         """Group sell trades with their corresponding buy trades (stock or option)."""
 
@@ -257,9 +276,9 @@ class TradingAnalyzer:
             return None
 
         FilteredBuyTrades = BuyTrades(
-            after_date_str=after_date, security_type=trades.security_type
+            security_type=trades.security_type, after_date_str=after_date, status=status
         )
-        # TODO - New
+        # TODO - New - Remove this or add to BuyTrades logic?
         for current_buy_record in trades.buy_trades:
             if sell_trades_sorted:
                 # REPLACE old logic with new method
@@ -457,85 +476,89 @@ class TradingAnalyzer:
 
         trade_summary.calculate_final_totals(running_sold_quantity, running_sold_amount)
 
-    def _filter_trades_by_status(
-        self,
-        trade_status: str = "open",
-        trade_transactions: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
-        """Filter trades by status (open or closed)."""
-        if trade_status not in ["open", "closed"]:
-            raise ValueError("Invalid trade_status. Use 'open' or 'closed'.")
+    # TODO replace this with a new args to 'analyze_trades' method
+    # def _filter_trades_by_status(
+    #     self,
+    #     trade_status: str = "open",
+    #     trade_transactions: Optional[List[Dict[str, Any]]] = None,
+    # ) -> Dict[str, Any]:
+    #     """Filter trades by status (open or closed)."""
+    #     if trade_status not in ["open", "closed"]:
+    #         raise ValueError("Invalid trade_status. Use 'open' or 'closed'.")
 
-        logging.info(
-            f'[filter_by_{trade_status}_trades] Getting all "{trade_status}" trades'
-        )
+    #     logging.info(
+    #         f'[filter_by_{trade_status}_trades] Getting all "{trade_status}" trades'
+    #     )
 
-        filtered_pl = {
-            "stock_symbol": self.stock_symbol,
-            "stock": {
-                "summary": TradeSummary(symbol=self.stock_symbol, is_option=False),
-                "all_trades": [],
-            },
-            "option": {
-                "summary": TradeSummary(symbol=self.stock_symbol, is_option=True),
-                "all_trades": [],
-            },
-        }
-        self._process_filtered_trades(filtered_pl, trade_status, trade_transactions)
-        return filtered_pl
+    #     filtered_pl = {
+    #         "stock_symbol": self.stock_symbol,
+    #         "stock": {
+    #             "summary": TradeSummary(symbol=self.stock_symbol, is_option=False),
+    #             "all_trades": [],
+    #         },
+    #         "option": {
+    #             "summary": TradeSummary(symbol=self.stock_symbol, is_option=True),
+    #             "all_trades": [],
+    #         },
+    #     }
+    #     self._process_filtered_trades(filtered_pl, trade_status, trade_transactions)
+    #     return filtered_pl
 
-    def _process_filtered_trades(
-        self,
-        filtered_pl: Dict[str, Any],
-        trade_status: str,
-        trade_transactions: Optional[List[Dict[str, Any]]] = None,
-    ) -> None:
-        """Process trades for a specific status (open or closed)."""
-        if trade_transactions:
-            self.trade_transactions = trade_transactions
-            self.analyze_trades()
+    # TODO replace this with a new args to 'analyze_trades' method
+    # def _process_filtered_trades(
+    #     self,
+    #     filtered_pl: Dict[str, Any],
+    #     trade_status: str,
+    #     trade_transactions: Optional[List[Dict[str, Any]]] = None,
+    # ) -> None:
+    #     """Process trades for a specific status (open or closed)."""
+    #     if trade_transactions:
+    #         self.trade_transactions = trade_transactions
+    #         self.analyze_trades()
 
-        symbol = self.stock_symbol
+    #     symbol = self.stock_symbol
 
-        logging.debug(f"[{symbol}] [filter_by_{trade_status}_trades]")
+    #     logging.debug(f"[{symbol}] [filter_by_{trade_status}_trades]")
 
-        for i, type_info in enumerate(
-            [self.profit_loss_data["stock"], self.profit_loss_data["option"]]
-        ):
-            security_type = "stock" if i == 0 else "option"
-            multiplier = 100 if security_type == "option" else 1
-            all_trades = type_info["all_trades"]
+    #     for i, type_info in enumerate(
+    #         [self.profit_loss_data["stock"], self.profit_loss_data["option"]]
+    #     ):
+    #         security_type = "stock" if i == 0 else "option"
+    #         multiplier = 100 if security_type == "option" else 1
+    #         all_trades = type_info["all_trades"]
 
-            for buy_trade in all_trades:
-                if buy_trade.symbol != self.stock_symbol:
-                    raise ValueError(
-                        f"Trade symbol {buy_trade.symbol} != {self.stock_symbol}"
-                    )
+    # for buy_trade in all_trades:
+    #     if buy_trade.symbol != self.stock_symbol:
+    #         raise ValueError(
+    #             f"Trade symbol {buy_trade.symbol} != {self.stock_symbol}"
+    #         )
 
-                if (trade_status == "open" and not buy_trade.is_done) or (
-                    trade_status == "closed" and buy_trade.is_done
-                ):
+    #     if (trade_status == "open" and not buy_trade.is_done) or (
+    #         trade_status == "closed" and buy_trade.is_done
+    #     ):
 
-                    self._add_buy_trade_to_summary(
-                        filtered_pl[security_type]["summary"], buy_trade, multiplier
-                    )
+    #         self._add_buy_trade_to_summary(
+    #             filtered_pl[security_type]["summary"], buy_trade, multiplier
+    #         )
 
-                    filtered_pl[security_type]["all_trades"].append(buy_trade)
+    #         filtered_pl[security_type]["all_trades"].append(buy_trade)
 
-            filtered_pl[security_type]["summary"].calculate_final_totals(
-                filtered_pl[security_type]["summary"].sold_quantity,
-                filtered_pl[security_type]["summary"].sold_amount,
-            )
+    # filtered_pl[security_type]["summary"].calculate_final_totals(
+    #     filtered_pl[security_type]["summary"].sold_quantity,
+    #     filtered_pl[security_type]["summary"].sold_amount,
+    # )
 
-    def get_open_trades(
-        self, trade_transactions: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
-        return self._filter_trades_by_status("open", trade_transactions)
+    # TODO replace this with a new args to 'analyze_trades' method
+    # def get_open_trades(
+    #     self, trade_transactions: Optional[List[Dict[str, Any]]] = None
+    # ) -> Dict[str, Any]:
+    #     return self._filter_trades_by_status("open", trade_transactions)
 
-    def get_closed_trades(
-        self, trade_transactions: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
-        return self._filter_trades_by_status("closed", trade_transactions)
+    # # TODO replace this with a new args to 'analyze_trades' method
+    # def get_closed_trades(
+    #     self, trade_transactions: Optional[List[Dict[str, Any]]] = None
+    # ) -> Dict[str, Any]:
+    #     return self._filter_trades_by_status("closed", trade_transactions)
 
     def get_profit_loss_data(self) -> Dict[str, Any]:
         """
@@ -563,50 +586,50 @@ class TradingAnalyzer:
     def get_profit_loss_data_json(self) -> Dict[str, Any]:
         """
         Returns profit/loss data in fully JSON-serializable format.
-        
+
         Returns:
             Dict[str, Any]: JSON-serializable profit_loss_data
         """
         profit_loss_data = self.get_profit_loss_data()
         json_data = {}
-        
+
         for security_type in ["stock", "option"]:
             sec_data = profit_loss_data[security_type]
-            
+
             # Convert all_trades to dictionaries
             all_trades_dicts = []
             for trade in sec_data["all_trades"]:
-                if hasattr(trade, 'to_dict'):
+                if hasattr(trade, "to_dict"):
                     all_trades_dicts.append(trade.to_dict())
                 else:
                     # Fallback for unexpected types
                     all_trades_dicts.append(str(trade))
-            
+
             json_sec = {
                 "has_trades": sec_data["has_trades"],
                 "summary": self._convert_summary_to_dict(sec_data["summary"]),
-                "all_trades": all_trades_dicts
+                "all_trades": all_trades_dicts,
             }
             json_data[security_type] = json_sec
-            
+
         return json_data
-    
+
     def _convert_summary_to_dict(self, summary: Any) -> Dict[str, Any]:
         """Convert TradeSummary to dictionary with proper serialization"""
-        if not hasattr(summary, '__dict__'):
+        if not hasattr(summary, "__dict__"):
             return {}
-        
+
         result = {}
         for key, value in summary.__dict__.items():
             # Skip special attributes
-            if key.startswith('__') and key.endswith('__'):
+            if key.startswith("__") and key.endswith("__"):
                 continue
-                
+
             if key == "buy_trades" or key == "sell_trades":
                 result[key] = [t.to_dict() for t in value] if value else []
             elif isinstance(value, datetime):
                 result[key] = value.isoformat()
-            elif hasattr(value, 'to_dict'):
+            elif hasattr(value, "to_dict"):
                 result[key] = value.to_dict()
             else:
                 result[key] = value

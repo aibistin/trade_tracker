@@ -125,6 +125,9 @@ class Trade:
             )
 
         # Handle date conversions
+        if isinstance(self.trade_date, str):
+            self.trade_date = self._convert_to_datetime(self.trade_date)
+
         self.trade_date_iso = self._convert_to_iso_format(self.trade_date)
 
         if self.expiration_date_iso:
@@ -183,6 +186,17 @@ class Trade:
                 except ValueError:
                     continue
         return str(dt_obj)  # Fallback to string representation
+
+    @staticmethod
+    def _convert_to_datetime(trade_date_str: str) -> datetime:
+            try:
+                trade_date = datetime.strptime(trade_date_str, "%Y-%m-%d")
+                return trade_date   
+            except ValueError:
+                raise ValueError(
+                    f"trade.trade_date_sttr must be in 'yyyy-mm-dd' format, got: {trade_date_str}"
+                )
+    
 
     @property
     def multiplier(self) -> int:
