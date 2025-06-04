@@ -77,16 +77,14 @@ class Trades(TradeCollection):
 
 @dataclass
 class BuyTrades(TradeCollection):
-    """Container specifically for buy trades with date filtering"""
-
+    """Container for buy trades with filtering capabilities"""
     buy_trades: List[BuyTrade] = field(default_factory=list)
     after_date_str: Optional[str] = None
-    # Default status to 'all' to include all trades. Other options are 'open' and 'closed'.
-    status: Optional[str] = field(default="all")
+    status: str = field(default="all")  # 'all', 'open', or 'closed'
     after_date: Optional[datetime] = field(default=None, init=False)
 
     def __post_init__(self):
-        """Parse after_date_str into datetime"""
+        """Parse after_date_str into datetime and validate status"""
         if self.after_date_str:
             try:
                 self.after_date = datetime.strptime(self.after_date_str, "%Y-%m-%d")
@@ -94,63 +92,43 @@ class BuyTrades(TradeCollection):
                 raise ValueError(
                     f"after_date must be in 'yyyy-mm-dd' format, got: {self.after_date_str}"
                 )
-        if self.status:
-            self.status = self.status.lower()
-            if self.status not in ["all", "open", "closed"]:
-                raise ValueError(
-                    "Trades status must be one of 'all', 'open', or 'closed'"
-                )
-        else:
-            self.status = "all"
+            
+        
+        # Validate status
+        self.status = self.status.lower() if self.status else "all" 
+        if self.status not in {"all", "open", "closed"}:
+            raise ValueError(
+                "Status must be one of 'all', 'open', or 'closed'"
+            )
+
 
     def add_trade(self, trade: BuyTrade) -> Optional[BuyTrade]:
-        """Add buy trade if it meets date criteria"""
+        """Add buy trade without filtering (filtering happens later)"""
         if not isinstance(trade, BuyTrade):
             raise TypeError(f"trade must be an instance of BuyTrade: {type(trade)}")
-
-        # Only add the trade if its trade_date is on or after after_date (if after_date is set)
-        if self.after_date and trade.trade_date < self.after_date:
-            return None
-
+        
         self.buy_trades.append(trade)
         return trade
 
+
     def filter_buy_trades(self) -> None:
-        filter_func = None
-
-        if self.after_date and self.status == "open":
-            filter_func = self.after_date_trade_filter_open
-        elif self.after_date and self.status == "closed":
-            filter_func = self.after_date_trade_filter_closed
-        elif self.status == "open":
-            filter_func = self.filter_open_trades
-        elif self.status == "closed":
-            filter_func = self.filter_closed_trades
-        elif self.status == "all":
-            filter_func = lambda trade: True
-        else:
-            raise ValueError("Invalid status for filtering trades")
-
-        # self.buy_trades = [trade for trade in self.buy_trades if trade_filter(trade)]
-        self.buy_trades = [trade for trade in self.buy_trades if filter_func(trade)]
-
-    #    if self.after_date and trade.trade_date < self.after_date:
-    def after_date_trade_filter_open(self, trade: BuyTrade) -> bool:
-        if trade.trade_date >= self.after_date and not trade.is_done:
-            return True
-        return False
-
-    def after_date_trade_filter_closed(self, trade: BuyTrade) -> bool:
-        if trade.trade_date >= self.after_date and trade.is_done:
-            return True
-        return False
-
-    def filter_open_trades(self, trade: BuyTrade) -> bool:
-        if not trade.is_done:
-            return True
-        return False
-
-    def filter_closed_trades(self, trade: BuyTrade) -> bool:
-        if trade.is_done:
-            return True
-        return False
+        """Apply all filters in a single pass for efficiency"""
+        if not self.buy_trades:
+            return
+            
+        # Single-pass filtering
+        filtered = []
+        for trade in self.buy_trades:
+            # Date filter
+            if self.after_date and trade.trade_date < self.after_date:
+                continue
+                
+            # Status filter
+            if self.status == "open" and trade.is_done:
+                continue
+            if self.status == "closed" and not trade.is_done:
+                continue
+                
+            filtered.append(trade)
+            
+        self.buy_trades = filtered

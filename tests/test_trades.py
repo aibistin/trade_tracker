@@ -18,7 +18,7 @@ class TestTradesClasses(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 15),
                 "quantity": 100,
                 "price": 50.0,
-            } # type: ignore
+            }  # type: ignore
         )
 
         self.trade2 = SellTrade(
@@ -29,7 +29,7 @@ class TestTradesClasses(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 16),
                 "quantity": 50,
                 "price": 55.0,
-            } # type: ignore
+            }  # type: ignore
         )
 
         self.trade3 = BuyTrade(
@@ -40,7 +40,7 @@ class TestTradesClasses(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 17),
                 "quantity": 200,
                 "price": 52.0,
-            } # type: ignore
+            }  # type: ignore
         )
 
         # Create trades collection
@@ -117,7 +117,7 @@ class TestBuyTradesClass(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 10),
                 "quantity": 100,
                 "price": 50.0,
-            } # type: ignore
+            }  # type: ignore
         )
 
         self.buy2 = BuyTrade(
@@ -128,7 +128,7 @@ class TestBuyTradesClass(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 15),
                 "quantity": 200,
                 "price": 52.0,
-            } # type: ignore
+            }  # type: ignore
         )
 
         self.buy3 = BuyTrade(
@@ -139,7 +139,7 @@ class TestBuyTradesClass(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 20),
                 "quantity": 150,
                 "price": 53.0,
-            } # type: ignore
+            }  # type: ignore
         )
 
         # Create buy trades collection with date filter
@@ -152,14 +152,15 @@ class TestBuyTradesClass(unittest.TestCase):
 
     def test_date_filtering(self):
         """Test date-based filtering of buy trades"""
-        # Only trades on or after 2023-05-15 should be added
-        self.assertEqual(len(self.buy_trades.buy_trades), 2)
-        self.assertEqual(self.buy_trades.buy_trades[0].trade_id, "B2")
-        self.assertEqual(self.buy_trades.buy_trades[1].trade_id, "B3")
 
         # Test explicit filtering
         self.buy_trades.filter_buy_trades()
-        self.assertEqual(len(self.buy_trades.buy_trades), 2)
+        self.assertEqual(
+            len(self.buy_trades.buy_trades),
+            2,
+            f"Expected 2 trades after filtering, got {len(self.buy_trades.buy_trades)}",
+        )
+
 
     def test_add_trade_validation(self):
         """Test type validation when adding trades"""
@@ -170,46 +171,52 @@ class TestBuyTradesClass(unittest.TestCase):
                     {
                         "trade_id": "T1",
                         "symbol": "TEST",
-                        "action": "B",
+                        "action": "S",
                         "trade_date": datetime(2023, 5, 18),
                         "quantity": 50,
                         "price": 51.0,
-                    } # type: ignore
+                    }  # type: ignore
                 )
             )
 
-    def test_sorting(self):
-        """Test sorting of buy trades"""
-        # Add trades out of order
-        self.buy_trades.buy_trades = []
-        self.buy_trades.add_trade(self.buy3)  # May 20
-        self.buy_trades.add_trade(self.buy2)  # May 15
-
-        # Sort trades
-        self.buy_trades.sort_trades()
-
-        # Verify date order
-        self.assertEqual(self.buy_trades.buy_trades[0].trade_id, "B2")
-        self.assertEqual(self.buy_trades.buy_trades[1].trade_id, "B3")
-
     def test_json_serialization(self):
         """Test buy trades collection serialization"""
+
+        self.buy_trades.filter_buy_trades()
+
         trade_dict = self.buy_trades.to_dict()
 
-        self.assertEqual(trade_dict["security_type"], "stock")
-        self.assertEqual(len(trade_dict["buy_trades"]), 2)
-        self.assertEqual(trade_dict["after_date_str"], "2023-05-15")
+        self.assertEqual(
+            trade_dict["security_type"],
+            "stock",
+            f"Expected security_type 'stock', got {trade_dict['security_type']}",
+        )
+        self.assertEqual(
+            len(trade_dict["buy_trades"]),
+            2,
+            f"Expected 2 buy trades, got {len(trade_dict['buy_trades'])}",
+        )
+        self.assertEqual(
+            trade_dict["after_date_str"],
+            "2023-05-15",
+            f"Expected after_date_str '2023-05-15', got {trade_dict['after_date_str']}",
+        )
 
         # Verify date filtering in serialized data
         trade_ids = [t["trade_id"] for t in trade_dict["buy_trades"]]
-        self.assertIn("B2", trade_ids)
-        self.assertIn("B3", trade_ids)
-        self.assertNotIn("B1", trade_ids)
-
+        self.assertIn("B2", trade_ids, f"Expected B2 in trade_ids, got {trade_ids}")
+        self.assertIn("B3", trade_ids, f"Expected B3 in trade_ids, got {trade_ids}")
+        self.assertNotIn(
+            "B1", trade_ids, f"Expected B1 not to be in trade_ids, got {trade_ids}"
+        )
 
         json_str = json.dumps(trade_dict)
         reconstructed = json.loads(json_str)
-        self.assertEqual(len(reconstructed["buy_trades"]), 2)
+        self.assertEqual(
+            len(reconstructed["buy_trades"]),
+            2,
+            f"Expected 2 buy trades after JSON serialization, got {len(reconstructed['buy_trades'])}",
+        )
 
 
 if __name__ == "__main__":

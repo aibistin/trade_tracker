@@ -88,16 +88,14 @@ class Trade:
         """
         Initialize trade from dictionary with validation and defaults
         """
-
         # Set required attributes
-
+        self.symbol = trade_data["symbol"]
+        self.action = trade_data["action"]
+        self.trade_date = trade_data["trade_date"]
         # The Database trade_transaction table uses "id"
         setattr(self, "trade_id", trade_data.get("trade_id", trade_data.get("id")))
         if not self.trade_id:
             raise KeyError("Trade ID is required")
-        self.symbol = trade_data["symbol"]
-        self.action = trade_data["action"]
-        self.trade_date = trade_data["trade_date"]
 
         # Set optional attributes with defaults
         for field, default in self._DEFAULTS.items():
@@ -138,20 +136,56 @@ class Trade:
         self._normalize_special_trade_types()
 
     def __repr__(self) -> str:
-        """Human-readable representation showing all attributes"""
+        """Human-readable representation showing all attributes with detailed list items"""
         attrs = []
         for key, value in self.__dict__.items():
-            # No internal attributes
+            # Skip internal attributes
             if key.startswith("_"):
                 continue
-
+    
+            # Format datetime objects
             if isinstance(value, datetime):
                 value = value.strftime("%Y-%m-%d %H:%M:%S")
+            # Format lists with full details
             elif isinstance(value, list):
-                value = f"[{len(value)} items]"
-
+                # Handle empty lists
+                if not value:
+                    value = "[]"
+                else:
+                    # Format each item in the list
+                    items = []
+                    for i, item in enumerate(value):
+                        # For Trade objects, show their full representation
+                        if isinstance(item, Trade):
+                            # Create a compact representation
+                            trade_repr = (
+                                f"{item.__class__.__name__}("
+                                f"id={item.trade_id}, "
+                                f"qty={item.quantity}, "
+                                f"price={item.price}, "
+                                f"date={item.trade_date.strftime('%Y-%m-%d')}"
+                            )
+                            # Add profit/loss for SellTrades
+                            if isinstance(item, SellTrade):
+                                trade_repr += f", P/L={item.profit_loss}"
+                            trade_repr += ")"
+                            items.append(trade_repr)
+                        # For other objects, use their repr but limit length
+                        else:
+                            item_repr = repr(item)
+                            if len(item_repr) > 50:
+                                item_repr = item_repr[:47] + "..."
+                            items.append(item_repr)
+                        
+                        # Limit to 5 items for readability
+                        if i >= 2 and len(value) > 5:
+                            items.append(f"...+{len(value)-3} more")
+                            break
+                    
+                    value = "[" + ", ".join(items) + "]"
+            
             attrs.append(f"{key}={value}")
-
+    
         return f"{self.__class__.__name__}({', '.join(attrs)})"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -189,14 +223,17 @@ class Trade:
 
     @staticmethod
     def _convert_to_datetime(trade_date_str: str) -> datetime:
+
+        for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"):
             try:
-                trade_date = datetime.strptime(trade_date_str, "%Y-%m-%d")
-                return trade_date   
+                trade_date = datetime.strptime(trade_date_str, fmt)
+                return trade_date
             except ValueError:
-                raise ValueError(
-                    f"trade.trade_date_sttr must be in 'yyyy-mm-dd' format, got: {trade_date_str}"
-                )
-    
+                continue
+
+        raise ValueError(
+            f"trade.trade_date_str format must be: '%Y-%m-%d' or '%Y-%m-%dT%H:%M:%S', got: {trade_date_str}"
+        )
 
     @property
     def multiplier(self) -> int:
