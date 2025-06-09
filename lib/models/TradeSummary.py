@@ -6,7 +6,7 @@ from typing import List, Optional, Union
 from lib.models.Trade import BuyTrade, SellTrade
 from lib.models.Trades import BuyTrades
 
-#TODO - Create test script for TradeSummary
+# TODO - Create test script for TradeSummary
 OPTIONS_MULTIPLIER = 100
 STOCK_MULTIPLIER = 1
 
@@ -80,9 +80,10 @@ class TradeSummary:
                 raise ValueError(
                     f"Trade symbol {trade.symbol} != summary symbol {symbol}"
                 )
+
             if trade.is_option != is_option:
                 raise ValueError(
-                    f"Trade is_option={trade.is_option} but security_type={buy_trades_collection.security_type}"
+                    f"Trade {trade.trade_id}, is_option={trade.is_option} but Collection security_type={buy_trades_collection.security_type}"
                 )
 
             # Process buy trade
@@ -209,7 +210,20 @@ class TradeSummary:
 
         raise TypeError("Input must be a string or a datetime object.")
 
-    def compute_final_totals(self, symbol: str) -> List[BuyTrade]:
+    def process_all_trades(self, symbol: str) -> List[BuyTrade]:
+        """
+        Compute final totals for a given symbol.
+
+        This method takes a symbol and a list of BuyTrade objects, and computes
+        the final totals for that symbol. It adds the totals to the summary,
+        and returns the list of BuyTrade objects.
+
+        Args:
+            symbol (str): The symbol to compute the final totals for.
+
+        Returns:
+            List[BuyTrade]: The list of BuyTrade objects with the final totals.
+        """
 
         security_type = "option" if self.is_option else "stock"
         logging.info(f"[{symbol}] Adding final totals to {security_type} summary")

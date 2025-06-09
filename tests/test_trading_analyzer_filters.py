@@ -41,7 +41,7 @@ class TestTradingAnalyzerFilters(unittest.TestCase):
         """Test closed trades filter"""
         self.analyzer.analyze_trades(status='closed')
         pl_data = self.analyzer.get_profit_loss_data()
-        print(f"Profit/Loss Data: {pl_data}") 
+        # print(f"Profit/Loss Data: {pl_data}") 
         # Should only have one closed trade
         self.assertEqual(len(pl_data["stock"]["all_trades"]), 1, f"Expected 1 closed trade, got {len(pl_data['stock']['all_trades'])}")
         self.assertEqual(pl_data["stock"]["all_trades"][0].trade_id, "0001", f"Expected trade ID '0001', got {pl_data['stock']['all_trades'][0].trade_id}")

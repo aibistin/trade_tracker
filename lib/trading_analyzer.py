@@ -207,7 +207,7 @@ class TradingAnalyzer:
                 raise
 
             # TODO - Check if we need ["all_trades"]
-            self.profit_loss_data[security_type]["all_trades"] = trade_summary.compute_final_totals(symbol)
+            self.profit_loss_data[security_type]["all_trades"] = trade_summary.process_all_trades(symbol)
 
 
     def _create_buy_trades_collection(
