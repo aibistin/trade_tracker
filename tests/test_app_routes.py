@@ -1,14 +1,18 @@
 import unittest
-from app import app
-from app.models.models import (
-    Security,
-    TradeTransaction,
-)
-
+import logging
+from app import create_app
+from app.models.models import Security, TradeTransaction
 from app.extensions import db
 from lib.db_utils import DatabaseInserter
 
-print(__file__)
+# Configure test logger
+test_logger = logging.getLogger("test_routes")
+test_logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+)
+test_logger.addHandler(handler)
 
 # Global data structure for test tickers and names
 TEST_SECURITIES = {
@@ -16,24 +20,48 @@ TEST_SECURITIES = {
     "FAKE2": "Fake Company Two",
     "FAKE3": "Fake Company Three",
 }
-STOCK_TRADES_DB = "data/stock_trades.db"
+
+
+TRANSACTION_KEYS = [
+    "id",
+    "symbol",
+    "action",
+    "trade_type",
+    "label",
+    "trade_date",
+    "expiration_date",
+    "reason",
+    "quantity",
+    "price",
+    "target_price",
+    "amount",
+    "initial_stop_price",
+    "projected_sell_price",
+    "account",
+]
 
 
 class TestAppRoutes(unittest.TestCase):
     def setUp(self):
-        self.app = app.test_client()
-        # self.db_inserter = DatabaseInserter(STOCK_TRADES_DB)
+        # Create test app with testing configuration
+        self.app = create_app()
+        self.app.config["TESTING"] = True
+        self.app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+        self.client = self.app.test_client()
 
-        # Use the same db instance from your Flask app
-        with app.app_context():
-            db.create_all()  # Create tables in the in-memory database
-            self.db_inserter = DatabaseInserter(db=db)
+        # Push application context
+        self.app_context = self.app.app_context()
+        self.app_context.push()
 
-        # Insert test data into the security table using the global data structure
+        # Create database schema
+        db.create_all()
+        self.db_inserter = DatabaseInserter(db=db)
+
+        # Insert test data
         for symbol, name in TEST_SECURITIES.items():
             self.db_inserter.insert_security({"symbol": symbol, "name": name})
 
-        # Insert test data into the trade_transaction table
+        # Insert test transactions
         transaction_rows = [
             {
                 "symbol": "FAKE1",
@@ -103,114 +131,260 @@ class TestAppRoutes(unittest.TestCase):
 
         for row in transaction_rows:
             self.db_inserter.insert_transaction(row)
-            print(f"Inserted transaction: {row}")
+            test_logger.info(
+                f"Inserted transaction: {row['symbol']} {row['action']} {row['reason']}"
+            )
 
         # Retrieve the ID of the first inserted transaction
-        with app.app_context():
-            self.first_transaction_id = TradeTransaction.query.filter_by(
-                reason="Test Buy FAKE1"
-            ).first()
+        self.first_transaction = TradeTransaction.query.filter_by(
+            reason="Test Buy FAKE1"
+        ).first()
+
+        test_logger.info("Test setup completed")
 
     def tearDown(self):
-        # Clean up the test database
+        # Clean up database
 
-        with app.app_context():
-            # Delete test transactions
-            db.session.query(TradeTransaction).filter(
-                TradeTransaction.reason.in_(
-                    [
-                        "Test Buy FAKE1",
-                        "Test Buy FAKE2",
-                        "Test Sell FAKE1",
-                        "Test Sell FAKE2",
-                    ]
-                )
-            ).delete()
+        TradeTransaction.query.filter(
+            TradeTransaction.symbol.in_(
+                [
+                    "FAKE1",
+                    "FAKE2",
+                ]
+            )
+        ).delete(synchronize_session=False)
 
-            # Delete test securities using the global data structure
-            db.session.query(Security).filter(
-                Security.symbol.in_(TEST_SECURITIES.keys())
-            ).delete()
+        Security.query.filter(Security.symbol.in_(TEST_SECURITIES.keys())).delete(
+            synchronize_session=False
+        )
 
-            # db.session.remove()
-            # db.drop_all()
-            db.session.commit()
-            db.session.remove()
+        db.session.commit()
+        db.session.remove()
+        self.app_context.pop()
+        test_logger.info("Test teardown completed")
 
     def test_index_route(self):
-        response = self.app.get("/")  # Test the index route
-        self.assertEqual(response.status_code, 200)
-        # Check if the title is in the response
-        self.assertIn(b"Trade Tracker", response.data)
+        """Test the home page route returns successfully"""
+        response = self.client.get("/")
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"Expected status 200, got {response.status_code}",
+        )
+        self.assertIn(
+            b"Trade Tracker",
+            response.data,
+            "Page title 'Trade Tracker' not found in response",
+        )
 
     def test_recent_trades_route(self):
-        response = self.app.get("/recent_trades/5")  # Test with 5 days
-        self.assertEqual(response.status_code, 200)
-        # Add more assertions to check the content of the response based on your expected data
+        """Test recent trades route returns successfully"""
+        response = self.client.get("/recent_trades/5")
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"Expected status 200, got {response.status_code}",
+        )
+        self.assertIn(
+            b"Recent Trades",
+            response.data,
+            "'Recent Trades' heading not found in response",
+        )
 
     def test_trades_by_symbol_route(self):
-        response = self.app.get("/trades/ABC")  # Test with symbol ABC
-        self.assertEqual(response.status_code, 200)
-        # Add more assertions
+        """Test trades by symbol route returns successfully"""
+        get_fake_url = "/trades/FAKE1"
+        response = self.client.get(get_fake_url)
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"Expected status 200 from {get_fake_url}, got {response.status_code}",
+        )
+
+        self.assertIn(b"FAKE1", response.data, "Symbol 'FAKE1' not found in response")
 
     def test_update_transaction_route(self):
-        # Test the POST request to update a transaction
+        """Test updating a transaction works correctly"""
         data = {
-            "reason": "Test Update",
+            "reason": "No real reason",
             "initial_stop_price": "123.45",
             "projected_sell_price": "150.00",
         }
-        transaction_id = self.first_transaction_id.id
-        print("Test update using transaction id: " + str(transaction_id))
-        response = self.app.post(
-            "/update_transaction/" + str(transaction_id), data=data
+
+        # Get transaction ID
+
+        self.first_transaction = TradeTransaction.query.filter_by(
+            reason="Test Buy FAKE1"
+        ).first()
+
+        transaction_id = self.first_transaction.id
+        original_transaction = TradeTransaction.query.get(transaction_id)
+        test_logger.info(f"Original Transaction: {vars(original_transaction)}")
+
+        # Send update request
+        response = self.client.post(
+            f"/update_transaction/{transaction_id}",
+            data=data,
+            follow_redirects=True,
         )
 
-        # Route is redirected to view_transaction route
-        self.assertEqual(response.status_code, 302)
-        # You might need to query the database to verify the update
+        # Verify response
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"Expected status 200 after redirect, got {response.status_code}",
+        )
 
-    # def get_positions_json(scope, stock_symbol):
+        # Verify database update
+        updated_transaction = TradeTransaction.query.get(transaction_id)
 
-    def test_all_trades_route(self):
-        # all, open, closed
-        response = self.app.get("/trades/all/json/FAKE1")
-        self.assertEqual(response.status_code, 200)
-        trades_data = response.get_json()
+        test_logger.info(f"Updated Transaction: {vars(updated_transaction)}")
 
+        self.assertIsInstance(
+            updated_transaction,
+            TradeTransaction,
+            "Expected 'updated_transactions' to be a TradeTransaction object",
+        )
+
+        self.assertEqual(
+            updated_transaction.reason,
+            data.get("reason"),
+            f"Expected reason '{data.get("reason")}', got '{updated_transaction.reason}'",
+        )
+        self.assertEqual(
+            float(updated_transaction.initial_stop_price),
+            123.45,
+            f"Expected stop price {data.get('initial_stop_price')}, got {updated_transaction.initial_stop_price}",
+        )
+        self.assertEqual(
+            float(updated_transaction.projected_sell_price),
+            150.00,
+            f"Expected sell price {data.get('projected_sell_price')}, got {updated_transaction.projected_sell_price}",
+        )
+
+    def test_api_trades_route(self):
+        """Test API trades endpoint returns correct data"""
+        response = self.client.get("/api/trades/all/json/FAKE1")
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"Expected status 200, got {response.status_code}",
+        )
+
+        trades_data = response.json
+
+        # Verify response structure
         self.assertEqual(
             trades_data["stock_symbol"],
             "FAKE1",
-            msg=f"Expected stock_symbol to be 'FAKE1', got {trades_data['stock_symbol']}",
+            f"Expected stock_symbol 'FAKE1', got {trades_data['stock_symbol']}",
         )
-
         self.assertEqual(
             trades_data["requested"],
             "all_trades",
-            msg=f"Expected requested to be 'all_trades', got {trades_data['requested']}",
+            f"Expected requested 'all_trades', got {trades_data['requested']}",
         )
 
-        self.assertIsInstance(trades_data["transaction_stats"], dict)
+        # Verify transaction data
+        transaction_stats = trades_data["transaction_stats"]
+        self.assertIsInstance(
+            transaction_stats, dict, "transaction_stats should be a dictionary"
+        )
+
+        stock_trades = transaction_stats["stock"]["all_trades"]
+        self.assertEqual(
+            len(stock_trades), 1, f"Expected 1 stock trades, got {len(stock_trades)}"
+        )
+
+        stock_buy_trade = stock_trades[0]
+        self.assertEqual(
+            stock_buy_trade["current_sold_qty"],
+            100.00,
+            f"Expected current_sold_qty == 100, got {stock_buy_trade['current_sold_qty']}",
+        )
+        self.assertTrue(
+            stock_buy_trade["is_done"],
+            f"Expected is_done == True, got {stock_buy_trade['is_done']}",
+        )
+
+        stock_sell_trades = stock_buy_trade["sells"]
 
         self.assertEqual(
-            len(trades_data["transaction_stats"]["stock"]["all_trades"]),
+            len(stock_sell_trades),
             1,
-            msg=f"Expected 1 stock trades, got {len(trades_data["transaction_stats"]["stock"]["all_trades"])}",
+            f"Expected 1 stock sell trade, got {len(stock_sell_trades)}",
+        )
+
+        stock_sell_trade = stock_sell_trades[0]
+
+        self.assertEqual(
+            stock_sell_trade["quantity"],
+            100,
+            f"Expected stock sell trade quantity == 100, got {stock_sell_trade['quantity']}",
+        )
+
+        # test_logger.info(f"Stock Trades: {stock_trades}")
+
+        option_trades = transaction_stats["option"]["all_trades"]
+
+        self.assertEqual(
+            len(option_trades), 0, f"Expected 0 option trades, got {len(option_trades)}"
+        )
+
+        # Verify summary data
+        stock_summary = transaction_stats["stock"]["summary"]
+
+        self.assertIsInstance(
+            stock_summary, dict, "Stock summary should be a dictionary"
         )
 
         self.assertEqual(
-            len(trades_data["transaction_stats"]["option"]["all_trades"]),
-            0,
-            msg=f"Expected 0 option trades, got {len(trades_data["transaction_stats"]["option"]["all_trades"])}",
+            stock_summary["profit_loss"],
+            0.0,
+            f"Expected stock_summary[profit_loss] == 0.0, got {stock_summary['profit_loss']}",
         )
 
-        self.assertIsInstance(
-            trades_data["transaction_stats"]["stock"]["summary"], dict
+    def test_api_current_holdings(self):
+        """Test API current holdings endpoint returns correctly"""
+        response = self.client.get("/api/trade/current_holdings_json")
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"Expected status 200, got {response.status_code}",
         )
-        self.assertIsInstance(
-            trades_data["transaction_stats"]["option"]["summary"], dict
+
+        holdings = response.json
+        self.assertIsInstance(holdings, list, "Response should be a list")
+
+        # Verify holdings data structure
+        for holding in holdings:
+            self.assertIn("symbol", holding, "Holding missing 'symbol' field")
+            self.assertIn("shares", holding, "Holding missing 'shares' field")
+            self.assertIn(
+                "average_price", holding, "Holding missing 'average_price' field"
+            )
+            self.assertIn("profit_loss", holding, "Holding missing 'profit_loss' field")
+            self.assertIn("name", holding, "Holding missing 'name' field")
+
+    def test_api_symbols(self):
+        """Test API symbols endpoint returns correctly"""
+        response = self.client.get("/api/trade/symbols_json")
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"Expected status 200, got {response.status_code}",
         )
+
+        symbols = response.json or []
+        self.assertIsInstance(symbols, list, "Response should be a list")
+
+        # Verify expected symbols are present
+        symbol_names = [s[0] for s in symbols]
+        for symbol in TEST_SECURITIES.keys():
+            self.assertIn(
+                symbol, symbol_names, f"Test symbol {symbol} missing from response"
+            )
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(failfast=True)

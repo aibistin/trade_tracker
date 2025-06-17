@@ -103,8 +103,8 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useFetchTrades } from '../composables/useFetchTrades';
 import { useRouter } from 'vue-router';
-const allSymbolsApiUrl = ref('http://localhost:5000/trade/symbols_json');
-const currentSymbolsApiUrl = ref('http://localhost:5000/trade/current_holdings_symbols_json')
+const allSymbolsApiUrl = ref('http://localhost:5000/api/trade/symbols_json');
+const currentSymbolsApiUrl = ref('http://localhost:5000/api/trade/current_holdings_symbols_json')
 const searchQuery = ref('');
 const isDropdownOpen = ref(false);
 const router = useRouter();

@@ -19,9 +19,9 @@
         <span class="text-primary-emphasis">{{ data.stock_symbol }}</span>
       </h4>
 
-      <TransactionSummary :tradeSummary="data.transaction_stats.stock.summary" :stockSymbol="data.stock_symbol"
-        stockType="Stock" :allTradeCount="data.transaction_stats.stock.all_trades?.length" />
-      <div v-if="data.transaction_stats.stock.all_trades?.length">
+      <div v-if="data.transaction_stats.stock.has_trades === true">
+        <TransactionSummary :tradeSummary="data.transaction_stats.stock.summary" :stockSymbol="data.stock_symbol"
+          stockType="Stock" :allTradeCount="data.transaction_stats.stock.all_trades?.length" />
         <buy-trade-summary :stockSymbol="data.stock_symbol" stockType="Stock">
           <tr v-for="trade in flattenTrades(
             data.transaction_stats.stock.all_trades
@@ -32,9 +32,9 @@
       </div>
 
       <!-- Option trades here -->
-      <TransactionSummary :tradeSummary="data.transaction_stats.option.summary" :stockSymbol="data.stock_symbol"
-        stockType="Option" :allTradeCount="data.transaction_stats.option.all_trades?.length" />
-      <div v-if="data.transaction_stats.option.all_trades?.length">
+      <div v-if="data.transaction_stats.option.has_trades === true">
+        <TransactionSummary :tradeSummary="data.transaction_stats.option.summary" :stockSymbol="data.stock_symbol"
+          stockType="Option" :allTradeCount="data.transaction_stats.option.all_trades?.length" />
         <buy-trade-summary :stockSymbol="data.stock_symbol" stockType="Option">
           <tr v-for="trade in flattenTrades(
             data.transaction_stats.option.all_trades
@@ -43,6 +43,8 @@
           </tr>
         </buy-trade-summary>
       </div>
+
+
     </div>
   </div>
 </template>
@@ -168,7 +170,7 @@ export default {
     logRoute(route);
     // Get all_trades, open_trades or closed_trades
     const _createApiUrl = (scope, stockSymbolValue) => {
-      return `http://localhost:5000/trades/${scope}/json/${stockSymbolValue}`;
+      return `http://localhost:5000/api/trades/${scope}/json/${stockSymbolValue}`;
     };
 
     const toggleTrade = (tradeId) => {

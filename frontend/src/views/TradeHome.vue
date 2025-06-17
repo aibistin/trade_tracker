@@ -44,28 +44,33 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFetchTrades } from '../composables/useFetchTrades';
-const allSymbolsApiUrl = ref('http://localhost:5000/trade/symbols_json');
+const allSymbolsApiUrl = ref('http://localhost:5000/api/trade/symbols_json');
 const searchQuery = ref('');
 const isDropdownOpen = ref(false);
 const router = useRouter();
 
-console.log(`[Home->Init] useFetchTrades`);
+console.log(`[Home->Init] useFetchTrades to get stockSymbols`);
 const { data: stockSymbols, loading, error, fetchData } = useFetchTrades();
+
+console.log("[Home->Init] error: ",error);
+console.log(`[Home->Init] stockSymbols: ${JSON.stringify(stockSymbols.value?.slice(0, 3) , null, 2)}`);
 
 // Filter symbols based on search query
 const filteredSymbols = computed(() => {
+
   if (!searchQuery.value) {
     return stockSymbols.value;
   }
-
+ 
   const query = searchQuery.value.toLowerCase();
-
   return stockSymbols.value.filter(([symbol, name]) => {
+    console.log("symbol: ", symbol, "name: ", name);
     return (
       symbol.toLowerCase().includes(query) ||
       name.toLowerCase().includes(query)
     );
   });
+
 });
 
 // Handle symbol selection

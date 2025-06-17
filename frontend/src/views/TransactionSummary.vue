@@ -100,7 +100,7 @@ export default {
       return value >= 0 ? 'text-success' : 'text-danger';
     },
     formatValue(value) {
-      return value.toFixed(2);
+      return value?.toFixed(2);
     }
   }
 };

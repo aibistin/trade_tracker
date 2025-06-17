@@ -93,7 +93,7 @@ class TradingAnalyzer:
 
         for field in self.required_trade_fields:
             if field not in trade:
-                logging.error(f"[{self.stock_symbol}] Missing field: {trade}")
+                logging.error(f"[{self.stock_symbol}] missing field: {trade}")
                 raise ValueError(
                     f"{self.stock_symbol} - is missing required field: {field}"
                 )

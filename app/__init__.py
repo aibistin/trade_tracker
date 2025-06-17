@@ -1,33 +1,130 @@
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-print("Sys Path: " + str(sys.path)   )
-from flask import Flask
+import logging
+from logging.handlers import RotatingFileHandler
+import json_log_formatter
+from flask import Flask, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 from .extensions import db
 
-load_dotenv('.flaskenv')
-app = Flask(__name__)
-CORS(app)
-
-app.config['SECRET_KEY'] = 'This is a strong, random key'  # Replace with a strong, random key
-
-# To share the Database Connection
-if os.environ.get('FLASK_ENV') == 'testing':
-    print("Created an In Memory Database")
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-else:
-    print("Created a File based Database")
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../data/stock_trades.db'
+load_dotenv(".flaskenv")
 
 
+def create_app():
+    app = Flask(__name__)
+    CORS(app)
 
-# Initialize the db with the app
-db.init_app(app)
+    app.config["SECRET_KEY"] = os.environ.get(
+        "SECRET_KEY", "This is a strong, random key"
+    )
+
+    logs_dir = os.path.join(app.root_path, "..", "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
+    # Configure logging
+    # log_level = logging.DEBUG if app.config.get("DEBUG") else logging.INFO
+    log_level = getattr(logging, os.environ.get('LOG_LEVEL', 'INFO'))
+    print (f"OS.environ.get('LOG_LEVEL'): {os.environ.get('LOG_LEVEL')}")   
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+    # File handler (rotating logs)
+    file_handler = RotatingFileHandler(
+        filename=os.path.join(logs_dir, "trading_app.log"),
+        maxBytes=2 * 1024 * 1024,  # 2MB
+        backupCount=5,
+    )
+
+    if os.environ.get('JSON_LOGGING','N') == 'Y':
+        file_handler.setFormatter(json_log_formatter.JSONFormatter())   
+    else:
+        file_handler.setFormatter(logging.Formatter(log_format))
+
+    file_handler.setLevel(log_level)
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter(log_format))
+    console_handler.setLevel(log_level)
+
+    if os.environ.get("FLASK_ENV") == "production":
+        # Only log WARNING and above to console
+        console_handler.setLevel(logging.WARNING)
+        #     Log DEBUG and above to file
+        file_handler.setLevel(logging.DEBUG)
+
+    # Configure Flask's built-in logger instead of replacing it
+    app.logger.removeHandler(app.logger.handlers[0])  # Remove default handler
+    app.logger.addHandler(file_handler)
+    app.logger.addHandler(console_handler)
+    app.logger.setLevel(log_level)
 
 
+    # Configure root logger
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    app.logger.handlers.clear()  # Clear Flask's default handlers
+    app.logger.addHandler(file_handler)
+    app.logger.addHandler(console_handler)
+    app.logger.setLevel(log_level)    
+
+    app.logger.propagate = False # Prevent propagation to root logger
 
 
+    # Application-specific logger
+    # app.logger = logging.getLogger("flask.app")
+    # app.logger.addHandler(file_handler)
+    # app.logger.addHandler(console_handler)
 
-from app import routes
+    # Middleware for request logging
+    @app.before_request
+    def log_request_info():
+        app.logger.info(
+            f"Request: {request.method} {request.path} - Client: {request.remote_addr}"
+        )
+        if request.method in ["POST", "PUT"]:
+            app.logger.debug(f"Request body: {request.get_data(as_text=True)}")
+
+    @app.after_request
+    def log_response_info(response):
+        app.logger.info(
+            f"Response: {response.status} - {request.method} {request.path}"
+        )
+        return response
+
+
+    # Instead of app.logger.info(...)
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"[__init__.py] Log Level: {log_level}")
+
+    # Database configuration
+    if os.environ.get("FLASK_ENV") == "testing":
+        logger.debug("[__init__.py] Created an In Memory Database")
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+    else:
+        app.logger.debug("[__init__.py] Created a File based Database")
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///../data/stock_trades.db"
+
+    # Initialize extensions
+    db.init_app(app)
+
+    # Register blueprints
+    from .routes.web_routes import web_bp
+    from .routes.api_routes import api_bp
+    app.register_blueprint(web_bp)
+    app.register_blueprint(api_bp, url_prefix="/api")
+
+    # Create database tables
+    with app.app_context():
+        db.create_all()
+        app.logger.info("[__init__.py] Database tables created")
+
+    return app
+
+
+# Create app instance
+app = create_app()
+app.logger.info("[__init__.py] Application instance created")
