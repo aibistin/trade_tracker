@@ -75,6 +75,7 @@ class Trade:
         "quantity": 0.0,
         "price": 0.0,
         "amount": 0.0,
+        "account": "X",
         "is_option": False,
         "is_done": False,
         "expiration_date_iso": "",
@@ -98,6 +99,7 @@ class Trade:
             raise KeyError("Trade ID is required")
 
         # Set optional attributes with defaults
+        # TODO: Test that this works
         for field, default in self._DEFAULTS.items():
             setattr(self, field, trade_data.get(field, default))
         # The Database trade_transaction table uses "label"
@@ -142,7 +144,7 @@ class Trade:
             # Skip internal attributes
             if key.startswith("_"):
                 continue
-    
+
             # Format datetime objects
             if isinstance(value, datetime):
                 value = value.strftime("%Y-%m-%d %H:%M:%S")
@@ -159,16 +161,27 @@ class Trade:
                         if isinstance(item, Trade):
                             # Create a compact representation
                             trade_repr = (
-                                f"{item.__class__.__name__}("
+                                f"\n{item.__class__.__name__}("
                                 f"id={item.trade_id}, "
                                 f"qty={item.quantity}, "
                                 f"price={item.price}, "
-                                f"date={item.trade_date.strftime('%Y-%m-%d')}"
+                                f"trade_date={item.trade_date.strftime('%Y-%m-%d')}, "
+                                f"account={item.account}, "
                             )
                             # Add profit/loss for SellTrades
                             if isinstance(item, SellTrade):
-                                trade_repr += f", P/L={item.profit_loss}"
-                            trade_repr += ")"
+                                trade_repr += f", basis_price={item.basis_price}"
+                                trade_repr += f", basis_amt={item.basis_amt}"
+                                trade_repr += f", profit_loss={item.profit_loss}"
+                            elif isinstance(item, BuyTrade):
+                                trade_repr += (
+                                    f", current_sold_amt={item.current_sold_amt}"
+                                )
+                                trade_repr += (
+                                    f", current_profit_loss={item.current_profit_loss}"
+                                )
+                                trade_repr += f", current_percent_profit_loss={item.current_percent_profit_loss}"
+                            trade_repr += ")\n"
                             items.append(trade_repr)
                         # For other objects, use their repr but limit length
                         else:
@@ -176,16 +189,16 @@ class Trade:
                             if len(item_repr) > 50:
                                 item_repr = item_repr[:47] + "..."
                             items.append(item_repr)
-                        
+
                         # Limit to 5 items for readability
                         if i >= 2 and len(value) > 5:
                             items.append(f"...+{len(value)-3} more")
                             break
-                    
+
                     value = "[" + ", ".join(items) + "]"
-            
+
             attrs.append(f"{key}={value}")
-    
+
         return f"{self.__class__.__name__}({', '.join(attrs)})"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -292,6 +305,11 @@ class BuyTrade(Trade):
         super().__init__(trade_data)
         self.is_buy_trade: bool = True
         self.current_sold_qty: float = 0.0
+        # TODO: Add to test_trade.py
+        self.current_basis_sold_amt: float = 0.0
+        self.current_sold_amt: float = 0.0
+        self.current_profit_loss: float = 0.0
+        self.current_percent_profit_loss: float = 0.0
         self.sells: List[SellTrade] = []
 
     def __repr__(self) -> str:
@@ -299,8 +317,12 @@ class BuyTrade(Trade):
         base_repr = super().__repr__()
         # buy-specific fields
         return base_repr.replace(
-            ")",
-            f", current_sold_qty={self.current_sold_qty}, sells_count={len(self.sells)})",
+            ")\n",
+            f", current_sold_qty={self.current_sold_qty}, current_sold_amt={self.current_sold_amt})\n"
+            + f", current_basis_sold_amt={self.current_basis_sold_amt}\n"
+            + f", current_current_profit_loss={self.current_profit_loss}, current_percent_profit_loss={self.current_percent_profit_loss})\n"
+            + f", sells_count={len(self.sells)}"
+            + f")\n",
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -316,7 +338,7 @@ class BuyTrade(Trade):
             f"[{self.symbol}] Apply sell {sell_trade.trade_id} to buy {self.trade_id} - applied_qty: {applied_qty}"
         )
 
-        applied_sell.quantity = applied_qty
+        applied_sell.quantity = round(applied_qty, 4)
         applied_sell.amount = round(
             applied_qty * applied_sell.price * self.multiplier, 2
         )
@@ -324,6 +346,11 @@ class BuyTrade(Trade):
         self.current_sold_qty += applied_qty
         sell_trade.quantity -= applied_qty
         sell_trade.amount -= applied_sell.amount
+        # TODO test in test_trade.py
+        self.current_sold_amt += applied_sell.amount
+        self.current_basis_sold_amt += applied_qty * self.price * self.multiplier
+        applied_sell.basis_price = self.price
+        applied_sell.basis_amt = applied_qty * self.price * self.multiplier
 
         logging.debug(
             f"[{self.symbol}] Buy current_sold_qty: {self.current_sold_qty} buy original quantity: {self.quantity}"
@@ -336,9 +363,23 @@ class BuyTrade(Trade):
         # Applied sell will track the sell trades status.
         applied_sell.is_done = sell_trade.quantity == 0
 
-        applied_sell.calculate_profit_loss(self)
-        # This portion of sell trade will be included with the buy trade
-        self.sells.append(applied_sell)
+        # applied_sell.calculate_profit_loss()
+        price_diff = abs(applied_sell.price) - applied_sell.basis_price
+        amount_diff = price_diff * applied_sell.quantity * applied_sell.multiplier
+        applied_sell.profit_loss = round(amount_diff, 2)
+        applied_sell.percent_profit_loss = (
+            round((amount_diff / applied_sell.basis_amt) * 100, 2)
+            if amount_diff != 0
+            else 0
+        )
+
+        self.sells.append(applied_sell)  # This portion of sell is included with buy
+
+        # TODO test in trade_test.py
+        self.current_profit_loss += applied_sell.profit_loss
+        self.current_percent_profit_loss = (
+            self.current_profit_loss / self.current_basis_sold_amt
+        ) * 100
 
         logging.debug(
             f"[{self.symbol}] Applied {applied_qty} from sell {sell_trade.trade_id}"
@@ -359,6 +400,9 @@ class SellTrade(Trade):
 
     def __init__(self, trade_data: TradeData):
         super().__init__(trade_data)
+        # TODO: Add basis price  and basis_amt to test_trade.py
+        self.basis_price: float = 0.0
+        self.basis_amt: float = 0.0
         self.profit_loss: float = 0.0
         self.percent_profit_loss: float = 0.0
 
@@ -368,15 +412,18 @@ class SellTrade(Trade):
         # Add sell-specific fields
         return base_repr.replace(
             ")",
-            f", profit_loss={self.profit_loss}, percent_profit_loss={self.percent_profit_loss})",
+            f", basis_price={self.basis_price}, basis_amt={self.basis_amt}\n"
+            + f", profit_loss={self.profit_loss}, percent_profit_loss={self.percent_profit_loss}\n"
+            + f")\n",
         )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dictionary"""
         return super().to_dict()
 
-    def calculate_profit_loss(self, buy_trade: BuyTrade) -> None:
+    def calculate_profit_loss(self) -> None:
         """Calculate profit/loss against a buy trade"""
-        price_diff = self.price - buy_trade.price
-        self.profit_loss = round(price_diff * self.quantity * self.multiplier, 2)
-        self.percent_profit_loss = round((price_diff / buy_trade.price) * 100, 2)
+        price_diff = abs(self.price) - self.basis_price
+        amount_diff = price_diff * self.quantity * self.multiplier
+        self.profit_loss = round(amount_diff, 2)
+        self.percent_profit_loss = round((amount_diff / self.basis_amt) * 100, 2)

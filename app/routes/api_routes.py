@@ -74,7 +74,9 @@ def get_current_holdings_json():
     logging.getLogger("app.routes.api_routes").setLevel(logging.DEBUG)
 
     current_holdings = get_current_holdings()
-    log.debug(f"[get_current_holdings_json] Current Holdings[:3]: {current_holdings[:3]}")
+    log.debug(
+        f"[get_current_holdings_json] Current Holdings[:3]: {current_holdings[:3]}"
+    )
     # Convert the tuple data into a list of dictionaries with named fields
     holdings_list = [
         {
@@ -115,7 +117,7 @@ def get_positions_json(scope, stock_symbol):
             400,
         )
 
-    # log.debug(f"[{stock_symbol}] Getting {scope.capitalize()} Positions JSON")
+    log.info(f"[{stock_symbol}] Getting {scope.capitalize()} Positions JSON")
 
     trade_record = {
         "stock_symbol": stock_symbol,
@@ -128,21 +130,11 @@ def get_positions_json(scope, stock_symbol):
 
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
 
-    # getter_methods = {
-    #     "all": analyzer.get_profit_loss_data_json,
-    #     # "open": analyzer.get_open_trades,
-    #     # TODO add new method to trading_analyzer.py
-    #     "open": analyzer.get_profit_loss_data_json,
-    #     # "closed": analyzer.get_closed_trades,
-    #     # TODO add new method to trading_analyzer.py
-    #     "closed": analyzer.get_profit_loss_data_json,
-    # }
-
-    # Get the appropriate method based on the scope
-    # getter_method = getter_methods.get(scope, analyzer.get_profit_loss_data_json)
-
     analyzer.analyze_trades(status=scope)
     trade_record["transaction_stats"] = analyzer.get_profit_loss_data_json()
+    log.debug(
+        f"[Routes] {scope.capitalize()} Stock all_trades for {stock_symbol}: {trade_record['transaction_stats']['stock']['all_trades']}"
+    )
 
     # log.debug(
     #     f"[Routes] {scope.capitalize()} positions for {stock_symbol}: {json.dumps(trade_record, sort_keys=True, indent=2)}"

@@ -271,10 +271,20 @@ class CSVProcessor:
     def determine_account_type(self, file_name):
         """Determine account type based on the file name."""
         if file_name.lower().startswith("c"):
+            print(f"Info: Account: 'C', File name: '{file_name}'")
             return "C"
         elif file_name.lower().startswith("r"):
+            print(f"Info: Account: 'R', File name: '{file_name}'")
             return "R"
-        return "I"
+        elif file_name.lower().startswith("d"):
+            # Designated Individual Account File
+            print(f"Info: Account: 'I', File name: '{file_name}'")
+            return "I"
+
+        print(
+            f"Warning: Expected file name starting with 'C','R','D'. File: '{file_name}'"
+        )
+        return "X"
 
     def is_duplicate_row(self, row, seen_rows, account):
         """Check for duplicate rows."""
@@ -321,10 +331,10 @@ class CSVProcessor:
 
             for input_file in input_files:
 
-                account = self.determine_account_type(input_file)
                 print(f"Info: Reading file path: {input_file}")
                 file_name = os.path.basename(input_file)
-                print(f"Info: File Name: {file_name}")
+                print(f"Info: File Name: '{file_name}'")
+                account = self.determine_account_type(file_name)
 
                 with open(input_file, "r") as in_csv:
                     reader = csv.DictReader(in_csv, fieldnames=field_names)

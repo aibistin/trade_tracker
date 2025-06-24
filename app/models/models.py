@@ -5,7 +5,8 @@ from sqlalchemy import func, case, cast, Numeric, select
 from ..extensions import db
 
 #TODO Not handling "BC" (Buy to Close) and "SO" (Sell to Open)
-common_actions = ["B", "BO", "EE","S","SC"]
+# RS = Reinvest Shares
+common_actions = ["B", "BO", "EE","RS", "S","SC"]
 
 
 class Security(db.Model):

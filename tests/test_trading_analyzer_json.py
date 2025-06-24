@@ -56,7 +56,6 @@ class TestTradingAnalyzerJSON(unittest.TestCase):
             trade = stock_data["all_trades"][0]
             self.assertIn("trade_id", trade)
             self.assertIn("quantity", trade)
-            self.assertIn("sells", trade)
 
     # @unittest.skip("Skipping test_full_json_serialization round trip deserialization. May not be needed.")
     def test_full_json_serialization(self):

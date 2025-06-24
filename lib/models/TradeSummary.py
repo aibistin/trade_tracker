@@ -32,8 +32,9 @@ class TradeSummary:
     average_sold_price: float = 0.0  # Added missing field
     average_basis_open_price: float = 0.0
     average_basis_sold_price: float = 0.0
+    #TODO remove buy_trades and sell_trades
     buy_trades: List[BuyTrade] = field(default_factory=list)
-    sell_trades: List[SellTrade] = field(default_factory=list)
+    # sell_trades: List[SellTrade] = field(default_factory=list)
     multiplier: int = 1
     after_date: Optional[str] = None
 
@@ -91,17 +92,18 @@ class TradeSummary:
             trade_summary.bought_amount += trade.amount
             trade_summary.buy_trades.append(trade)
 
+            logging.debug(f"Buy: {trade}")
             # Process associated sell trades
             for sell in trade.sells:
                 # Validate sell date occurs after buy date
+                logging.debug(f"Buy: {sell}")
                 if sell.trade_date < trade.trade_date:
-                    raise ValueError(
-                        f"Sell date {sell.trade_date} before buy date {trade.trade_date}"
-                    )
+                    e_msg = f"Sell ID: {sell.trade_id} acct: {sell.account} date {sell.trade_date}, account {sell.account} before buy date {trade.trade_date}, ID: {trade.trade_id} account {trade.account}"
+                    logging.error(e_msg)
+                    raise ValueError(e_msg)
 
                 trade_summary.sold_quantity += sell.quantity
                 trade_summary.sold_amount += sell.amount
-                trade_summary.sell_trades.append(sell)
 
         # Calculate averages
         trade_summary.get_average_bought_price()
@@ -234,12 +236,9 @@ class TradeSummary:
         running_bought_quantity = 0
         running_sold_quantity = 0
         running_sold_amount = 0
-
-        sell_trades = self.sell_trades[:]
-        buy_trades = self.buy_trades[:]
         all_trades = []
 
-        if not buy_trades:
+        if not len(self.buy_trades):
             logging.info(f"[{symbol}] {security_type} has no buy trades")
             if self.bought_quantity > 0:
                 missing = self.bought_quantity - running_bought_quantity
@@ -247,7 +246,15 @@ class TradeSummary:
                     f"[{symbol}] Is missing {missing} {security_type} buy trades"
                 )
 
-        for current_buy_record in buy_trades:
+        logging.info(
+            f"[{symbol}] {security_type} Buy  trade count: {len(self.buy_trades)}"
+            # f"[{symbol}] {security_type} Sell trade count: {len(self.sell_trades)}"
+        )
+
+        # self.sell_trades.clear()
+
+        while self.buy_trades:
+            current_buy_record = self.buy_trades.pop(0)
 
             running_bought_quantity += current_buy_record.quantity
 
@@ -258,9 +265,6 @@ class TradeSummary:
 
             # The sold Quantity that can be matched with this buy record
             unmatched_sold_quantity = self.sold_quantity - running_sold_quantity
-            logging.info(
-                f"[{symbol}] Sell {security_type} trade count: {len(sell_trades)}"
-            )
             sold_quantity_this_trade = 0
 
             if current_buy_record.quantity <= unmatched_sold_quantity:
@@ -282,6 +286,7 @@ class TradeSummary:
             running_sold_amount += (
                 -current_buy_record.price * sold_quantity_this_trade * multiplier
             )
+
             all_trades.append(current_buy_record)
 
         self.calculate_final_totals(running_sold_quantity, running_sold_amount)

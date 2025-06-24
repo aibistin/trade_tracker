@@ -3,6 +3,11 @@
 It will export formatCurrency, profitLossClass, formatValue, formatDate, rowClass
 */
 function formatCurrency(value) {
+
+  if (!value) {
+    return null;
+  }   
+
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -17,7 +22,8 @@ function profitLossClass(value) {
 }
 
 function formatValue(value) {
-  return value.toFixed(2);
+  // return value ? value.toFixed(2) : null
+  return value.toFixed(3)
 }
 
 function formatDate(dateString) {

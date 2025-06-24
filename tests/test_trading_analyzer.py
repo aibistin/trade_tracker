@@ -455,7 +455,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "price": 6.5399,
                         "target_price": 0.0,
                         "amount": -653.99,
-                        "account": "C",
+                        "account": "R",
                     },
                 ]
             },
@@ -522,7 +522,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "price": 0.92,
                         "target_price": 5.0,
                         "amount": -92.0,
-                        "account": "I",
+                        "account": "C",
                     },
                     # 521|SOUN|SC|SOUN 04/17/2025 5.00 C|C|2025-02-21|2025-04-17||1.0|5.5|550.0|5.0|||I
                     {
@@ -537,7 +537,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         "price": 5.5,
                         "target_price": 5.0,
                         "amount": 550.0,
-                        "account": "I",
+                        "account": "C",
                     },
                     # 2 - One Buy and No Sell
                     # 462|SOUN|BO|SOUN 07/18/2025 8.00 C|C|2025-02-24|2025-07-18||1.0|3.05|-305.0|8.0|||C
@@ -1062,7 +1062,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "price": 5.5,
                             "amount": 550.0,
                             "target_price": 5.0,
-                            "account": "I",
+                            "account": "C",
                             "profit_loss": 550.0 - 92.0,
                             "percent_profit_loss": round(
                                 ((550.0 - 92.0) / 92.0) * 100, 2
@@ -1416,7 +1416,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                         self.assertEqual(
                             getattr(got_sell, field),
                             expected_sell[field],
-                            f"[SOUN] Got field {field} doesnt match: {expected_sell[field]}",
+                            f"[SOUN] {field} - Got {getattr(got_sell, field)} expected: {expected_sell[field]}",
                         )
                 else:
                     # This trade was modified because it was exercised

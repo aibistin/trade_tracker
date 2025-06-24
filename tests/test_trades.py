@@ -18,6 +18,7 @@ class TestTradesClasses(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 15),
                 "quantity": 100,
                 "price": 50.0,
+                "account": "C",
             }  # type: ignore
         )
 
@@ -29,6 +30,7 @@ class TestTradesClasses(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 16),
                 "quantity": 50,
                 "price": 55.0,
+                "account": "C",
             }  # type: ignore
         )
 
@@ -40,33 +42,72 @@ class TestTradesClasses(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 17),
                 "quantity": 200,
                 "price": 52.0,
+                "account": "C",
+            }  # type: ignore
+        )
+
+        # No account
+        self.trade4 = BuyTrade(
+            {
+                "trade_id": "NoAccount_1",
+                "symbol": "ACCT0",
+                "action": "B",
+                "trade_date": datetime(2024, 1, 10),
+                "quantity": 1000,
+                "price": 100.0,
+            }  # type: ignore
+        )
+
+        self.trade5 = SellTrade(
+            {
+                "trade_id": "NoAccount_2",
+                "symbol": "ACCT0",
+                "action": "S",
+                "trade_date": datetime(2024, 2, 16),
+                "quantity": 500,
+                "price": 200.0,
             }  # type: ignore
         )
 
         # Create trades collection
         self.trades = Trades(security_type="stock")
         self.trades.add_trade(self.trade1)
+        # trade2 == SellTrade
         self.trades.add_trade(self.trade2)
         self.trades.add_trade(self.trade3)
+        # No Account -> Defaults to 'X';
+        self.trades.add_trade(self.trade4)
+        self.trades.add_trade(self.trade5)
 
     def test_add_trades(self):
         """Test adding different trade types"""
-        self.assertEqual(len(self.trades.trades), 3)
-        self.assertEqual(len(self.trades.buy_trades), 2)
-        self.assertEqual(len(self.trades.sell_trades), 1)
+
+        self.assertEqual(len(self.trades.buy_trades), 3)
+        self.assertEqual(len(self.trades.sells_by_account["C"]), 1)
+        self.assertEqual(len(self.trades.sells_by_account["X"]), 1)
 
         # Verify correct types
         self.assertIsInstance(self.trades.buy_trades[0], BuyTrade)
-        self.assertIsInstance(self.trades.sell_trades[0], SellTrade)
+        self.assertIsInstance(self.trades.buy_trades[2], BuyTrade)
+        self.assertIsInstance(
+            self.trades.sells_by_account["C"][0],
+            SellTrade,
+            f"Expected SellTrade, got {type(self.trades.sells_by_account['C'][0])}",
+        )
+        self.assertIsInstance(
+            self.trades.sells_by_account["X"][0],
+            SellTrade,
+            f"Expected SellTrade, got {type(self.trades.sells_by_account['C'][0])}",
+        )
 
     def test_sort_trades(self):
         """Test trade sorting functionality"""
         # Add trades in reverse date order
-        self.trades.trades = []
         self.trades.buy_trades = []
-        self.trades.sell_trades = []
+        self.trades.sells_by_account = {}
 
         self.trades.add_trade(self.trade3)  # May 17
+        # trade2 == SellTrade
         self.trades.add_trade(self.trade2)  # May 16
         self.trades.add_trade(self.trade1)  # May 15
 
@@ -74,13 +115,21 @@ class TestTradesClasses(unittest.TestCase):
         self.trades.sort_trades()
 
         # Verify date order
-        self.assertEqual(self.trades.trades[0].trade_id, "T1")
-        self.assertEqual(self.trades.trades[1].trade_id, "S1")
-        self.assertEqual(self.trades.trades[2].trade_id, "B1")
-
-        # Verify buy trades order
-        self.assertEqual(self.trades.buy_trades[0].trade_id, "T1")
-        self.assertEqual(self.trades.buy_trades[1].trade_id, "B1")
+        self.assertEqual(
+            self.trades.buy_trades[0].trade_id,
+            "T1",
+            f"Expected T1, got {self.trades.buy_trades[0].trade_id} ",
+        )
+        self.assertEqual(
+            self.trades.sells_by_account["C"][0].trade_id,
+            "S1",
+            f"Expected S1, got {self.trades.sells_by_account['C'][0].trade_id}",
+        )
+        self.assertEqual(
+            self.trades.buy_trades[1].trade_id,
+            "B1",
+            f"Expected B1, got {self.trades.buy_trades[1].trade_id}",
+        )
 
     def test_json_serialization(self):
         """Test trades collection serialization to JSON"""
@@ -88,14 +137,20 @@ class TestTradesClasses(unittest.TestCase):
 
         # Verify top-level structure
         self.assertEqual(trade_dict["security_type"], "stock")
-        self.assertEqual(len(trade_dict["trades"]), 3)
-        self.assertEqual(len(trade_dict["buy_trades"]), 2)
-        self.assertEqual(len(trade_dict["sell_trades"]), 1)
+        self.assertEqual(
+            len(trade_dict["buy_trades"]),
+            3,
+            f"Expected 3 buy trades, got {len(trade_dict['buy_trades'])}",
+        )
+        self.assertEqual(len(trade_dict["sells_by_account"]["C"]), 1)
+        self.assertEqual(len(trade_dict["sells_by_account"]["X"]), 1)
 
         # Verify trade content
-        self.assertEqual(trade_dict["trades"][0]["trade_id"], "T1")
+        self.assertEqual(trade_dict["buy_trades"][0]["trade_id"], "T1")
         self.assertEqual(trade_dict["buy_trades"][1]["trade_id"], "B1")
-        self.assertEqual(trade_dict["sell_trades"][0]["trade_id"], "S1")
+        # sell_trade = trade_dict["sells_by_account"]["C"][0].to_dict()
+        sell_trade = trade_dict["sells_by_account"]["C"][0]
+        self.assertEqual(sell_trade["trade_id"], "S1")
 
         # Test full JSON serialization
         import json
@@ -103,7 +158,11 @@ class TestTradesClasses(unittest.TestCase):
         json_str = json.dumps(trade_dict)
         self.assertIsInstance(json_str, str)
         reconstructed = json.loads(json_str)
-        self.assertEqual(len(reconstructed["trades"]), 3)
+        self.assertEqual(
+            len(reconstructed["buy_trades"]),
+            3,
+            f"Expected 3 buy trades, got {len(reconstructed['buy_trades'])}",
+        )
 
 
 class TestBuyTradesClass(unittest.TestCase):
@@ -160,7 +219,6 @@ class TestBuyTradesClass(unittest.TestCase):
             2,
             f"Expected 2 trades after filtering, got {len(self.buy_trades.buy_trades)}",
         )
-
 
     def test_add_trade_validation(self):
         """Test type validation when adding trades"""

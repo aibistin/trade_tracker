@@ -1,35 +1,42 @@
 <template>
-    <td>{{ buyTrade.trade_id + "-" + buyTrade.account }}</td>
-    <td>{{ formatTradeType(buyTrade) }}</td>
-    <!-- <td>{{ buyTrade.action }}</td> -->
-    <td>{{ formatAction(buyTrade) }}</td>
-    <td>{{ formatDate(buyTrade.trade_date_iso) }}</td>
+    <td>{{ trade.trade_id + "-" + trade.account }}</td>
+    <td>{{ formatTradeType(trade) }}</td>
+    <!-- <td>{{ trade.action }}</td> -->
+    <td>{{ formatAction(trade) }}</td>
+    <td>{{ formatDate(trade.trade_date_iso) }}</td>
 
-    <td v-if="buyTrade.isBuy">
-        {{ buyTrade.bought_quantity }}
+    <td v-if="trade.is_buy_trade">
+        {{ trade.quantity }}
     </td>
     <td v-else>
     </td>
 
+    <td>{{ trade.price }}</td>
 
-    <td>{{ buyTrade.price }}</td>
-
-    <td :class="profitLossClass(buyTrade.bought_amount)">
-        {{ formatCurrency(buyTrade.bought_amount || 0) }}
+    <!-- Basis Price -->
+    <td :class="profitLossClass(trade.amount)">
+        {{ trade.is_buy_trade ? formatCurrency(trade.amount || 0) : formatCurrency(trade.basis_amt || 0) }}
     </td>
 
-    <td>{{ buyTrade.sold_quantity }}</td>
+    <td>{{ trade.is_buy_trade ? formatValue(trade.current_sold_qty) : trade.quantity }}</td>
 
-    <td>{{ formatCurrency(buyTrade.sold_amount || 0) }}</td>
+    <!-- Sold Amonunt -->
+    <td>{{ trade.is_buy_trade ? formatCurrency(trade.current_sold_amt) : formatCurrency(trade.amount) }}</td>
 
-    <td :class="profitLossClass(buyTrade.profit_loss)">
-        {{ formatCurrency(buyTrade.profit_loss) }}
+    <td :class="profitLossClass(trade.profit_loss)">
+        {{ trade.is_buy_trade ? formatCurrency(trade.current_profit_loss) : formatCurrency(trade.profit_loss) }}
     </td>
 
-    <td :class="profitLossClass(buyTrade.percent_profit_loss)">
-        {{ formatValue(buyTrade.percent_profit_loss) }}%
+    <td :class="profitLossClass(trade.percent_profit_loss)">
+        <div v-if="trade.is_buy_trade">
+            {{ formatValue(trade.current_percent_profit_loss) }} {{ trade.current_percent_profit_loss ? "%" : "" }}
+        </div>
+        <div v-else>
+            {{ formatValue(trade.percent_profit_loss) }} {{ trade.percent_profit_loss ? "%" : "" }}
+        </div>
     </td>
-    <td>{{ buyTrade.isClosed }}</td>
+
+    <td>{{ trade.is_buy_trade ? trade.is_done === true ? "Closed" : "Open" : "" }}</td>
 </template>
 
 <script>
@@ -38,7 +45,7 @@ import { formatAction, formatCurrency, formatTradeType, profitLossClass, formatV
 export default {
     components: {},
     props: {
-        buyTrade: {
+        trade: {
             type: Object,
             required: true
         },
@@ -50,7 +57,7 @@ export default {
     methods: {
         formatAction,
         formatCurrency,
-        formatTradeType, 
+        formatTradeType,
         profitLossClass,
         formatValue,
         formatDate,
