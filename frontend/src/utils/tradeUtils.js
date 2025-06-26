@@ -23,7 +23,7 @@ function profitLossClass(value) {
 
 function formatValue(value) {
   // return value ? value.toFixed(2) : null
-  return value.toFixed(3)
+  return value.toFixed(2)
 }
 
 function formatDate(dateString) {

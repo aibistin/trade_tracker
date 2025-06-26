@@ -564,7 +564,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-08-22",
                     "trade_date": datetime.datetime(2024, 8, 22),
-                    "trade_date_iso": "2024-08-22T00:00:00",
                     "quantity": 100,
                     "price": 91.39,
                     "amount": -9139.0,
@@ -573,7 +572,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "sells": [
                         {
                             "trade_date": datetime.datetime(2024, 8, 23),
-                            "trade_date_iso": "2024-08-23T00:00:00",
                             "quantity": 100,
                             "price": 88.9427,
                             "amount": 8894.27,
@@ -586,7 +584,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-08-26",
                     "trade_date": datetime.datetime(2024, 8, 26),
-                    "trade_date_iso": "2024-08-26T00:00:00",
                     "quantity": 50,
                     "price": 89.4964,
                     "amount": -4474.82,
@@ -596,7 +593,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "sells": [
                         {
                             "trade_date": datetime.datetime(2024, 9, 6),
-                            "trade_date_iso": "2024-09-06T00:00:00",
                             "quantity": 50,
                             "price": 94.92,
                             "amount": 9492.00 / 2,
@@ -608,7 +604,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 },
                 {
                     "trade_date": datetime.datetime(2024, 8, 27),
-                    "trade_date_iso": "2024-08-27T00:00:00",
                     "quantity": 50,
                     "price": 91.70,
                     "amount": -4585.00,
@@ -619,7 +614,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             # "trade_date": "2024-09-06",
                             "trade_date": datetime.datetime(2024, 9, 6),
-                            "trade_date_iso": "2024-09-06T00:00:00",
                             "quantity": 50,
                             "price": 94.92,
                             "amount": 9492.27 / 2,
@@ -632,7 +626,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-08-30",
                     "trade_date": datetime.datetime(2024, 8, 30),
-                    "trade_date_iso": "2024-08-30T00:00:00",
                     "quantity": 50,
                     "price": 94.85,
                     "amount": -4742.50,
@@ -642,7 +635,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             # "trade_date": "2024-09-06",
                             "trade_date": datetime.datetime(2024, 9, 6),
-                            "trade_date_iso": "2024-09-06T00:00:00",
                             "quantity": 25,
                             "price": 94.94,
                             "amount": 2373.5,
@@ -653,7 +645,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             # "trade_date": "2024-09-07",
                             "trade_date": datetime.datetime(2024, 9, 7),
-                            "trade_date_iso": "2024-09-07T00:00:00",
                             "quantity": 10,
                             "price": 96.99,
                             "amount": 969.9,
@@ -667,7 +658,6 @@ class TestTradingAnalyzer(unittest.TestCase):
             "NVDA": [
                 {
                     "trade_date": datetime.datetime(2024, 8, 22),
-                    "trade_date_iso": "2024-08-22T00:00:00",
                     "quantity": 200,
                     "price": 300,
                     "amount": -60000.0,
@@ -677,7 +667,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             # "trade_date": "2024-09-01",
                             "trade_date": datetime.datetime(2024, 9, 1),
-                            "trade_date_iso": "2024-09-01T00:00:00",
                             "quantity": 150,
                             "price": 310.0,
                             "amount": 46500.0,
@@ -688,7 +677,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             # "trade_date": "2024-09-02",
                             "trade_date": datetime.datetime(2024, 9, 2),
-                            "trade_date_iso": "2024-09-02T00:00:00",
                             "quantity": 50,
                             "price": 315.0,
                             "amount": 15750.0,
@@ -703,7 +691,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-07-31",
                     "trade_date": datetime.datetime(2024, 7, 31),
-                    "trade_date_iso": "2024-07-31T00:00:00",
                     "quantity": 150,
                     "price": 50.25,
                     "amount": -7537.5,
@@ -713,7 +700,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             "trade_date": "2024-08-01",
                             "trade_date": datetime.datetime(2024, 8, 1),
-                            "trade_date_iso": "2024-08-01T00:00:00",
                             "quantity": 100,
                             "price": 47.2,
                             "amount": 4720.0,
@@ -724,7 +710,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             # "trade_date": "2024-08-27",
                             "trade_date": datetime.datetime(2024, 8, 27),
-                            "trade_date_iso": "2024-08-27T00:00:00",
                             "quantity": 50,
                             "price": 43.2601,
                             "amount": 2163.01,
@@ -739,7 +724,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-07-25",
                     "trade_date": datetime.datetime(2024, 7, 25),
-                    "trade_date_iso": "2024-07-25T00:00:00",
                     "quantity": 40,
                     "price": 130.4599,
                     "amount": -5218.4,
@@ -749,7 +733,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {  # NAIL|S|2024-08-27|50.0|145.4|7270.0  -> 40 of 50
                             # "trade_date": "2024-08-27",
                             "trade_date": datetime.datetime(2024, 8, 27),
-                            "trade_date_iso": "2024-08-27T00:00:00",
                             "quantity": 40,
                             "price": 145.4,
                             "amount": (145.4 * 40),
@@ -765,7 +748,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-07-26",
                     "trade_date": datetime.datetime(2024, 7, 26),
-                    "trade_date_iso": "2024-07-26T00:00:00",
                     "quantity": 40,
                     "price": 145.00,
                     "amount": -5800.0,
@@ -776,7 +758,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             "trade_date": "2024-08-27",
                             "trade_date": datetime.datetime(2024, 8, 27),
-                            "trade_date_iso": "2024-08-27T00:00:00",
                             "quantity": 10,
                             "price": 145.4,
                             "amount": (145.4 * 10),
@@ -790,7 +771,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {  # NAIL|S|2024-08-27|80.0|147.5|11800.0 -> 30 of 80
                             # "trade_date": "2024-08-27",
                             "trade_date": datetime.datetime(2024, 8, 27),
-                            "trade_date_iso": "2024-08-27T00:00:00",
                             "quantity": 30,
                             "price": 147.5,
                             "amount": (147.5 * 30),
@@ -806,7 +786,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {  # NAIL|B|2024-08-05|50.0|127.1|-6355.0
                     # "trade_date": "2024-08-05",
                     "trade_date": datetime.datetime(2024, 8, 5),
-                    "trade_date_iso": "2024-08-05T00:00:00",
                     "quantity": 50,
                     "price": 127.10,
                     "amount": -6355.0,
@@ -816,7 +795,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {  # NAIL|S|2024-08-27|80.0|147.5|11800.0 -> 30 + 50 of 80
                             # "trade_date": "2024-08-27",
                             "trade_date": datetime.datetime(2024, 8, 27),
-                            "trade_date_iso": "2024-08-27T00:00:00",
                             "quantity": 50,
                             "price": 147.50,
                             "amount": 7375.0,  # (11800.0/80) * 50
@@ -832,7 +810,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {  # NAIL|B|2024-08-30|50.0|145.7|-7285.0
                     # "trade_date": "2024-08-30",
                     "trade_date": datetime.datetime(2024, 8, 30),
-                    "trade_date_iso": "2024-08-30T00:00:00",
                     "quantity": 50,
                     "price": 145.7,
                     "amount": -7285.0,
@@ -842,7 +819,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {  # NAIL|S|2024-09-03|50.0|140.6|7030.0
                             # "trade_date": "2024-09-03",
                             "trade_date": datetime.datetime(2024, 9, 3),
-                            "trade_date_iso": "2024-09-03T00:00:00",
                             "quantity": 50,
                             "price": 140.6,
                             "amount": 7030.0,
@@ -855,7 +831,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {  # NAIL|B|2024-09-12|50.0|140.87|-7043.5
                     # "trade_date": "2024-09-12",
                     "trade_date": datetime.datetime(2024, 9, 12),
-                    "trade_date_iso": "2024-09-12T00:00:00",
                     "quantity": 50,
                     "price": 140.87,
                     "amount": -7043.5,
@@ -865,7 +840,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {  # NAIL|S|2024-09-13|50.0|156.38|7819.0
                             # "trade_date": "2024-09-13",
                             "trade_date": datetime.datetime(2024, 9, 13),
-                            "trade_date_iso": "2024-09-13T00:00:00",
                             "quantity": 50,
                             "price": 156.38,
                             "amount": 7819.0,
@@ -878,7 +852,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {  # NAIL|B|2024-09-16|40.0|159.6201|-6384.8
                     # "trade_date": "2024-09-16",
                     "trade_date": datetime.datetime(2024, 9, 16),
-                    "trade_date_iso": "2024-09-16T00:00:00",
                     "quantity": 40,
                     "price": 159.6201,
                     "amount": -6384.8,
@@ -891,7 +864,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-09-24",
                     "trade_date": datetime.datetime(2024, 9, 24),
-                    "trade_date_iso": "2024-09-24T00:00:00",
                     "quantity": 1000,
                     "price": 5.865,
                     "amount": -5865.0,
@@ -901,7 +873,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             # "trade_date": "2024-09-25",
                             "trade_date": datetime.datetime(2024, 9, 25),
-                            "trade_date_iso": "2024-09-25T00:00:00",
                             "quantity": 1000,
                             "price": 5.5905,
                             "amount": 5590.5,
@@ -915,7 +886,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-09-25",
                     "trade_date": datetime.datetime(2024, 9, 25),
-                    "trade_date_iso": "2024-09-25T00:00:00",
                     "quantity": 800,
                     "price": 5.73,
                     "amount": -4584.0,
@@ -924,7 +894,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                         {
                             "trade_date": "2024-09-30",
                             "trade_date": datetime.datetime(2024, 9, 30),
-                            "trade_date_iso": "2024-09-30T00:00:00",
                             "quantity": 400,
                             "price": 7.38,
                             "amount": 2952.0,
@@ -940,7 +909,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-09-26",
                     "trade_date": datetime.datetime(2024, 9, 26),
-                    "trade_date_iso": "2024-09-26T00:00:00",
                     "quantity": 200,
                     "price": 5.8199,
                     "amount": -1163.98,
@@ -951,7 +919,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-10-03",
                     "trade_date": datetime.datetime(2024, 10, 3),
-                    "trade_date_iso": "2024-10-03T00:00:00",
                     "quantity": 100,
                     "price": 6.759,
                     "amount": -675.9,
@@ -962,7 +929,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                 {
                     # "trade_date": "2024-10-04",
                     "trade_date": datetime.datetime(2024, 10, 4),
-                    "trade_date_iso": "2024-10-04T00:00:00",
                     "quantity": 100,
                     "price": 6.5399,
                     "amount": -653.99,
@@ -981,7 +947,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "trade_id": "542",
                     # "trade_date": "2024-07-16",
                     "trade_date": datetime.datetime(2024, 7, 16),
-                    "trade_date_iso": "2024-07-16T00:00:00",
                     "quantity": 3,
                     "trade_label": "SOUN 09/20/2024 4.00 C",
                     "trade_type": "C",
@@ -992,13 +957,12 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "is_option": True,
                     "is_done": True,
                     "target_price": 4.0,
-                    "expiration_date_iso": "2024-09-20T00:00:00",
+                    "expiration_date": "2024-09-20",
                     "sells": [
                         {
                             "trade_id": "520",
                             # "trade_date": "2024-09-18",
                             "trade_date": datetime.datetime(2024, 9, 18),
-                            "trade_date_iso": "2024-09-18T00:00:00",
                             "trade_label": "SOUN 09/20/2024 4.00 C",
                             "is_option": True,
                             "quantity": 2,
@@ -1010,14 +974,13 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "percent_profit_loss": round(
                                 ((174.0 - 360.0) / 360.0) * 100, 2
                             ),
-                            "expiration_date_iso": "2024-09-20T00:00:00",
+                            "expiration_date": "2024-09-20",
                         },
                         {
                             # Exercised option
                             "trade_id": "529",
                             # "trade_date": "2024-09-19",
                             "trade_date": datetime.datetime(2024, 9, 19),
-                            "trade_date_iso": "2024-09-19T00:00:00",
                             "trade_label": "SOUN 09/20/2024 4.00 C",
                             "is_option": True,
                             "quantity": 1,
@@ -1028,7 +991,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "account": "C",
                             "profit_loss": 0.0,
                             "percent_profit_loss": 0.0,
-                            "expiration_date_iso": "2024-09-20T00:00:00",
+                            "expiration_date": "2024-09-20",
                         },
                     ],
                 },
@@ -1038,7 +1001,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "trade_id": "526",
                     # "trade_date": "2024-10-09",
                     "trade_date": datetime.datetime(2024, 10, 9),
-                    "trade_date_iso": "2024-10-09T00:00:00",
                     "quantity": 1,
                     "trade_label": "SOUN 04/17/2025 5.00 C",
                     "trade_type": "C",
@@ -1049,13 +1011,12 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "is_option": True,
                     "is_done": True,
                     "target_price": 5.0,
-                    "expiration_date_iso": "2025-04-17T00:00:00",
+                    "expiration_date": "2025-04-17",
                     "sells": [
                         {
                             "trade_id": "521",
                             # "trade_date": "2025-02-21",
                             "trade_date": datetime.datetime(2025, 2, 21),
-                            "trade_date_iso": "2025-02-21T00:00:00",
                             "trade_label": "SOUN 04/17/2025 5.00 C",
                             "is_option": True,
                             "quantity": 1,
@@ -1067,7 +1028,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                             "percent_profit_loss": round(
                                 ((550.0 - 92.0) / 92.0) * 100, 2
                             ),
-                            "expiration_date_iso": "2025-04-17T00:00:00",
+                            "expiration_date": "2025-04-17",
                         },
                     ],
                 },
@@ -1076,7 +1037,6 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "trade_id": "462",
                     # "trade_date": "2025-02-24",
                     "trade_date": datetime.datetime(2025, 2, 24),
-                    "trade_date_iso": "2025-02-24T00:00:00",
                     "quantity": 1,
                     "trade_label": "SOUN 07/18/2025 8.00 C",
                     "trade_type": "C",
@@ -1087,7 +1047,7 @@ class TestTradingAnalyzer(unittest.TestCase):
                     "is_option": True,
                     "is_done": False,
                     "target_price": 8.0,
-                    "expiration_date_iso": "2025-07-18T00:00:00",
+                    "expiration_date": "2025-07-18",
                     "sells": [],
                 },
             ],
@@ -1109,7 +1069,7 @@ class TestTradingAnalyzer(unittest.TestCase):
             "is_option",
             "trade_label",
             "target_price",
-            "expiration_date_iso",
+            "expiration_date",
         ]
 
     # @unittest.skip("Skip SOUN")
@@ -1379,9 +1339,9 @@ class TestTradingAnalyzer(unittest.TestCase):
                 f"[{symbol}] - Got {got_trade.is_done} - expected {expected_trade['is_done']}",
             )
 
-            # self.assertEqual(got_trade.is_option, expected_trade["is_option"])
+            self.assertEqual(got_trade.is_option, expected_trade["is_option"])
             # self.assertEqual(got_trade.trade_label, expected_trade["trade_label"])
-            # self.assertEqual(got_trade.expiration_date_iso, expected_trade["expiration_date_iso"])
+            # self.assertEqual(got_trade.expiration_date, expected_trade["expiration_date"])
             # self.assertEqual(got_trade.target_price, expected_trade["target_price"])
             self.assertEqual(
                 got_trade.trade_date,
@@ -1408,7 +1368,7 @@ class TestTradingAnalyzer(unittest.TestCase):
             # Compare all fields from the Trade dataclass
 
             # [ "trade_id", "amount", "trade_date", "price", "quantity", "profit_loss", "percent_profit_loss", "account"]
-            # [ "trade_type", "is_option", "trade_label","target_price", "expiration_date_iso", "profit_loss", "percent_profit_loss", "account", ]
+            # [ "trade_type", "is_option", "trade_label","target_price", "expiration_date", "profit_loss", "percent_profit_loss", "account", ]
             for j, expected_sell in enumerate(expected_trade["sells"]):
                 got_sell = got_trade.sells[j]
                 if got_sell.trade_id != "529":
@@ -1422,9 +1382,9 @@ class TestTradingAnalyzer(unittest.TestCase):
                     # This trade was modified because it was exercised
                     self.assertEqual(got_sell.trade_id, "529", f"{symbol} - trade_id")
                     self.assertEqual(
-                        got_sell.trade_date_iso,
+                        got_sell.trade_date.isoformat(),
                         "2024-09-19T00:00:00",
-                        f"{symbol} - trade_date_iso",
+                        f"{symbol} - trade_date isoformat",
                     )
                     self.assertEqual(
                         got_sell.trade_date,
@@ -1433,9 +1393,9 @@ class TestTradingAnalyzer(unittest.TestCase):
                     )
                     self.assertEqual(got_sell.price, 4.0, f"{symbol} - price")
                     self.assertEqual(
-                        got_sell.expiration_date_iso,
-                        "2024-09-20T00:00:00",
-                        f"[SOUN] Got expiration_date_iso, {got_sell.expiration_date_iso}, doesnt match: 2024-09-20T00:00:00",
+                        got_sell.expiration_date,
+                        "2024-09-20",
+                        f"[SOUN] Got expiration_date, {got_sell.expiration_date}, doesnt match: 2024-09-20T00:00:00",
                     )
 
                 if got_sell.trade_id != "529":
@@ -1572,9 +1532,9 @@ class TestTradingAnalyzer(unittest.TestCase):
                     f"{symbol} -Sell  quantity expected {expected_sell['quantity']}",
                 )
                 self.assertEqual(
-                    got_sell.trade_date_iso,
-                    expected_sell["trade_date_iso"],
-                    f"{symbol} - Sell trade_date_iso expected {expected_sell['trade_date_iso']}",
+                    got_sell.trade_date.isoformat(),
+                    expected_sell["trade_date"].isoformat(),
+                    f"{symbol} - Sell trade_date isoformat expected {expected_sell['trade_date'].isoformat()}",
                 )
                 self.assertEqual(
                     got_sell.price,

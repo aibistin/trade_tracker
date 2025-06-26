@@ -173,11 +173,7 @@ class TestTradeClasses(unittest.TestCase):
         self.assertEqual(
             trade.trade_label, "", f"[{symbol}] Got: {trade.trade_label},expected: ''"
         )
-        self.assertEqual(
-            trade.trade_date_iso,
-            "2024-08-22T00:00:00",
-            f"[{symbol}] Got: {trade.trade_date_iso},expected: 2024-08-22T00:00:00",
-        )
+
         self.assertEqual(
             trade.trade_date,
             datetime(2024, 8, 22),
@@ -236,11 +232,6 @@ class TestTradeClasses(unittest.TestCase):
             trade.trade_date,
             datetime(2024, 8, 23),
             f"[{symbol}] Got: {trade.trade_date},expected: 2024-08-23",
-        )
-        self.assertEqual(
-            trade.trade_date_iso,
-            "2024-08-23T00:00:00",
-            f"[{symbol}] Got: {trade.trade_date_iso},expected: 2024-08-23T00:00:00",
         )
         self.assertEqual(
             trade.quantity, 100.0, f"[{symbol}] Got: {trade.quantity},expected: 100.0"
@@ -524,7 +515,7 @@ class TestTradeClasses(unittest.TestCase):
                 "price": 100.0,
             }  # type: ignore
         )
-        self.assertEqual(trade1.trade_date_iso, "2023-05-15T00:00:00")
+        self.assertEqual(trade1.trade_date.isoformat(), "2023-05-15T00:00:00")
 
         # Test string input (ISO format)
         trade2 = SellTrade(
@@ -537,7 +528,7 @@ class TestTradeClasses(unittest.TestCase):
                 "price": 105.0,
             }
         )
-        self.assertEqual(trade2.trade_date_iso, "2023-05-16T14:30:00")
+        self.assertEqual(trade2.trade_date.isoformat(), "2023-05-16T14:30:00")
 
         # Test string input (date only)
         trade3 = BuyTrade(
@@ -550,7 +541,7 @@ class TestTradeClasses(unittest.TestCase):
                 "price": 102.0,
             }
         )
-        self.assertEqual(trade3.trade_date_iso, "2023-05-17T00:00:00")
+        self.assertEqual(trade3.trade_date.isoformat(), "2023-05-17T00:00:00")
 
     def test_validation(self):
         """Test trade validation rules"""

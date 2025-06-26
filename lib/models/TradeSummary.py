@@ -32,9 +32,8 @@ class TradeSummary:
     average_sold_price: float = 0.0  # Added missing field
     average_basis_open_price: float = 0.0
     average_basis_sold_price: float = 0.0
-    #TODO remove buy_trades and sell_trades
+    #TODO remove buy_trades
     buy_trades: List[BuyTrade] = field(default_factory=list)
-    # sell_trades: List[SellTrade] = field(default_factory=list)
     multiplier: int = 1
     after_date: Optional[str] = None
 
@@ -251,8 +250,6 @@ class TradeSummary:
             # f"[{symbol}] {security_type} Sell trade count: {len(self.sell_trades)}"
         )
 
-        # self.sell_trades.clear()
-
         while self.buy_trades:
             current_buy_record = self.buy_trades.pop(0)
 
@@ -290,6 +287,7 @@ class TradeSummary:
             all_trades.append(current_buy_record)
 
         self.calculate_final_totals(running_sold_quantity, running_sold_amount)
+        #TODO: remove buy trades
 
         return all_trades
 

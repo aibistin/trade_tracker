@@ -3,7 +3,7 @@
     <td>{{ formatTradeType(trade) }}</td>
     <!-- <td>{{ trade.action }}</td> -->
     <td>{{ formatAction(trade) }}</td>
-    <td>{{ formatDate(trade.trade_date_iso) }}</td>
+    <td>{{ formatDate(trade.trade_date) }}</td>
 
     <td v-if="trade.is_buy_trade">
         {{ trade.quantity }}
@@ -29,10 +29,10 @@
 
     <td :class="profitLossClass(trade.percent_profit_loss)">
         <div v-if="trade.is_buy_trade">
-            {{ formatValue(trade.current_percent_profit_loss) }} {{ trade.current_percent_profit_loss ? "%" : "" }}
+            {{ trade.current_percent_profit_loss ? formatValue(trade.current_percent_profit_loss)+"%" : "" }} 
         </div>
         <div v-else>
-            {{ formatValue(trade.percent_profit_loss) }} {{ trade.percent_profit_loss ? "%" : "" }}
+            {{ trade.percent_profit_loss ? formatValue(trade.percent_profit_loss)+"%" : "" }} 
         </div>
     </td>
 

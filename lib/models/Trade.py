@@ -58,9 +58,8 @@ class Trade:
     amount: float
     is_option: bool
     is_done: bool
-    trade_date_iso: Optional[str]
     account: Optional[str]
-    expiration_date_iso: Optional[str]
+    expiration_date: Optional[str]
     target_price: Optional[float]
     reason: Optional[str]
     initial_stop_price: Optional[float]
@@ -78,7 +77,7 @@ class Trade:
         "account": "X",
         "is_option": False,
         "is_done": False,
-        "expiration_date_iso": "",
+        "expiration_date": "",
         "target_price": None,
         "reason": None,
         "initial_stop_price": None,
@@ -109,7 +108,7 @@ class Trade:
             trade_data.get("trade_label", trade_data.get("label", "")),
         )
 
-        self.expiration_date_iso = trade_data.get("expiration_date", None)
+        self.expiration_date = trade_data.get("expiration_date", None)
 
         self.is_option = self._determine_if_option()
 
@@ -127,13 +126,6 @@ class Trade:
         # Handle date conversions
         if isinstance(self.trade_date, str):
             self.trade_date = self._convert_to_datetime(self.trade_date)
-
-        self.trade_date_iso = self._convert_to_iso_format(self.trade_date)
-
-        if self.expiration_date_iso:
-            self.expiration_date_iso = self._convert_to_iso_format(
-                self.expiration_date_iso
-            )
 
         self._normalize_special_trade_types()
 
@@ -218,21 +210,6 @@ class Trade:
                 result[key] = value
         return result
 
-    @staticmethod
-    def _convert_to_iso_format(dt_obj: Any) -> Optional[str]:
-        """Convert various date formats to ISO string"""
-        if not dt_obj:
-            return None
-        if isinstance(dt_obj, datetime):
-            return dt_obj.strftime("%Y-%m-%dT%H:%M:%S")
-        if isinstance(dt_obj, str):
-            # Handle different string formats
-            for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
-                try:
-                    return datetime.strptime(dt_obj, fmt).strftime("%Y-%m-%dT%H:%M:%S")
-                except ValueError:
-                    continue
-        return str(dt_obj)  # Fallback to string representation
 
     @staticmethod
     def _convert_to_datetime(trade_date_str: str) -> datetime:
