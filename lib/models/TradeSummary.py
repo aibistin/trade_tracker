@@ -29,13 +29,17 @@ class TradeSummary:
     profit_loss: float = 0.0
     percent_profit_loss: float = 0.0
     average_bought_price: float = 0.0
-    average_sold_price: float = 0.0  # Added missing field
+    average_sold_price: float = 0.0
     average_basis_open_price: float = 0.0
     average_basis_sold_price: float = 0.0
-    #TODO remove buy_trades
     buy_trades: List[BuyTrade] = field(default_factory=list)
     multiplier: int = 1
     after_date: Optional[str] = None
+    # NEW
+    account: Optional[str] = "all"  # all or a specific account
+    winning_trades_count: Optional[int] = None
+    losing_trades_count: Optional[int] = None
+    batting_average: Optional[float] = None
 
     def __post_init__(self):
         """
@@ -54,6 +58,7 @@ class TradeSummary:
         cls,
         symbol: str,
         buy_trades_collection: BuyTrades,
+        account: Optional[str] = None,
         after_date: Optional[str] = None,
     ) -> "TradeSummary":
         """Factory method to create TradeSummary from a BuyTrades collection.
@@ -72,7 +77,9 @@ class TradeSummary:
             )
 
         is_option = buy_trades_collection.security_type == "option"
-        trade_summary = cls(symbol=symbol, is_option=is_option, after_date=after_date)
+        trade_summary = cls(
+            symbol=symbol, is_option=is_option, account=account, after_date=after_date
+        )
 
         for trade in buy_trades_collection.buy_trades:
             # Validate trade matches summary
@@ -235,7 +242,7 @@ class TradeSummary:
         running_bought_quantity = 0
         running_sold_quantity = 0
         running_sold_amount = 0
-        all_trades = []
+        all_buy_trades = []
 
         if not len(self.buy_trades):
             logging.info(f"[{symbol}] {security_type} has no buy trades")
@@ -247,7 +254,6 @@ class TradeSummary:
 
         logging.info(
             f"[{symbol}] {security_type} Buy  trade count: {len(self.buy_trades)}"
-            # f"[{symbol}] {security_type} Sell trade count: {len(self.sell_trades)}"
         )
 
         while self.buy_trades:
@@ -284,12 +290,12 @@ class TradeSummary:
                 -current_buy_record.price * sold_quantity_this_trade * multiplier
             )
 
-            all_trades.append(current_buy_record)
+            all_buy_trades.append(current_buy_record)
 
         self.calculate_final_totals(running_sold_quantity, running_sold_amount)
-        #TODO: remove buy trades
+        # TODO: remove buy trades
 
-        return all_trades
+        return all_buy_trades
 
     def security_summary_sanity_check(self, symbol: str) -> None:
 

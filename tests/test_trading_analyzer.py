@@ -1083,9 +1083,9 @@ class TestTradingAnalyzer(unittest.TestCase):
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
         has_stock_trades = profit_loss_data["stock"]["has_trades"]
-        all_stock_trades = profit_loss_data["stock"]["all_trades"]
+        all_stock_trades = profit_loss_data["stock"]["all_buy_trades"]
         option_summary = profit_loss_data["option"]["summary"]
-        all_option_trades = profit_loss_data["option"]["all_trades"]
+        all_option_trades = profit_loss_data["option"]["all_buy_trades"]
         has_option_trades = profit_loss_data["option"]["has_trades"]
 
         # Check stock results for symbol 'SOUN'
@@ -1436,7 +1436,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         analyzer.analyze_trades()
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
-        all_trades = profit_loss_data["stock"]["all_trades"]
+        all_buy_trades = profit_loss_data["stock"]["all_buy_trades"]
 
         # Check results for symbol 'SN'
         expected_bought_amount = -9139.0 - 4474.82 - 4585.0 - 4742.5 - 2474.75
@@ -1499,11 +1499,11 @@ class TestTradingAnalyzer(unittest.TestCase):
 
         # Complete Trades
         self.assertEqual(
-            len(all_trades), 5, f"{symbol} - all_trades count - expected 5"
+            len(all_buy_trades), 5, f"{symbol} - all_buy_trades count - expected 5"
         )
 
         for i, expected_trade in enumerate(self.expect_trades["SN"]):
-            got_trade = all_trades[i]
+            got_trade = all_buy_trades[i]
             # Compare all fields from the Trade dataclass
             self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
             self.assertEqual(
@@ -1566,7 +1566,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
         # print(f"NVDA profit_loss_data: {profit_loss_data}")
-        all_trades = profit_loss_data["stock"]["all_trades"]
+        all_buy_trades = profit_loss_data["stock"]["all_buy_trades"]
 
         # Check results for symbol 'NVDA'
         self.assertEqual(stock_summary.bought_quantity, 200.0)
@@ -1607,10 +1607,10 @@ class TestTradingAnalyzer(unittest.TestCase):
         )
         # Check if the stock summary is correct
         # Complete Trades
-        self.assertEqual(len(all_trades), 1, f"{symbol} - all_trades count")
+        self.assertEqual(len(all_buy_trades), 1, f"{symbol} - all_buy_trades count")
 
         for i, expected_trade in enumerate(self.expect_trades["NVDA"]):
-            got_trade = all_trades[i]
+            got_trade = all_buy_trades[i]
             # Verify each field in the got_trade matches the expected_trade
             self.assertEqual(
                 got_trade.trade_date,
@@ -1650,7 +1650,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         analyzer.analyze_trades()
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
-        all_trades = profit_loss_data["stock"]["all_trades"]
+        all_buy_trades = profit_loss_data["stock"]["all_buy_trades"]
 
         # Check results for symbol 'TNA'
         self.assertEqual(stock_summary.bought_quantity, 150.0)
@@ -1687,11 +1687,11 @@ class TestTradingAnalyzer(unittest.TestCase):
         self.assertAlmostEqual(stock_summary.percent_profit_loss, -8.68, places=2)
         # Complete Trades
         self.assertEqual(
-            len(all_trades), 1, f"{symbol} - all_trades count - expected 1"
+            len(all_buy_trades), 1, f"{symbol} - all_buy_trades count - expected 1"
         )
 
         for i, expected_trade in enumerate(self.expect_trades["TNA"]):
-            got_trade = all_trades[i]
+            got_trade = all_buy_trades[i]
 
             self.assertEqual(
                 got_trade.trade_date,
@@ -1766,7 +1766,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         analyzer.analyze_trades()
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
-        all_trades = profit_loss_data["stock"]["all_trades"]
+        all_buy_trades = profit_loss_data["stock"]["all_buy_trades"]
 
         # Check results for symbol 'NAIL'
         expected_bought_qty = 270
@@ -1837,10 +1837,12 @@ class TestTradingAnalyzer(unittest.TestCase):
         )
 
         # Complete Trades
-        self.assertEqual(len(all_trades), 6, f"{symbol} - all_trades count expected 6")
+        self.assertEqual(
+            len(all_buy_trades), 6, f"{symbol} - all_buy_trades count expected 6"
+        )
 
         for i, expected_trade in enumerate(self.expect_trades["NAIL"]):
-            got_trade = all_trades[i]
+            got_trade = all_buy_trades[i]
 
             self.assertEqual(got_trade.trade_date, expected_trade["trade_date"])
             self.assertEqual(
@@ -1889,7 +1891,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         analyzer.analyze_trades()
         profit_loss_data = analyzer.get_profit_loss_data()
         stock_summary = profit_loss_data["stock"]["summary"]
-        all_trades = profit_loss_data["stock"]["all_trades"]
+        all_buy_trades = profit_loss_data["stock"]["all_buy_trades"]
 
         # Check results for symbol 'NIO'
         expected_bought_qty = 2200
@@ -1973,10 +1975,12 @@ class TestTradingAnalyzer(unittest.TestCase):
         )
 
         # Complete Trades
-        self.assertEqual(len(all_trades), 5, f"{symbol} - all_trades count expected 5")
+        self.assertEqual(
+            len(all_buy_trades), 5, f"{symbol} - all_buy_trades count expected 5"
+        )
 
         for i, expected_trade in enumerate(self.expect_trades["NIO"]):
-            got_trade = all_trades[i]
+            got_trade = all_buy_trades[i]
             self.assertEqual(
                 got_trade.trade_date,
                 expected_trade["trade_date"],
@@ -2046,9 +2050,10 @@ class TestTradingAnalyzer(unittest.TestCase):
         self.assertEqual(symbol, "SN")
         analyzer = TradingAnalyzer(symbol, transactions)
         analyzer.analyze_trades()
+        # TODO This is moved to test_trading_analyzer_filters
         profit_loss_data = analyzer.get_open_trades()
         # stock_summary = profit_loss_data["stock"]["summary"]
-        open_trades = profit_loss_data["stock"]["all_trades"]
+        open_trades = profit_loss_data["stock"]["all_buy_trades"]
 
         expected_open_trades = [
             {
@@ -2125,8 +2130,9 @@ class TestTradingAnalyzer(unittest.TestCase):
     def test_get_open_trades_nvda(self):
         analyzer = TradingAnalyzer("NVDA", self.data_list[1]["NVDA"])
         analyzer.analyze_trades()
+        # TODO This is moved to test_trading_analyzer_filters
         profit_loss_data = analyzer.get_open_trades()
-        open_trades = profit_loss_data["stock"]["all_trades"]
+        open_trades = profit_loss_data["stock"]["all_buy_trades"]
         expected_open_trades = []
         self.assertEqual(len(open_trades), len(expected_open_trades))
 
@@ -2136,8 +2142,9 @@ class TestTradingAnalyzer(unittest.TestCase):
     def test_get_open_trades_tna(self):
         analyzer = TradingAnalyzer("TNA", self.data_list[2]["TNA"])
         analyzer.analyze_trades()
+        # TODO This is moved to test_trading_analyzer_filters
         profit_loss_data = analyzer.get_open_trades()
-        open_trades = profit_loss_data["stock"]["all_trades"]
+        open_trades = profit_loss_data["stock"]["all_buy_trades"]
         expected_open_trades = []
         self.assertEqual(len(open_trades), len(expected_open_trades))
 
@@ -2148,8 +2155,10 @@ class TestTradingAnalyzer(unittest.TestCase):
         symbol = "NAIL"
         analyzer = TradingAnalyzer(symbol, self.data_list[3][symbol])
         analyzer.analyze_trades()
+
+        # TODO This is moved to test_trading_analyzer_filters
         profit_loss_data = analyzer.get_open_trades()
-        open_trades = profit_loss_data["stock"]["all_trades"]
+        open_trades = profit_loss_data["stock"]["all_buy_trades"]
 
         expected_open_trades = [
             {
@@ -2202,7 +2211,7 @@ class TestTradingAnalyzer(unittest.TestCase):
         analyzer.analyze_trades()
         profit_loss_data = analyzer.get_open_trades()
         # stock_summary = profit_loss_data["stock"]["summary"]
-        open_trades = profit_loss_data["stock"]["all_trades"]
+        open_trades = profit_loss_data["stock"]["all_buy_trades"]
 
         expected_open_trades = [
             {

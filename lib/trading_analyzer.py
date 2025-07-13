@@ -68,12 +68,12 @@ class TradingAnalyzer:
             "stock": {
                 "has_trades": False,
                 "summary": {},
-                "all_trades": [],
+                "all_buy_trades": [],
             },
             "option": {
                 "has_trades": False,
                 "summary": {},
-                "all_trades": [],
+                "all_buy_trades": [],
             },
         }
 
@@ -122,8 +122,8 @@ class TradingAnalyzer:
             )
 
     def _analyze_trades(
-        # self, after_date: Optional[str] = None, status: Optional[str] = "all"
         self,
+        account: Optional[str] = None,
         after_date: Optional[str] = None,
         status: str = "all",
     ) -> None:
@@ -164,7 +164,11 @@ class TradingAnalyzer:
 
             try:
                 buy_trades = self._create_buy_trades_collection(
-                    trades, symbol, status=status, after_date=after_date
+                    trades,
+                    symbol,
+                    status=status,
+                    account=account,
+                    after_date=after_date,
                 )
             except Exception as e:
                 logging.error(
@@ -179,7 +183,7 @@ class TradingAnalyzer:
             # Filter BuyTrades collection
             buy_trades.filter_buy_trades()
             logging.debug(
-                f"[{symbol}] Filtered {security_type} BuyTrades: \n{buy_trades}"  
+                f"[{symbol}] Filtered {security_type} BuyTrades: \n{buy_trades}"
             )
 
             logging.debug(
@@ -190,6 +194,7 @@ class TradingAnalyzer:
                 trade_summary = TradeSummary.create_from_buy_trades_collection(
                     symbol=self.stock_symbol,
                     buy_trades_collection=buy_trades,
+                    account=account,
                     after_date=after_date,
                 )
             except Exception as e:
@@ -214,8 +219,8 @@ class TradingAnalyzer:
                 )
                 raise
 
-            # TODO - Check if we need ["all_trades"]
-            self.profit_loss_data[security_type]["all_trades"] = (
+            # TODO - Check if we need ["all_buy_trades"]
+            self.profit_loss_data[security_type]["all_buy_trades"] = (
                 trade_summary.process_all_trades(symbol)
             )
 
@@ -224,6 +229,7 @@ class TradingAnalyzer:
         trades: Trades,
         symbol: str,
         status: str = "all",
+        account: Optional[str] = None,
         after_date: Optional[str] = None,
     ) -> Optional[BuyTrades]:
         """Group sell trades with their corresponding buy trades (stock or option)."""
@@ -233,7 +239,10 @@ class TradingAnalyzer:
             return None
 
         FilteredBuyTrades = BuyTrades(
-            security_type=trades.security_type, after_date_str=after_date, status=status
+            security_type=trades.security_type,
+            account=account,
+            after_date_str=after_date,
+            status=status,
         )
 
         for current_buy_record in trades.buy_trades:
@@ -265,12 +274,15 @@ class TradingAnalyzer:
             self.profit_loss_data[security_type]["summary"] = (
                 stock_summary if i == 0 else option_summary
             )
-            self.profit_loss_data[security_type]["all_trades"] = []
+            self.profit_loss_data[security_type]["all_buy_trades"] = []
 
         return self.profit_loss_data
 
     def analyze_trades(
-        self, after_date: Optional[str] = None, status: Optional[str] = None
+        self,
+        account: Optional[str] = None,
+        after_date: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> None:
         """
         Analyze trades and calculate profit/loss for each trade.
@@ -278,6 +290,9 @@ class TradingAnalyzer:
         Args:
             after_date (str, optional): Date in 'yyyy-mm-dd' format. Only include
                 buy trades on or after this date.
+
+            account (str, optional): Only include trades for this account or all accounts if None
+
             status (str, optional): Filter by trade status. Valid values:
                 'open' - Only trades with unsold shares
                 'closed' - Only fully closed trades
@@ -307,7 +322,7 @@ class TradingAnalyzer:
             f"[{self.stock_symbol}] Analyzing trades after: {after_date}, status: {status}"
         )
 
-        self._analyze_trades(after_date, status)
+        self._analyze_trades(account=account, after_date=after_date, status=status)
 
     def get_profit_loss_data(self) -> Dict[str, Any]:
         """
@@ -318,13 +333,13 @@ class TradingAnalyzer:
                      # Type Summary dataclass
                     "summary": {},
                     # Type: Trades
-                    "all_trades": [],
+                    "all_buy_trades": [],
                 },
                 "option": {
                      # Type Summary dataclass
                     "summary": {},
                     # Type: Trades
-                    "all_trades": [],
+                    "all_buy_trades": [],
                 },
             }
 
@@ -346,9 +361,7 @@ class TradingAnalyzer:
             if key == "buy_trades" or key == "sell_trades":
                 result[key] = [t.to_dict() for t in value] if value else []
             elif key == "sells_by_account":
-                result[key] = {
-                    k: [t.to_dict() for t in v] for k, v in value.items()   
-                }
+                result[key] = {k: [t.to_dict() for t in v] for k, v in value.items()}
             elif isinstance(value, datetime):
                 result[key] = value.isoformat()
             elif hasattr(value, "to_dict"):
@@ -370,9 +383,9 @@ class TradingAnalyzer:
         for security_type in ["stock", "option"]:
             sec_data = profit_loss_data[security_type]
 
-            # Convert all_trades to dictionaries
+            # Convert all_buy_trades to dictionaries
             all_trades_dicts = []
-            for buy_trade in sec_data["all_trades"]:
+            for buy_trade in sec_data["all_buy_trades"]:
                 if hasattr(buy_trade, "to_dict"):
                     sell_trades = [t.to_dict() for t in buy_trade.sells]
                     # del buy_trade.sells
@@ -381,7 +394,7 @@ class TradingAnalyzer:
                         all_trades_dicts.append(sell_trade)
                 else:
                     # Fallback for unexpected types
-                    # TODO: Check if this is used and Flatten out the sell trades
+                    # TODO:  Flatten out the sell trades
                     all_trades_dicts.append(str(buy_trade))
 
             json_sec = {

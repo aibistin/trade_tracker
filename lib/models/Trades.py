@@ -5,6 +5,13 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, TypeVar, MutableSequence
 from lib.models.Trade import Trade, BuyTrade, SellTrade
 
+
+# Type variable for covariant trade types
+TradeType = TypeVar("TradeType", bound=Trade)
+
+
+
+
 # Type variable for covariant trade types
 TradeType = TypeVar("TradeType", bound=Trade)
 
@@ -94,9 +101,13 @@ class BuyTrades(TradeCollection):
     """Container for buy trades with filtering capabilities"""
 
     status: str = field(default="all")  # 'all', 'open', or 'closed'
+    account: Optional[str] = None  # New: account filter
     after_date_str: Optional[str] = None
     after_date: Optional[datetime] = field(default=None, init=False)
     sells_by_account: Dict[str, List[SellTrade]] = field(default_factory=dict)  # type: ignore
+
+    
+
 
     def __post_init__(self):
         """Parse after_date_str into datetime and validate status"""
@@ -122,7 +133,7 @@ class BuyTrades(TradeCollection):
         if not isinstance(trade, BuyTrade):
             raise TypeError(f"trade must be an instance of BuyTrade: {type(trade)}")
         if not trade.account:
-            raise ValueError(f"'trade' ID {trade.trade_id} must be an 'account'")
+            raise ValueError(f"'trade' ID {trade.trade_id} must have an 'account'")
 
         self.buy_trades.append(trade)
         return trade
@@ -135,6 +146,11 @@ class BuyTrades(TradeCollection):
         # Single-pass filtering
         filtered = []
         for trade in self.buy_trades:
+
+            # Account filter - skip if account doesn't match
+            if self.account and trade.account != self.account:
+                continue
+
             # Date filter
             if self.after_date and trade.trade_date < self.after_date:
                 continue
@@ -144,6 +160,7 @@ class BuyTrades(TradeCollection):
                 continue
             if self.status == "closed" and not trade.is_done:
                 continue
+
 
             filtered.append(trade)
 

@@ -29,7 +29,6 @@ from ..models.models import (
 
 # TODO Add proper authentication
 def valid_api_key(request):
-    # Implement your API key validation logic
     log.debug(f"[valid_api_key] FLASK_ENV: {os.environ.get('FLASK_ENV')}")
     if os.environ.get("FLASK_ENV") == "dev":
         log.debug(f"[valid_api_key] Dev Environment- No API key check")
@@ -136,7 +135,55 @@ def get_positions_json(scope, stock_symbol):
         f"[Routes] {scope.capitalize()} Stock all_trades for {stock_symbol}: {trade_record['transaction_stats']['stock']['all_trades']}"
     )
 
-    # log.debug(
-    #     f"[Routes] {scope.capitalize()} positions for {stock_symbol}: {json.dumps(trade_record, sort_keys=True, indent=2)}"
-    # )
+    return jsonify(trade_record)
+
+@api_bp.route("/trades/<string:scope>/json/<string:stock_symbol>/filtered", methods=['GET'])
+def get_filtered_positions_json(scope, stock_symbol):
+    """Get positions with additional filters (after_date, account) for a stock symbol in JSON format.
+    Valid values for scope are 'all', 'open' or 'closed'."""
+    
+    if scope not in ["all", "open", "closed"]:
+        return (
+            jsonify(
+                {"error": 'Invalid scope. Must be either "all", "open" or "closed"'}
+            ),
+            400,
+        )
+
+    # Get filter parameters from request body
+    request_data = request.get_json()
+    after_date = request_data.get('after_date')
+    account = request_data.get('account')
+    
+    log.info(f"[{stock_symbol}] Getting {scope.capitalize()} Positions with filters: "
+             f"after_date={after_date}, account={account}")
+
+    trade_record = {
+        "stock_symbol": stock_symbol,
+        "transaction_stats": {},
+        "requested": f"{scope}_trades",
+        "filters": {
+            "after_date": after_date,
+            "account": account
+        }
+    }
+
+    trade_transactions = get_trade_data_for_analysis_new(stock_symbol)
+    log.debug(f"[Routes][get_filtered_positions_json] raw_data: {trade_transactions}")
+    analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
+
+    # Apply filters
+    analyzer.analyze_trades(
+        status=scope,
+        after_date=after_date,
+        account=account
+    )
+    
+    trade_record["transaction_stats"] = analyzer.get_profit_loss_data_json()
+    
+    log.debug(
+        f"[Routes] Filtered {scope} positions for {stock_symbol}: "
+        f"Found {len(trade_record['transaction_stats']['stock']['all_trades'])} trades"
+    )
+    
     return jsonify(trade_record)

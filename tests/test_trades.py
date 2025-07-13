@@ -167,7 +167,7 @@ class TestTradesClasses(unittest.TestCase):
 
 class TestBuyTradesClass(unittest.TestCase):
     def setUp(self):
-        # Create sample buy trades with different dates
+        # Create sample buy trades with different dates and accounts
         self.buy1 = BuyTrade(
             {
                 "trade_id": "B1",
@@ -176,6 +176,7 @@ class TestBuyTradesClass(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 10),
                 "quantity": 100,
                 "price": 50.0,
+                "account": "IRA-123",  # Add account
             }  # type: ignore
         )
 
@@ -187,6 +188,7 @@ class TestBuyTradesClass(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 15),
                 "quantity": 200,
                 "price": 52.0,
+                "account": "TAXABLE-456",  # Add account
             }  # type: ignore
         )
 
@@ -198,6 +200,7 @@ class TestBuyTradesClass(unittest.TestCase):
                 "trade_date": datetime(2023, 5, 20),
                 "quantity": 150,
                 "price": 53.0,
+                "account": "IRA-123",  # Add account
             }  # type: ignore
         )
 
@@ -208,6 +211,107 @@ class TestBuyTradesClass(unittest.TestCase):
         self.buy_trades.add_trade(self.buy1)  # Before filter date
         self.buy_trades.add_trade(self.buy2)  # On filter date
         self.buy_trades.add_trade(self.buy3)  # After filter date
+
+    def test_account_filtering(self):
+        """Test account-based filtering of buy trades"""
+        # Create new collection with account filter
+        ira_trades = BuyTrades(
+            security_type="stock",
+            after_date_str="2023-05-01",
+            account="IRA-123",  # Filter for IRA-123 account
+        )
+
+        # Add all trades
+        ira_trades.add_trade(self.buy1)
+        ira_trades.add_trade(self.buy2)
+        ira_trades.add_trade(self.buy3)
+
+        # Apply filters
+        ira_trades.filter_buy_trades()
+
+        # Should only keep IRA-123 trades after 2023-05-01
+        self.assertEqual(
+            len(ira_trades.buy_trades),
+            2,
+            f"Expected 2 IRA trades, got {len(ira_trades.buy_trades)}",
+        )
+
+        # Verify correct trades
+        trade_ids = [t.trade_id for t in ira_trades.buy_trades]
+        self.assertIn("B1", trade_ids, "B1 should be included")
+        self.assertIn("B3", trade_ids, "B3 should be included")
+        self.assertNotIn("B2", trade_ids, "B2 should be filtered out")
+
+        # Test no account filter (should return all)
+        all_trades = BuyTrades(security_type="stock", after_date_str="2023-05-01")
+        all_trades.add_trade(self.buy1)
+        all_trades.add_trade(self.buy2)
+        all_trades.add_trade(self.buy3)
+        all_trades.filter_buy_trades()
+        self.assertEqual(
+            len(all_trades.buy_trades),
+            3,
+            f"Expected 3 trades when no account filter, got {len(all_trades.buy_trades)}",
+        )
+
+        # Test account filter with no matches
+        empty_trades = BuyTrades(security_type="stock", account="NONEXISTENT")
+        empty_trades.add_trade(self.buy1)
+        empty_trades.add_trade(self.buy2)
+        empty_trades.add_trade(self.buy3)
+        empty_trades.filter_buy_trades()
+        self.assertEqual(
+            len(empty_trades.buy_trades),
+            0,
+            f"Expected 0 trades for non-existent account, got {len(empty_trades.buy_trades)}",
+        )
+
+    def test_combined_filters(self):
+        """Test combination of account, date, and status filters"""
+        # Create trade with status
+        closed_trade = BuyTrade(
+            {
+                "trade_id": "B4",
+                "symbol": "TEST",
+                "action": "B",
+                "trade_date": datetime(2023, 5, 25),
+                "quantity": 300,
+                "price": 54.0,
+                "account": "IRA-123",
+                "is_done": True,  # Mark as closed
+            }  # type: ignore
+        )
+
+        # Create collection with multiple filters
+        filtered_trades = BuyTrades(
+            security_type="stock",
+            after_date_str="2023-05-15",
+            account="IRA-123",
+            status="open",  # Only open trades
+        )
+
+        # Add trades
+        filtered_trades.add_trade(self.buy1)  # Wrong date
+        filtered_trades.add_trade(self.buy2)  # Wrong account
+        filtered_trades.add_trade(
+            self.buy3
+        )  # Should match (open, correct account/date)
+        filtered_trades.add_trade(closed_trade)  # Wrong status
+
+        # Apply filters
+        filtered_trades.filter_buy_trades()
+
+        # Should only keep B3
+        self.assertEqual(
+            len(filtered_trades.buy_trades),
+            1,
+            f"Expected 1 trade, got {len(filtered_trades.buy_trades)}",
+        )
+        self.assertEqual(
+            filtered_trades.buy_trades[0].trade_id,
+            "B3",
+            f"Expected B3, got {filtered_trades.buy_trades[0].trade_id}",
+        )
 
     def test_date_filtering(self):
         """Test date-based filtering of buy trades"""
