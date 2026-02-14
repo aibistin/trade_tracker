@@ -387,6 +387,7 @@ class TradingAnalyzer:
             all_trades_dicts = []
             for buy_trade in sec_data["all_buy_trades"]:
                 if hasattr(buy_trade, "to_dict"):
+                    # TODO Remove the 'sells' list when done.
                     sell_trades = [t.to_dict() for t in buy_trade.sells]
                     # del buy_trade.sells
                     all_trades_dicts.append(buy_trade.to_dict())

@@ -443,8 +443,7 @@ class TestAppRoutes(unittest.TestCase):
     def test_api_filtered_trades_route(self):
         """Test filtered trades endpoint with account and date filters"""
 
-        # Test with account filter
-        response = self.client.get(
+        response = self.client.post(
             f"/api/trades/all/json/{filter_symbol}/filtered", json={"account": "O"}
         )
         self.assertEqual(
@@ -475,7 +474,7 @@ class TestAppRoutes(unittest.TestCase):
     def test_api_filtered_trades_date_account(self):
         """Test filtered trades with date and account filters"""
         # Test with both filters
-        response = self.client.get(
+        response = self.client.post(
             f"/api/trades/all/json/{filter_symbol}/filtered",
             json={"after_date": "2025-01-01", "account": "O"},
         )
@@ -520,7 +519,7 @@ class TestAppRoutes(unittest.TestCase):
 
     def test_api_filtered_trades_invalid_scope(self):
         """Test filtered trades with invalid scope parameter"""
-        response = self.client.get(
+        response = self.client.post(
             f"/api/trades/invalid/json/{filter_symbol}/filtered",
             json={"account": "O"},
         )
@@ -539,7 +538,7 @@ class TestAppRoutes(unittest.TestCase):
 
     def test_api_filtered_trades_no_filters(self):
         """Test filtered trades endpoint with no filters applied"""
-        response = self.client.get(
+        response = self.client.post(
             f"/api/trades/all/json/{filter_symbol}/filtered", json={}
         )
         self.assertEqual(
@@ -559,7 +558,7 @@ class TestAppRoutes(unittest.TestCase):
 
     def test_api_filtered_trades_account_no_matches(self):
         """Test filtered trades with account that has no matches"""
-        response = self.client.get(
+        response = self.client.post(
             f"/api/trades/all/json/{filter_symbol}/filtered",
             json={"account": "NONEXISTENT"},
         )

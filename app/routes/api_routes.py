@@ -39,6 +39,16 @@ def valid_api_key(request):
 @api_bp.before_request
 def require_api_key():
     log.info(f"[require_api_key] Before request: {request.method} {request.url}")
+    log.info(f"Client IP: {request.remote_addr}")
+    log.info(f"User-Agent: {request.headers.get('User-Agent')}")
+    log.info(f"Query Parameters: {request.args}")
+    log.info(f"Request received: {request.method} {request.url}")
+    log.info(f"Request headers: {request.headers}")
+    try:
+        log.info(f"Request Body: {request.get_json()}")
+    except Exception as e:
+        log.info(f"[Routes - Before request] Error request.get_json(): {e}")
+
     # if request.endpoint != "api.get_stock_data":  # Exclude public endpoints
     if not valid_api_key(request):
         log.debug(f"[require_api_key] Invalid API Key")
@@ -137,10 +147,11 @@ def get_positions_json(scope, stock_symbol):
 
     return jsonify(trade_record)
 
-@api_bp.route("/trades/<string:scope>/json/<string:stock_symbol>/filtered", methods=['GET'])
+@api_bp.route("/trades/<string:scope>/json/<string:stock_symbol>/filtered", methods=['POST'])
 def get_filtered_positions_json(scope, stock_symbol):
     """Get positions with additional filters (after_date, account) for a stock symbol in JSON format.
     Valid values for scope are 'all', 'open' or 'closed'."""
+
     
     if scope not in ["all", "open", "closed"]:
         return (
