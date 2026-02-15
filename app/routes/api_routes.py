@@ -1,23 +1,14 @@
 # app/routes/api_routes.py
-import json, os
-from flask import Blueprint, request
-from app.utils import filter_symbols
+import os
 import logging
 
-from flask import Blueprint, jsonify
-from flask_limiter import Limiter
+from flask import Blueprint, request, jsonify
+from app.utils import filter_symbols
 from lib.trading_analyzer import TradingAnalyzer
 from lib.yfinance import YahooFinance
-from flask_limiter.util import get_remote_address
 
 api_bp = Blueprint("api", __name__)
 log = logging.getLogger(__name__)
-
-# limiter = Limiter(
-#     api_bp,
-#     key_func=get_remote_address,  # Uses client IP address #type: ignore
-#     default_limits=["200 per day", "50 per hour"],
-# )
 
 from ..models.models import (
     get_all_securities,
@@ -38,18 +29,8 @@ def valid_api_key(request):
 
 @api_bp.before_request
 def require_api_key():
-    log.info(f"[require_api_key] Before request: {request.method} {request.url}")
-    log.info(f"Client IP: {request.remote_addr}")
-    log.info(f"User-Agent: {request.headers.get('User-Agent')}")
-    log.info(f"Query Parameters: {request.args}")
-    log.info(f"Request received: {request.method} {request.url}")
-    log.info(f"Request headers: {request.headers}")
-    try:
-        log.info(f"Request Body: {request.get_json()}")
-    except Exception as e:
-        log.info(f"[Routes - Before request] Error request.get_json(): {e}")
+    log.debug(f"[require_api_key] {request.method} {request.url} from {request.remote_addr}")
 
-    # if request.endpoint != "api.get_stock_data":  # Exclude public endpoints
     if not valid_api_key(request):
         log.debug(f"[require_api_key] Invalid API Key")
         return jsonify(error="Unauthorized"), 401
@@ -162,9 +143,25 @@ def get_filtered_positions_json(scope, stock_symbol):
         )
 
     # Get filter parameters from request body
-    request_data = request.get_json()
+    request_data = request.get_json(silent=True)
+    if request_data is None:
+        return jsonify({"error": "Request body must be valid JSON"}), 400
+
     after_date = request_data.get('after_date')
     account = request_data.get('account')
+
+    # Validate after_date format if provided
+    if after_date is not None:
+        from datetime import datetime
+        try:
+            datetime.strptime(after_date, "%Y-%m-%d")
+        except (ValueError, TypeError):
+            return jsonify({"error": "after_date must be in 'YYYY-MM-DD' format"}), 400
+
+    # Validate account if provided
+    valid_accounts = ["C", "R", "I", "O"]
+    if account is not None and account not in valid_accounts:
+        return jsonify({"error": f"account must be one of {valid_accounts}"}), 400
     
     log.info(f"[{stock_symbol}] Getting {scope.capitalize()} Positions with filters: "
              f"after_date={after_date}, account={account}")

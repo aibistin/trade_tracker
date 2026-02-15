@@ -1,38 +1,35 @@
-# To ensure app dependencies are ported from your virtual environment/host machine into your container, run 'pip freeze > requirements.txt' in the terminal to overwrite this file
-flask>=3.0.1
-gunicorn>=21.2.0
-beautifulsoup4>=4.12.3
-blinker>=1.8.2
-certifi>=2024.8.30
-charset-normalizer>=3.3.2
-click>=8.1.7
-Dumper>=1.2.0
+# Core framework
 Flask>=3.0.3
 Flask-SQLAlchemy>=3.1.1
-frozendict>=2.4.4
-greenlet>=3.0.3
+Flask-Cors>=4.0.0
+gunicorn>=21.2.0
+
+# Configuration
+python-dotenv>=1.0.1
+
+# Logging
+json-log-formatter>=1.0
+
+# Data & scraping
+beautifulsoup4>=4.12.3
 html5lib>=1.1
-idna>=3.10
-itsdangerous>=2.2.0
-Jinja2>=3.1.4
-logging>=0.4.9.6
 lxml>=5.3.0
-MarkupSafe>=2.1.5
-multitasking>=0.0.11
 numpy>=2.1.1
 pandas>=2.2.3
-peewee>=3.17.6
-platformdirs>=4.3.6
+yfinance>=0.2.44
+
+# Database
+SQLAlchemy>=2.0.32
+
+# Serialization
+dataclasses-json>=0.6.0
+
+# HTTP caching & rate limiting
+requests-cache>=1.0.0
+requests-ratelimiter>=0.5.0
+pyrate-limiter>=3.0.0
+
+# Utilities
 python-dateutil>=2.9.0.post0
-python-dotenv>=1.0.1
 pytz>=2024.1
 requests>=2.32.3
-six>=1.16.0
-soupsieve>=2.6
-SQLAlchemy>=2.0.32
-typing_extensions>=4.12.2
-tzdata>=2024.2
-urllib3>=2.2.3
-webencodings>=0.5.1
-Werkzeug>=3.0.4
-yfinance>=0.2.44

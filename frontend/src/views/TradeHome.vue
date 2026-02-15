@@ -41,51 +41,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
 import { useFetchTrades } from '../composables/useFetchTrades';
-const allSymbolsApiUrl = ref('http://localhost:5000/api/trade/symbols_json');
-const searchQuery = ref('');
-const isDropdownOpen = ref(false);
-const router = useRouter();
+import { useSymbolSearch } from '../composables/useSymbolSearch';
+import { API_BASE_URL } from '@/config.js';
 
-console.log(`[Home->Init] useFetchTrades to get stockSymbols`);
+const allSymbolsApiUrl = ref(`${API_BASE_URL}/trade/symbols_json`);
 const { data: stockSymbols, loading, error, fetchData } = useFetchTrades();
-
-console.log("[Home->Init] error: ",error);
-console.log(`[Home->Init] stockSymbols: ${JSON.stringify(stockSymbols.value?.slice(0, 3) , null, 2)}`);
-
-// Filter symbols based on search query
-const filteredSymbols = computed(() => {
-
-  if (!searchQuery.value) {
-    return stockSymbols.value;
-  }
- 
-  const query = searchQuery.value.toLowerCase();
-  return stockSymbols.value.filter(([symbol, name]) => {
-    console.log("symbol: ", symbol, "name: ", name);
-    return (
-      symbol.toLowerCase().includes(query) ||
-      name.toLowerCase().includes(query)
-    );
-  });
-
-});
-
-// Handle symbol selection
-const selectSymbol = (symbol) => {
-  searchQuery.value = ''; // Clear the search query
-  isDropdownOpen.value = false; // Close the dropdown
-  router.push(`/trades/all/${symbol}`);
-};
-
+const { searchQuery, isDropdownOpen, filteredSymbols, selectSymbol } = useSymbolSearch(stockSymbols);
 
 onMounted(() => {
-  console.log(`[home->onMounted] Calling API: ${allSymbolsApiUrl.value}`);
   fetchData(allSymbolsApiUrl);
 });
-
 </script>
 
 

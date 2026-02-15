@@ -2,8 +2,8 @@ import yfinance as yf
 import json, logging, os, time
 from requests import Session
 from requests_cache import CacheMixin, SQLiteCache
-from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
-from pyrate_limiter import Duration, RequestRate, Limiter
+from requests_ratelimiter import LimiterMixin, InMemoryBucket
+from pyrate_limiter import Duration, Rate, Limiter
 
 
 # Combine requests_cache with rate-limiting
@@ -42,9 +42,9 @@ class YahooFinance:
 
         self.session = CachedLimiterSession(
             limiter=Limiter(
-                RequestRate(2, Duration.SECOND * 5)
+                Rate(2, Duration.SECOND * 5)
             ),  # max 2 requests per 5 seconds
-            bucket_class=MemoryQueueBucket,
+            bucket_class=InMemoryBucket,
             backend=SQLiteCache("./data/yfinance/yfinance.cache"),
         )
         self.session.headers["User-agent"] = "trade-analyzer/1.0"

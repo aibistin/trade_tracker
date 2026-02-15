@@ -557,10 +557,10 @@ class TestAppRoutes(unittest.TestCase):
         )
 
     def test_api_filtered_trades_account_no_matches(self):
-        """Test filtered trades with account that has no matches"""
+        """Test filtered trades with valid account that has no matching trades"""
         response = self.client.post(
             f"/api/trades/all/json/{filter_symbol}/filtered",
-            json={"account": "NONEXISTENT"},
+            json={"account": "I"},
         )
         self.assertEqual(
             response.status_code,
@@ -573,7 +573,19 @@ class TestAppRoutes(unittest.TestCase):
         self.assertEqual(
             len(stock_trades),
             0,
-            f"Expected 0 trades for non-existent account, got {len(stock_trades)}",
+            f"Expected 0 trades for account with no matches, got {len(stock_trades)}",
+        )
+
+    def test_api_filtered_trades_invalid_account(self):
+        """Test filtered trades with invalid account returns 400"""
+        response = self.client.post(
+            f"/api/trades/all/json/{filter_symbol}/filtered",
+            json={"account": "NONEXISTENT"},
+        )
+        self.assertEqual(
+            response.status_code,
+            400,
+            f"Expected status 400, got {response.status_code}",
         )
 
 

@@ -72,6 +72,8 @@
 </template>
 
 <script>
+import { formatCurrency, profitLossClass, formatValue } from '@/utils/tradeUtils.js';
+
 export default {
   props: {
     stockSymbol: {
@@ -93,15 +95,9 @@ export default {
     },
   },
   methods: {
-    formatCurrency(value) {
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', currencySign: 'accounting' }).format(value).trim();
-    },
-    profitLossClass(value) {
-      return value >= 0 ? 'text-success' : 'text-danger';
-    },
-    formatValue(value) {
-      return value?.toFixed(2);
-    }
+    formatCurrency,
+    profitLossClass,
+    formatValue,
   }
 };
 </script>

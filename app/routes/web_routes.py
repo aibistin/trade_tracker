@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 from ..models.models import (
     Security,
     TradeTransaction,
-    get_trade_data_for_analysis,
+    get_trade_data_for_analysis_new,
 )
 
 
@@ -144,7 +144,7 @@ def trades_by_symbol(symbol):
 def trade_detail_by_symbol(symbol):
     """Detailed buy, sell, profit and loss transactions for the given symbol."""
 
-    trade_transactions = get_trade_data_for_analysis(symbol)
+    trade_transactions = get_trade_data_for_analysis_new(symbol)
     all_trade_stats = {}
     analyzer = TradingAnalyzer(symbol, trade_transactions)
     analyzer.analyze_trades()
@@ -173,7 +173,7 @@ def open_positions(stock_symbol):
     log.info(f"[{stock_symbol}] Getting Open Positions")
 
     # Fetch trade data from the database
-    trade_transactions = get_trade_data_for_analysis(stock_symbol)
+    trade_transactions = get_trade_data_for_analysis_new(stock_symbol)
     open_position_data = {}
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
     analyzer.analyze_trades()

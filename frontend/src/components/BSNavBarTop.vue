@@ -19,7 +19,7 @@
             </a>
             <ul class="dropdown-menu">
               <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
-                <router-link class="dropdown-item" @click="logNavigation(symbol, 'all')" :to="`/trades/all/${symbol}`">
+                <router-link class="dropdown-item" :to="`/trades/all/${symbol}`">
                   {{ symbol }} - {{ name }}
                 </router-link>
               </li>
@@ -44,8 +44,7 @@
             </a>
             <ul class="dropdown-menu">
               <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
-                <router-link class="dropdown-item" @click="logNavigation(symbol, 'to')"
-                  :to="`/trades/closed/${symbol}`">
+                <router-link class="dropdown-item"                  :to="`/trades/closed/${symbol}`">
                   {{ symbol }} - {{ name }}
                 </router-link>
               </li>
@@ -100,66 +99,22 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useFetchTrades } from '../composables/useFetchTrades';
-import { useRouter } from 'vue-router';
-const allSymbolsApiUrl = ref('http://localhost:5000/api/trade/symbols_json');
-const currentSymbolsApiUrl = ref('http://localhost:5000/api/trade/current_holdings_symbols_json')
-const searchQuery = ref('');
-const isDropdownOpen = ref(false);
-const router = useRouter();
+import { useSymbolSearch } from '../composables/useSymbolSearch';
+import { API_BASE_URL } from '@/config.js';
 
-// Create the useFetchTrades composable for fetching stock symbols
-console.log(`[BSNavBarTop->Init] Creating useFetchTrades`);
+const allSymbolsApiUrl = ref(`${API_BASE_URL}/trade/symbols_json`);
+const currentSymbolsApiUrl = ref(`${API_BASE_URL}/trade/current_holdings_symbols_json`);
+
 const { data: stockSymbols, loading, error, fetchData } = useFetchTrades();
 const { data: currentStockSymbols, loading: currentLoading, error: currentError, fetchData: fetchCurrentSymbols } = useFetchTrades();
+const { searchQuery, isDropdownOpen, filteredSymbols, selectSymbol: selectAllTradesSymbol } = useSymbolSearch(stockSymbols);
 
-
-/* Using Selector */
-// Filter symbols based on search query
-const filteredSymbols = computed(() => {
-  if (!searchQuery.value) {
-    return stockSymbols.value;
-  }
-
-  const query = searchQuery.value.toLowerCase();
-
-  return stockSymbols.value.filter(([symbol, name]) => {
-    return (
-      symbol.toLowerCase().includes(query) ||
-      name.toLowerCase().includes(query)
-    );
-  });
-});
-
-
-// Watch for changes in searchQuery
-watch(isDropdownOpen, () => {
-});
-
-
-// Handle symbol selection
-const selectAllTradesSymbol = (symbol, scope) => {
-  searchQuery.value = ''; // Clear the search query
-  isDropdownOpen.value = false; // Close the dropdown
-  router.push(`/trades/${scope}/${symbol}`);
-};
-
-/* end Using Selector */
-
-
-// Fetch data when the component mounts
 onMounted(() => {
-  console.log(`[BSNavBarTop->onMounted] fetchData with ${allSymbolsApiUrl.value}`);
   fetchData(allSymbolsApiUrl);
   fetchCurrentSymbols(currentSymbolsApiUrl);
 });
-
-
-const logNavigation = (symbol, type) => {
-  console.log(`Navigating to ${type} trades for symbol: ${symbol}`);
-};
-
 </script>
 
 <style scoped>

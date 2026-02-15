@@ -1,8 +1,11 @@
 import csv
+import logging
 import os
 import re
 from datetime import datetime
 from lib.models.ActionMapping import ActionMapping
+
+log = logging.getLogger(__name__)
 
 option_label_pattern = r"\s*\S+\s+\d{1,2}/\d{1,2}/\d{2,4}\s+\d+\.\d+\s+[CP]"
 default_symbol = "NONE"  # Ex: Moneylink transfer transactions.
@@ -13,7 +16,7 @@ class CSVProcessor:
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.processed_dir = processed_dir
-        print("CSVProcessor: Input Dir: " + self.input_dir)
+        log.info(f"CSVProcessor: Input Dir: {self.input_dir}")
 
         self.action_mapping = ActionMapping()  # Initialize action mapping
 
@@ -22,7 +25,7 @@ class CSVProcessor:
 
         quantity = self.convert_to_float(quantity_str)
         if quantity is None:
-            print(f"Warning: Unexpected quantity format: {quantity_str}")
+            log.warning(f"Unexpected quantity format: {quantity_str}")
 
         return quantity
 
@@ -39,7 +42,7 @@ class CSVProcessor:
             trade_datetime = datetime.strptime(trade_date_str, date_format)
             return trade_datetime.strftime("%Y-%m-%d")
         except ValueError:
-            print(f"Warning: Invalid date format: {trade_date_str}")
+            log.warning(f"Invalid date format: {trade_date_str}")
             return None
 
     def convert_to_float(self, some_input):
@@ -52,9 +55,7 @@ class CSVProcessor:
         try:
             result = float(new_input)
         except ValueError:
-            print(
-                f"Warning: Unable to convert '{some_input}' to float. Please check the input format."
-            )
+            log.warning(f"Unable to convert '{some_input}' to float")
             result = None
         return result
 
@@ -65,7 +66,7 @@ class CSVProcessor:
 
         price = self.convert_to_float(price_str)
         if price is None:
-            print(f"Warning: Invalid price format: {price_str}")
+            log.warning(f"Invalid price format: {price_str}")
             return False
 
         return price
@@ -88,18 +89,12 @@ class CSVProcessor:
             match = re.search(r"\((.*?)\)", row["Description"])
             if match:
                 symbol = match.group(1).strip()
-                print(
-                    f"Extracted Symbol, {symbol} from Description {row['Description']}"
-                )
+                log.info(f"Extracted Symbol, {symbol} from Description {row['Description']}")
                 return symbol
             else:
-                print(
-                    f"Warning: No 'symbol' in Description, {row['Description']} use '{default_symbol}'"
-                )
+                log.warning(f"No 'symbol' in Description, {row['Description']} use '{default_symbol}'")
         else:
-            print(
-                f"Warning: Symbol and Description field are empty, use '{default_symbol}'"
-            )
+            log.warning(f"Symbol and Description field are empty, use '{default_symbol}'")
 
         return default_symbol
 
@@ -138,15 +133,12 @@ class CSVProcessor:
 
         price = self.convert_to_float(row["Price"])
         if price is None:
-            print(f"Warning: Invalid format for security: {row['Symbol']}")
-            print(f"Price: {row['Price']},  Action: {row['Action']}")
+            log.warning(f"Invalid format for security: {row['Symbol']}, Price: {row['Price']}, Action: {row['Action']}")
             return 0
 
         quantity = self.convert_to_float(row["Quantity"])
         if quantity is None:
-            print(f"Warning: Invalid Quantity for security: {row['Symbol']}")
-            print(f"Price: {row['Quantity']},  Action: {row['Action']}")
-            print(f"Quantity: {quantity}, Price: {str(price)}")
+            log.warning(f"Invalid Quantity for security: {row['Symbol']}, Quantity: {row['Quantity']}, Action: {row['Action']}")
             return 0.0
 
         amount = 0
@@ -160,8 +152,7 @@ class CSVProcessor:
             return -amount if row["Action"].startswith("Buy") else amount
 
         except ValueError:
-            print("Warning: Invalid quantity or price format.")
-            print(f"Quantity: {quantity}, Price: {str(price)}")
+            log.warning(f"Invalid quantity or price format. Quantity: {quantity}, Price: {price}")
             return 0.0
 
     def extract_option_label(self, row):
@@ -194,7 +185,7 @@ class CSVProcessor:
             option_fields["Target Price"] = self.convert_to_float(label.split()[2])
             return option_fields
         else:
-            print(f"Info: Is not an Option trade: {row['Symbol']}")
+            log.debug(f"Is not an Option trade: {row['Symbol']}")
             return None
 
     def calculate_stop(self, row):
@@ -207,7 +198,7 @@ class CSVProcessor:
         try:
             return round(price * 0.95)
         except ValueError:
-            print("Warning(calculate_stop): Invalid price format: " + str(price))
+            log.warning(f"calculate_stop: Invalid price format: {price}")
             return 0.0
 
     def calculate_sell(self, row):
@@ -220,7 +211,7 @@ class CSVProcessor:
         try:
             return round(price * 1.15)
         except ValueError:
-            print("Warning(calculate_sell): Invalid price format: " + str(price))
+            log.warning(f"calculate_sell: Invalid price format: {price}")
             return None
 
     def output_file_has_data(self, file_path):
@@ -252,15 +243,15 @@ class CSVProcessor:
         """Remove the output file if it's empty. Sort it if it's full."""
         if line_count > 1:
             self.sort_output_file(output_file)
-            print(f"Info: Created output file {output_file}")
+            log.info(f"Created output file {output_file}")
         else:
             os.remove(output_file)
-            print(f"Warning: Output file {output_file} was empty and has been deleted.")
+            log.warning(f"Output file {output_file} was empty and has been deleted.")
 
     def get_input_files(self, keyword, file_extension=".csv"):
         """Get input files matching the keyword and extension."""
         if not os.path.exists(self.input_dir):
-            print(f"Error: Input directory '{self.input_dir}' does not exist.")
+            log.error(f"Input directory '{self.input_dir}' does not exist.")
             return []
         return [
             os.path.join(self.input_dir, f)
@@ -271,19 +262,17 @@ class CSVProcessor:
     def determine_account_type(self, file_name):
         """Determine account type based on the file name."""
         if file_name.lower().startswith("c"):
-            print(f"Info: Account: 'C', File name: '{file_name}'")
+            log.info(f"Account: 'C', File name: '{file_name}'")
             return "C"
         elif file_name.lower().startswith("r"):
-            print(f"Info: Account: 'R', File name: '{file_name}'")
+            log.info(f"Account: 'R', File name: '{file_name}'")
             return "R"
         elif file_name.lower().startswith("d"):
             # Designated Individual Account File
-            print(f"Info: Account: 'I', File name: '{file_name}'")
+            log.info(f"Account: 'I', File name: '{file_name}'")
             return "I"
 
-        print(
-            f"Warning: Expected file name starting with 'C','R','D'. File: '{file_name}'"
-        )
+        log.warning(f"Expected file name starting with 'C','R','D'. File: '{file_name}'")
         return "X"
 
     def is_duplicate_row(self, row, seen_rows, account):
@@ -331,9 +320,9 @@ class CSVProcessor:
 
             for input_file in input_files:
 
-                print(f"Info: Reading file path: {input_file}")
+                log.info(f"Reading file path: {input_file}")
                 file_name = os.path.basename(input_file)
-                print(f"Info: File Name: '{file_name}'")
+                log.info(f"File Name: '{file_name}'")
                 account = self.determine_account_type(file_name)
 
                 with open(input_file, "r") as in_csv:

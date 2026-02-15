@@ -49,8 +49,8 @@
 
 <script>
 import { onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
-import { logRoute, profitLossClass } from "@/utils/tradeUtils.js";
+import { profitLossClass } from "@/utils/tradeUtils.js";
+import { API_BASE_URL } from "@/config.js";
 import { useFetchTrades } from "../composables/useFetchTrades";
 import TransactionSummary from "./TransactionSummary.vue";
 import TradeTableRow from "../components/TradeTableRow.vue";
@@ -135,11 +135,9 @@ export default {
     const expandedTrades = ref(new Set());
     const stockSymbol = ref(props.stockSymbol);
     const { data, loading, error, fetchData } = useFetchTrades();
-    const route = useRoute();
-    logRoute(route);
-    // Get all_trades, open_trades or closed_trades
+
     const _createApiUrl = (scope, stockSymbolValue) => {
-      return `http://localhost:5000/api/trades/${scope}/json/${stockSymbolValue}`;
+      return `${API_BASE_URL}/trades/${scope}/json/${stockSymbolValue}`;
     };
 
     const toggleTrade = (tradeId) => {
@@ -149,27 +147,16 @@ export default {
     };
 
     apiUrl.value = _createApiUrl(props.scope, stockSymbol.value);
-    console.log(`[AllTrades] API URL: ${apiUrl.value}`);
 
     onMounted(() => {
       apiUrl.value = _createApiUrl(props.scope, stockSymbol.value);
-      console.log(
-        `[AllTrades.vue->Mounted]: Fetching data URL: ${apiUrl.value}`
-      );
-      fetchData(apiUrl); // Done reactively in the getFetchTrades composable
+      fetchData(apiUrl);
     });
 
     watch(
       [() => props.scope, () => props.stockSymbol],
       ([newScope, newSymbol]) => {
-        console.log(
-          `[AllTrades.vue->Watch props]: New Scope: ${newScope.value}`
-        );
-        console.log(
-          `[AllTrades.vue->Watch props]: New Symbol: ${newSymbol.value}`
-        );
         apiUrl.value = _createApiUrl(newScope, newSymbol);
-        console.log(`[AllTrades.vue->Watch Props]: New URL: ${apiUrl.value}`);
         fetchData(apiUrl);
       }
     );
@@ -179,7 +166,6 @@ export default {
       loading,
       error,
       expandedTrades,
-      logRoute,
       toggleTrade,
     };
   },

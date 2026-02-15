@@ -15,17 +15,14 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
 
-    app.config["SECRET_KEY"] = os.environ.get(
-        "SECRET_KEY", "This is a strong, random key"
-    )
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or os.urandom(32).hex()
 
     logs_dir = os.path.join(app.root_path, "..", "logs")
     os.makedirs(logs_dir, exist_ok=True)
 
     # Configure logging
     # log_level = logging.DEBUG if app.config.get("DEBUG") else logging.INFO
-    log_level = getattr(logging, os.environ.get('LOG_LEVEL', 'INFO'))
-    print (f"OS.environ.get('LOG_LEVEL'): {os.environ.get('LOG_LEVEL')}")   
+    log_level = getattr(logging, os.environ.get('LOG_LEVEL', 'INFO'))   
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
     # File handler (rotating logs)
@@ -53,30 +50,20 @@ def create_app():
         #     Log DEBUG and above to file
         file_handler.setLevel(logging.DEBUG)
 
-    # Configure Flask's built-in logger instead of replacing it
-    app.logger.removeHandler(app.logger.handlers[0])  # Remove default handler
+    # Configure Flask's logger
+    app.logger.handlers.clear()
     app.logger.addHandler(file_handler)
     app.logger.addHandler(console_handler)
     app.logger.setLevel(log_level)
+    app.logger.propagate = False
 
-
-    # Configure root logger
+    # Configure root logger for lib/ modules
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
-
-    app.logger.handlers.clear()  # Clear Flask's default handlers
-    app.logger.addHandler(file_handler)
-    app.logger.addHandler(console_handler)
-    app.logger.setLevel(log_level)    
-
-    app.logger.propagate = False # Prevent propagation to root logger
-
-
-    # Application-specific logger
-    # app.logger = logging.getLogger("flask.app")
-    # app.logger.addHandler(file_handler)
-    # app.logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+    root_logger.setLevel(log_level)
 
     # Middleware for request logging
     @app.before_request

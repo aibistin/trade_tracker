@@ -139,133 +139,6 @@ class TradeTransaction(db.Model):
 
         return result
 
-    # TODO Not being called. Remove
-    def get_open_positions():
-        """Fetches open positions (where bought quantity exceeds sold quantity)."""
-
-        buy_sum = (
-            select(
-                TradeTransaction.symbol,
-                TradeTransaction.action,
-                TradeTransaction.trade_type,
-                TradeTransaction.label,
-                TradeTransaction.expiration_date,
-                TradeTransaction.target_price,
-                func.sum(TradeTransaction.quantity).label("bsum"),
-                func.abs(func.sum(TradeTransaction.amount)).label("bamount"),
-            )
-            .where(TradeTransaction.action.in_(["B", "RS", "BO"]))
-            .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
-            .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
-            .cte("buy_sum")
-        )
-
-        sell_sum = (
-            select(
-                TradeTransaction.symbol,
-                TradeTransaction.action,
-                func.sum(TradeTransaction.quantity).label("ssum"),
-                func.sum(TradeTransaction.amount).label("samount"),
-            )
-            .where(TradeTransaction.action.in_(["S", "SC"]))
-            .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
-            .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
-            .cte("sell_sum")
-        )
-
-        result = (
-            select(buy_sum)
-            .outerjoin(sell_sum, buy_sum.c.symbol == sell_sum.c.symbol)
-            .where((buy_sum.c.bsum > sell_sum.c.ssum) | (sell_sum.c.ssum == None))
-        )
-
-        open_positions = db.session.execute(result).all()
-        return open_positions
-
-
-# trade_type
-# label
-# expiration_date
-# target_price
-# TradeTransaction.symbol,
-# TradeTransaction.action,
-# TradeTransaction.trade_type,
-# TradeTransaction.label,
-# TradeTransaction.expiration_date,
-# TradeTransaction.target_price,
-
-
-# def get_current_holdings(symbol=None):
-#     """
-#     Fetches current holdings (stocks where bought quantity exceeds sold quantity), sorted by symbol.
-#     Args:
-#         symbol (str, optional): If provided, fetches holdings only for this symbol. Otherwise, fetches all holdings.
-#     """
-#     symbol_names = (
-#         db.session.query(Security.symbol, Security.name)
-#         .order_by(Security.symbol)
-#         .cte("symbol_names")
-#     )
-
-#     buy_sum = (
-#         select(
-#             TradeTransaction.symbol,
-#             TradeTransaction.action,
-#             TradeTransaction.trade_type,
-#             TradeTransaction.label,
-#             func.sum(TradeTransaction.quantity).label("bsum"),
-#             func.avg(TradeTransaction.price).label("bprice"),  # Added average buy price
-#             func.abs(func.sum(TradeTransaction.amount)).label("bamount"),
-#         )
-#         .where(TradeTransaction.action.in_(["B", "RS", "BO"]))
-#         .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
-#         .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
-#         .cte("buy_sum")
-#     )
-
-#     sell_sum = (
-#         select(
-#             TradeTransaction.symbol,
-#             TradeTransaction.action,
-#             TradeTransaction.trade_type,
-#             TradeTransaction.label,
-#             func.sum(TradeTransaction.quantity).label("ssum"),
-#             func.sum(TradeTransaction.amount).label("samount"),
-#         )
-#         .where(TradeTransaction.action.in_(["S", "SC"]))
-#         .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
-#         .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
-#         .cte("sell_sum")
-#     )
-
-#     result = (
-#         select(
-#             buy_sum.c.symbol,
-#             (buy_sum.c.bsum - func.coalesce(sell_sum.c.ssum, 0)).label("quantity"),
-#             buy_sum.c.bprice.label("avg_price"),
-#             (func.coalesce(sell_sum.c.samount, 0) - buy_sum.c.bamount).label(
-#                 "cost_basis"
-#             ),
-#         )
-#         .select_from(buy_sum)
-#         .outerjoin(sell_sum, buy_sum.c.symbol == sell_sum.c.symbol)
-#         .where((buy_sum.c.bsum > sell_sum.c.ssum) | (sell_sum.c.ssum == None))
-#         # .order_by(buy_sum.c.symbol)  # Add sorting here
-#         .join(symbol_names, buy_sum.c.symbol == symbol_names.c.symbol)
-#         .add_columns(symbol_names.c.name.label("security_name"))
-#     )
-
-#     # current_holdings = db.session.execute(result).all()
-#     # return current_holdings
-#     # Apply filter if symbol is provided
-#     if symbol:
-#         result = result.where(buy_sum.c.symbol == symbol)
-#     else:
-#         result = result.order_by(buy_sum.c.symbol)
-
-#     current_holdings = db.session.execute(result).all()
-#     return current_holdings
-
 def get_current_holdings(symbol=None):
     """
     Fetches current holdings (stocks where bought quantity exceeds sold quantity), sorted by symbol.
@@ -278,8 +151,6 @@ def get_current_holdings(symbol=None):
         .cte("symbol_names")
     )
 
-            # func.avg(TradeTransaction.price).label("bprice"),  # Added average buy price
-        
     buy_sum = (
         select(
             TradeTransaction.symbol,
@@ -424,45 +295,6 @@ def get_trade_data_for_analysis_new(stock_symbol):
                 "target_price": target_price,
                 "amount": amount,
                 "account": account,
-            }
-        )
-    return trade_transactions
-
-
-def get_trade_data_for_analysis(stock_symbol):
-    """Returns all trade transactions for a given stock symbol."""
-
-    trade_transactions = []
-    raw_trade_data = get_raw_trade_data(stock_symbol)
-    for (
-        id,
-        symbol,
-        action,
-        trade_type,
-        label,
-        trade_date,
-        expiration_date,
-        quantity,
-        price,
-        target_price,
-        amount,
-        account,
-    ) in raw_trade_data:
-
-        trade_transactions.append(
-            {
-                "Id": id,
-                "Symbol": symbol,
-                "Action": action,
-                "Trade Type": trade_type,
-                "Label": label,
-                "Trade Date": trade_date,
-                "Expiration Date": expiration_date,
-                "Quantity": quantity,
-                "Price": price,
-                "Target Price": target_price,
-                "Amount": amount,
-                "Account": account,
             }
         )
     return trade_transactions

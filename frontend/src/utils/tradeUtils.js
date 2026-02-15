@@ -22,8 +22,7 @@ function profitLossClass(value) {
 }
 
 function formatValue(value) {
-  // return value ? value.toFixed(2) : null
-  return value.toFixed(2)
+  return value?.toFixed(2) ?? '';
 }
 
 function formatDate(dateString) {
@@ -91,25 +90,6 @@ function getFullTradeType(code) {
   return tradeType[code] || code;
 }
 
-function logRoute(route) {
-  console.log(
-    "Route: ",
-    Object.keys(route).forEach((key) =>
-      console.log(`K: ${key} => V: ${route[key]}`)
-    )
-  );
-  console.log(`Path: ${route.path}`); //all_trades/ALAB
-  console.log(`Name: ${route.name}`); // AllTrades
-  console.log(`Params: `, route.params); // {stockSymbol: "ALAB"}
-  console.log(`Query: `, route.query);
-  console.log(`Hash: ${route.hash}`); // empty
-  console.log(`Full Path: ${route.fullPath}`); // /all_trades/ALAB:w
-  console.log(`Matched: `, route.matched); // Array of matched routes
-  console.log(`Meta: `, route.meta);
-  console.log(`Redirected From: ${route.redirectedFrom}`); // empty
-  console.log(`Route Symbol: ${route.params.stockSymbol}`); //good
-}
-
 export {
   formatAction,
   formatCurrency,
@@ -117,6 +97,5 @@ export {
   profitLossClass,
   formatValue,
   formatDate,
-  logRoute,
   rowClass,
 };
