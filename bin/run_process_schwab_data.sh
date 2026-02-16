@@ -43,7 +43,7 @@ if [ -n "$TCSV_FILES" ]; then
     echo "$(get_dtime):Transaction files $TCSV_FILES" | tee -a $LOG_FILE_RUNNER
     echo "$(get_dtime):Running 'process_schwab_transactions'..." | tee -a $LOG_FILE_RUNNER
     echo "         ====== START - $(get_dtime) ======" >>  $LOG_FILE_TRANS
-    python3 -m bin.process_schwab_transactions >> $LOG_FILE_TRANS 2>&1
+    LOG_LEVEL=INFO python3 -m bin.process_schwab_transactions >> $LOG_FILE_TRANS 2>&1
     if [ $? -ne 0 ]; then
         echo "$(get_dtime):Error: The 'process_schwab_transactions' failed! Exit code:$?" | tee -a $LOG_FILE_RUNNER
     fi
