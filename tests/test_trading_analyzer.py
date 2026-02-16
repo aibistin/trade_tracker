@@ -2406,5 +2406,68 @@ class TestTradingAnalyzer(unittest.TestCase):
             msg=f"{symbol} - buy position should be closed after expiration")
 
 
+    def test_option_sells_match_by_label(self):
+        """Option sells must match buys by label, not just FIFO order."""
+        # Two different option contracts for the same symbol and account.
+        # Without label matching, the $50 sell would incorrectly apply to the $43 buy.
+        transactions = [
+            # Contract 1: MSTX 43.00 C — bought, then expired worthless
+            {
+                "id": "100", "symbol": "MSTX", "action": "BO", "trade_type": "C",
+                "trade_date": "2025-05-01", "expiration_date": "2025-12-19",
+                "label": "MSTX 12/19/2025 43.00 C",
+                "quantity": 1.0, "price": 10.0, "target_price": 43.0,
+                "amount": -1000.0, "account": "C",
+            },
+            # Contract 2: MSTX 50.00 C — bought, then sold at profit
+            {
+                "id": "200", "symbol": "MSTX", "action": "BO", "trade_type": "C",
+                "trade_date": "2025-06-01", "expiration_date": "2026-01-16",
+                "label": "MSTX 01/16/2026 50.00 C",
+                "quantity": 1.0, "price": 5.0, "target_price": 50.0,
+                "amount": -500.0, "account": "C",
+            },
+            # Sell for Contract 2 only (label must match)
+            {
+                "id": "300", "symbol": "MSTX", "action": "SC", "trade_type": "C",
+                "trade_date": "2025-11-01", "expiration_date": "2026-01-16",
+                "label": "MSTX 01/16/2026 50.00 C",
+                "quantity": 1.0, "price": 8.0, "target_price": 50.0,
+                "amount": 800.0, "account": "C",
+            },
+            # Expiration for Contract 1 only (label must match)
+            {
+                "id": "400", "symbol": "MSTX", "action": "EXP", "trade_type": "C",
+                "trade_date": "2025-12-19", "expiration_date": "2025-12-19",
+                "label": "MSTX 12/19/2025 43.00 C",
+                "quantity": 1.0, "price": 0.0, "target_price": 43.0,
+                "amount": 0.0, "account": "C",
+            },
+        ]
+
+        analyzer = TradingAnalyzer("MSTX", transactions)
+        analyzer.analyze_trades()
+        profit_loss_data = analyzer.get_profit_loss_data()
+        all_option_trades = profit_loss_data["option"]["all_buy_trades"]
+
+        self.assertEqual(len(all_option_trades), 2, "Expected 2 option buy trades")
+
+        # Contract 1 (43.00 C): bought at $10, expired → -$1000 loss
+        buy_43 = all_option_trades[0]
+        self.assertEqual(buy_43.trade_label, "MSTX 12/19/2025 43.00 C")
+        self.assertTrue(buy_43.is_done, "43C should be closed via expiration")
+        self.assertEqual(len(buy_43.sells), 1)
+        self.assertEqual(buy_43.sells[0].price, 0.0, "Expired sell should have price=0")
+        self.assertAlmostEqual(buy_43.sells[0].profit_loss, -1000.0, places=2)
+
+        # Contract 2 (50.00 C): bought at $5, sold at $8 → $300 profit
+        buy_50 = all_option_trades[1]
+        self.assertEqual(buy_50.trade_label, "MSTX 01/16/2026 50.00 C")
+        self.assertTrue(buy_50.is_done, "50C should be closed via sell")
+        self.assertEqual(len(buy_50.sells), 1)
+        self.assertEqual(buy_50.sells[0].price, 8.0, "SC sell should have price=8.0")
+        self.assertAlmostEqual(buy_50.sells[0].profit_loss, 300.0, places=2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -246,13 +246,15 @@ class TradingAnalyzer:
             status=status,
         )
 
+        match_label = trades.security_type == "option"
+
         for current_buy_record in trades.buy_trades:
-            # if sell_trades_sorted:
             if current_buy_record.account in trades.sells_by_account and len(
                 trades.sells_by_account[current_buy_record.account]
             ):
                 current_buy_record.apply_sell_trades(
-                    trades.sells_by_account[current_buy_record.account]
+                    trades.sells_by_account[current_buy_record.account],
+                    match_label=match_label,
                 )
 
             try:

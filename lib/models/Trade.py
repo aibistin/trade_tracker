@@ -363,13 +363,25 @@ class BuyTrade(Trade):
         )
         return applied_sell
 
-    def apply_sell_trades(self, sell_trades: List["SellTrade"]) -> None:
-        """Apply multiple sell trades until position closed or sells exhausted"""
-        while sell_trades and not self.is_done:
-            sell_trade = sell_trades[0]
+    def apply_sell_trades(self, sell_trades: List["SellTrade"], match_label: bool = False) -> None:
+        """Apply multiple sell trades until position closed or sells exhausted.
+
+        Args:
+            sell_trades: List of sell trades to apply (mutated in place).
+            match_label: If True, only apply sells whose trade_label matches
+                this buy's trade_label. Used for option trades where each
+                contract (strike/expiration) must match independently.
+        """
+        i = 0
+        while i < len(sell_trades) and not self.is_done:
+            sell_trade = sell_trades[i]
+            if match_label and sell_trade.trade_label != self.trade_label:
+                i += 1
+                continue
             self.apply_sell_trade(sell_trade)
             if sell_trade.is_done:
-                sell_trades.pop(0)
+                sell_trades.pop(i)
+            # If sell isn't done, the buy must be done (loop exits)
 
 
 class SellTrade(Trade):
