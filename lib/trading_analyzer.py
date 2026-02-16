@@ -77,7 +77,8 @@ class TradingAnalyzer:
             },
         }
 
-        self.buy_sell_actions = ["B", "Buy", "BO", "RS", "S", "SC"]
+        # TODO incorporate these buy type actions: "RD", "PYDR", "QDR", "SO"
+        self.buy_sell_actions = ["B", "Buy", "BO", "RS", "S", "SC", "EXP", "EE", "BC"]
         self.action_mapping = ActionMapping()
 
     def _convert_to_trade(self, trade: Dict[str, Any]) -> BuyTrade | SellTrade:
@@ -100,7 +101,8 @@ class TradingAnalyzer:
                 )
 
         if trade["action"] in (self.buy_sell_actions):
-            if not isinstance(trade["price"], (int, float)) or trade["price"] <= 0:
+            # if not isinstance(trade["price"], (int, float)) or trade["price"] <= 0:
+            if not isinstance(trade["price"], (int, float)) or trade["price"] < 0:
                 raise ValueError(
                     f"{trade['symbol']} ID: {trade['id']} - Invalid price: {trade['price']}"
                 )
@@ -180,7 +182,6 @@ class TradingAnalyzer:
                 logging.warning(f"[{symbol}] Has no {security_type} BuyTrades")
                 continue
 
-            # Filter BuyTrades collection
             buy_trades.filter_buy_trades()
             logging.debug(
                 f"[{symbol}] Filtered {security_type} BuyTrades: \n{buy_trades}"

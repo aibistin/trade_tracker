@@ -557,6 +557,42 @@ class TestTradingAnalyzer(unittest.TestCase):
                     },
                 ],
             },
+            {
+                "MSTX": [
+                    # Buy to Open - MSTX call option
+                    # 858|MSTX|BO|MSTX 12/19/2025 43.00 C|C|2025-05-15|2025-12-19||1.0|19.0|-1900.0|43.0|||C
+                    {
+                        "id": "858",
+                        "symbol": "MSTX",
+                        "action": "BO",
+                        "trade_type": "C",
+                        "trade_date": "2025-05-15",
+                        "expiration_date": "2025-12-19",
+                        "label": "MSTX 12/19/2025 43.00 C",
+                        "quantity": 1.0,
+                        "price": 19.0,
+                        "target_price": 43.0,
+                        "amount": -1900.0,
+                        "account": "C",
+                    },
+                    # Expired - Option expired worthless
+                    # 4413|MSTX|EXP|MSTX 12/19/2025 43.00 C|C|2025-12-19|2025-12-19||1.0|0.0|0.0|43.0|||C
+                    {
+                        "id": "4413",
+                        "symbol": "MSTX",
+                        "action": "EXP",
+                        "trade_type": "C",
+                        "trade_date": "2025-12-19",
+                        "expiration_date": "2025-12-19",
+                        "label": "MSTX 12/19/2025 43.00 C",
+                        "quantity": 1.0,
+                        "price": 0.0,
+                        "target_price": 43.0,
+                        "amount": 0.0,
+                        "account": "C",
+                    },
+                ],
+            },
         ]
 
         self.expect_trades = {
@@ -2311,6 +2347,63 @@ class TestTradingAnalyzer(unittest.TestCase):
         with self.assertRaises(ValueError):
             analyzer = TradingAnalyzer("ERR", [invalid_trade])
             analyzer.analyze_trades()
+
+
+    def test_analyze_trades_mstx_expired_option(self):
+        """Test that EXP (expired) option trades are processed as SC with price=0."""
+        symbol = next(iter(self.data_list[6]))
+        transactions = self.data_list[6][symbol]
+        self.assertEqual(symbol, "MSTX")
+        analyzer = TradingAnalyzer(symbol, transactions)
+        analyzer.analyze_trades()
+        profit_loss_data = analyzer.get_profit_loss_data()
+
+        # Should have no stock trades
+        has_stock_trades = profit_loss_data["stock"]["has_trades"]
+        self.assertFalse(has_stock_trades, f"{symbol} - should have no stock trades")
+
+        # Should have option trades
+        has_option_trades = profit_loss_data["option"]["has_trades"]
+        self.assertTrue(has_option_trades, f"{symbol} - should have option trades")
+
+        option_summary = profit_loss_data["option"]["summary"]
+        all_option_trades = profit_loss_data["option"]["all_buy_trades"]
+
+        # One buy trade (BO)
+        self.assertEqual(len(all_option_trades), 1, f"{symbol} - expected 1 option buy trade")
+
+        buy_trade = all_option_trades[0]
+        # Buy: 1 contract at $19.00 = $1900
+        self.assertEqual(buy_trade.quantity, 1.0)
+        self.assertEqual(buy_trade.price, 19.0)
+        self.assertEqual(buy_trade.amount, -1900.0)
+        self.assertEqual(buy_trade.trade_label, "MSTX 12/19/2025 43.00 C")
+
+        # Position should be fully closed (expired)
+        self.assertTrue(buy_trade.is_done, f"{symbol} - expired option should be fully closed")
+        self.assertEqual(buy_trade.current_sold_qty, 1.0)
+
+        # Should have one sell (the expired option converted to SC)
+        self.assertEqual(len(buy_trade.sells), 1, f"{symbol} - expected 1 sell from expiration")
+
+        sell_trade = buy_trade.sells[0]
+        # EXP converted to SC with price=0
+        self.assertEqual(sell_trade.action, "SC")
+        self.assertEqual(sell_trade.price, 0.0)
+        self.assertEqual(sell_trade.amount, 0.0)
+        self.assertEqual(sell_trade.reason, "Expired Option")
+
+        # P&L: sold at $0, bought at $19/share * 100 = $1900 loss
+        self.assertAlmostEqual(sell_trade.profit_loss, -1900.0, places=2,
+            msg=f"{symbol} - expired option profit_loss should be -1900.0")
+        self.assertAlmostEqual(sell_trade.percent_profit_loss, -100.0, places=2,
+            msg=f"{symbol} - expired option percent_profit_loss should be -100%")
+
+        # Summary should show the full loss
+        self.assertAlmostEqual(option_summary.profit_loss, -1900.0, places=2,
+            msg=f"{symbol} - option summary profit_loss")
+        self.assertTrue(buy_trade.is_done,
+            msg=f"{symbol} - buy position should be closed after expiration")
 
 
 if __name__ == "__main__":

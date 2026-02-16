@@ -104,7 +104,7 @@ class CSVProcessor:
 
     def is_option_trade(self, row):
         """Checks if the row is an option trade."""
-        if any(x in row["Action"] for x in ["Open", "Close"]):
+        if any(x in row["Action"] for x in ["Open", "Close", "Expired"]):
             return True
         else:
             return False
@@ -127,6 +127,9 @@ class CSVProcessor:
 
     def calculate_amount(self, row):
         """Calculates the amount based on quantity and price. For Buy Sell & Re-Invest Orders"""
+
+        if row["Action"] == "Expired":
+            return 0
 
         if not row["Action"].startswith(("Buy", "Sell", "Reinvest")):
             return None

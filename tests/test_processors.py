@@ -92,14 +92,63 @@ class TestCSVProcessing(unittest.TestCase):
         # Check if the data was inserted into the database correctly
         # ...
 
-    # Add more test methods as needed (e.g., for database insertion, sorting, etc.)
+    def test_is_option_trade_expired(self):
+        """Expired options should be recognized as option trades."""
+        row = {"Action": "Expired", "Symbol": "MSTX 12/19/2025 45.00 C"}
+        self.assertTrue(self.csv_processor.is_option_trade(row))
 
+    def test_is_option_trade_open_close(self):
+        """Buy/Sell to Open/Close should be recognized as option trades."""
+        self.assertTrue(self.csv_processor.is_option_trade(
+            {"Action": "Buy to Open", "Symbol": "MSTX"}))
+        self.assertTrue(self.csv_processor.is_option_trade(
+            {"Action": "Sell to Close", "Symbol": "MSTX"}))
 
+    def test_is_option_trade_regular(self):
+        """Regular Buy/Sell should not be option trades."""
+        self.assertFalse(self.csv_processor.is_option_trade(
+            {"Action": "Buy", "Symbol": "MSTX"}))
+        self.assertFalse(self.csv_processor.is_option_trade(
+            {"Action": "Sell", "Symbol": "MSTX"}))
 
-        # with DatabaseInserter(db=db) as db_inserter:
-        #     for row in transaction_rows:
-        #         if not db.transaction_exists(row):
-        #             db.insert_transaction(row)
+    def test_calculate_amount_expired(self):
+        """Expired options should have amount of 0."""
+        row = {"Action": "Expired", "Symbol": "MSTX", "Price": "", "Quantity": "-1"}
+        self.assertEqual(self.csv_processor.calculate_amount(row), 0)
+
+    def test_extract_option_label_expired(self):
+        """Expired options should extract C/P trade type from label."""
+        row = {"Action": "Expired", "Symbol": "MSTX 12/19/2025 45.00 C"}
+        result = self.csv_processor.extract_option_label(row)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["Symbol"], "MSTX")
+        self.assertEqual(result["Trade Type"], "C")
+        self.assertEqual(result["Target Price"], 45.0)
+        self.assertEqual(result["Expiration Date"], "12/19/2025")
+
+    def test_extract_option_label_expired_put(self):
+        """Expired put options should extract P trade type."""
+        row = {"Action": "Expired", "Symbol": "TSLA 01/17/2025 200.00 P"}
+        result = self.csv_processor.extract_option_label(row)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["Symbol"], "TSLA")
+        self.assertEqual(result["Trade Type"], "P")
+
+    def test_determine_trade_type_expired_call(self):
+        """Expired call should preserve C trade type from option label."""
+        row = {"Action": "Expired", "Trade Type": "C"}
+        self.assertEqual(self.csv_processor.determine_trade_type(row), "C")
+
+    def test_determine_trade_type_expired_put(self):
+        """Expired put should preserve P trade type from option label."""
+        row = {"Action": "Expired", "Trade Type": "P"}
+        self.assertEqual(self.csv_processor.determine_trade_type(row), "P")
+
+    def test_convert_trade_date_as_of(self):
+        """'as of' date format should use the second date."""
+        result = self.csv_processor.convert_trade_date(
+            "12/22/2025 as of 12/19/2025", "%m/%d/%Y")
+        self.assertEqual(result, "2025-12-19")
 
 
 if __name__ == '__main__':

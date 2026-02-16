@@ -110,9 +110,10 @@ class DatabaseInserter(DatabaseConnection):
         """
         query = """
             SELECT 1 FROM trade_transaction
-            WHERE 
+            WHERE
                 symbol = :symbol AND
                 action = :action AND
+                label = :label AND
                 trade_type = :trade_type AND
                 trade_date = :trade_date AND
                 quantity = :quantity AND
@@ -124,6 +125,7 @@ class DatabaseInserter(DatabaseConnection):
         params = {
             "symbol": trade_transaction["symbol"],
             "action": self.convert_action(trade_transaction["action"]),
+            "label": trade_transaction.get("label"),
             "trade_type": trade_transaction.get("trade_type", ""),
             "trade_date": trade_transaction["trade_date"],
             "quantity": trade_transaction["quantity"],

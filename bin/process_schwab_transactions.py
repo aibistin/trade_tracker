@@ -136,9 +136,9 @@ def process_schwab_transactions_row(csv_processor, row, **kwargs):
                 print(f"[{symbol}] ERROR: Failed to insert transaction: {e}")
                 SKIPPED_ROWS.append(row)    
             return None
-        print(f'[{symbol}] Inserted transaction for: {trade_transaction["trade_date"]}')
+        print(f'[{symbol}] Inserted transaction for: {trade_transaction}')
     else:
-        print(f'[{symbol}] Transaction exists: {trade_transaction["trade_date"]}')
+        print(f'[{symbol}] Transaction exists: {trade_transaction}')
 
     return trade_transaction
 

@@ -6,7 +6,7 @@ from ..extensions import db
 
 #TODO Not handling "BC" (Buy to Close) and "SO" (Sell to Open)
 # RS = Reinvest Shares
-common_actions = ["B", "BO", "EE","RS", "S","SC"]
+common_actions = ["B", "BO", "EE", "EXP", "RS", "S", "SC"]
 
 
 class Security(db.Model):
@@ -177,7 +177,7 @@ def get_current_holdings(symbol=None):
             func.sum(TradeTransaction.quantity).label("ssum"),
             func.sum(TradeTransaction.amount).label("samount"),
         )
-        .where(TradeTransaction.action.in_(["S", "SC"]))
+        .where(TradeTransaction.action.in_(["S", "SC", "EXP", "EE"]))
         .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
         .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
         .cte("sell_sum")
