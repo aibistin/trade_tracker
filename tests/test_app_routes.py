@@ -588,6 +588,80 @@ class TestAppRoutes(unittest.TestCase):
             f"Expected status 400, got {response.status_code}",
         )
 
+    # Tests for GET query parameter filtering on /api/trades/<scope>/json/<symbol>
+
+    def test_api_positions_with_after_date(self):
+        """Test GET with after_date query param filters trades by date"""
+        response = self.client.get(
+            f"/api/trades/all/json/{filter_symbol}?after_date=2025-01-01"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        trades_data = response.json
+        self.assertEqual(trades_data["filters"]["after_date"], "2025-01-01")
+
+        stock_trades = trades_data["transaction_stats"]["stock"]["all_trades"]
+        self.assertEqual(
+            len(stock_trades), 2,
+            f"Expected 2 trades after 2025-01-01, got {len(stock_trades)}",
+        )
+        for trade in stock_trades:
+            self.assertGreaterEqual(trade["trade_date"], "2025-01-01")
+
+    def test_api_positions_with_invalid_after_date(self):
+        """Test GET with invalid after_date returns 400"""
+        response = self.client.get(
+            f"/api/trades/all/json/{filter_symbol}?after_date=not-a-date"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("after_date", response.json["error"])
+
+    def test_api_positions_with_account_filter(self):
+        """Test GET with account query param filters by account"""
+        response = self.client.get(
+            f"/api/trades/all/json/{filter_symbol}?account=O"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        trades_data = response.json
+        self.assertEqual(trades_data["filters"]["account"], "O")
+
+        stock_trades = trades_data["transaction_stats"]["stock"]["all_trades"]
+        self.assertEqual(len(stock_trades), 2)
+        for trade in stock_trades:
+            self.assertEqual(trade["account"], "O")
+
+    def test_api_positions_with_both_filters(self):
+        """Test GET with both after_date and account query params"""
+        response = self.client.get(
+            f"/api/trades/all/json/{filter_symbol}?after_date=2025-01-01&account=O"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        trades_data = response.json
+        self.assertEqual(trades_data["filters"]["after_date"], "2025-01-01")
+        self.assertEqual(trades_data["filters"]["account"], "O")
+
+        stock_trades = trades_data["transaction_stats"]["stock"]["all_trades"]
+        self.assertEqual(len(stock_trades), 2)
+        for trade in stock_trades:
+            self.assertEqual(trade["account"], "O")
+            self.assertGreaterEqual(trade["trade_date"], "2025-01-01")
+
+    def test_api_positions_without_filters_no_filters_key(self):
+        """Test GET without query params does not include filters key"""
+        response = self.client.get("/api/trades/all/json/FAKE1")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("filters", response.json)
+
+    def test_api_positions_with_invalid_account(self):
+        """Test GET with invalid account returns 400"""
+        response = self.client.get(
+            f"/api/trades/all/json/{filter_symbol}?account=INVALID"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("account", response.json["error"])
+
 
 if __name__ == "__main__":
     unittest.main(failfast=True)

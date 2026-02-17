@@ -97,7 +97,12 @@ def get_current_holdings_symbols_json():
 @api_bp.route("/trades/<string:scope>/json/<string:stock_symbol>")
 def get_positions_json(scope, stock_symbol):
     """Get either open or closed positions for a given stock symbol in JSON format.
-    Valid values for scope are 'all', 'open' or 'closed'."""
+    Valid values for scope are 'all', 'open' or 'closed'.
+
+    Optional query parameters:
+        after_date: Filter trades on or after this date (YYYY-MM-DD format)
+        account: Filter by account code (C, R, I, or O)
+    """
 
     if scope not in ["all", "open", "closed"]:
         return (
@@ -107,7 +112,25 @@ def get_positions_json(scope, stock_symbol):
             400,
         )
 
-    log.info(f"[{stock_symbol}] Getting {scope.capitalize()} Positions JSON")
+    after_date = request.args.get("after_date")
+    account = request.args.get("account")
+
+    # Validate after_date format if provided
+    if after_date is not None:
+        from datetime import datetime
+        try:
+            datetime.strptime(after_date, "%Y-%m-%d")
+        except (ValueError, TypeError):
+            return jsonify({"error": "after_date must be in 'YYYY-MM-DD' format"}), 400
+
+    # Validate account if provided
+    valid_accounts = ["C", "R", "I", "O"]
+    if account is not None and account not in valid_accounts:
+        return jsonify({"error": f"account must be one of {valid_accounts}"}), 400
+
+    log.info(f"[{stock_symbol}] Getting {scope.capitalize()} Positions JSON"
+             + (f" after_date={after_date}" if after_date else "")
+             + (f" account={account}" if account else ""))
 
     trade_record = {
         "stock_symbol": stock_symbol,
@@ -115,12 +138,17 @@ def get_positions_json(scope, stock_symbol):
         "requested": f"{scope}_trades",
     }
 
+    if after_date or account:
+        trade_record["filters"] = {
+            "after_date": after_date,
+            "account": account,
+        }
+
     trade_transactions = get_trade_data_for_analysis_new(stock_symbol)
-    # log.debug(f"[Routes][get_positions_json] raw_data: {trade_transactions}")
 
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
 
-    analyzer.analyze_trades(status=scope)
+    analyzer.analyze_trades(status=scope, after_date=after_date, account=account)
     trade_record["transaction_stats"] = analyzer.get_profit_loss_data_json()
     log.debug(
         f"[Routes] {scope.capitalize()} Stock all_trades for {stock_symbol}: {trade_record['transaction_stats']['stock']['all_trades']}"

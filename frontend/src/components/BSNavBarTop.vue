@@ -19,7 +19,7 @@
             </a>
             <ul class="dropdown-menu">
               <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
-                <router-link class="dropdown-item" :to="`/trades/all/${symbol}`">
+                <router-link class="dropdown-item" :to="{ path: `/trades/all/${symbol}`, query: route.query }">
                   {{ symbol }} - {{ name }}
                 </router-link>
               </li>
@@ -32,7 +32,7 @@
             </a>
             <ul class="dropdown-menu">
               <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
-                <router-link class="dropdown-item" @click="logNavigation(symbol, 'to')" :to="`/trades/open/${symbol}`">
+                <router-link class="dropdown-item" :to="{ path: `/trades/open/${symbol}`, query: route.query }">
                   {{ symbol }} - {{ name }}
                 </router-link>
               </li>
@@ -44,7 +44,7 @@
             </a>
             <ul class="dropdown-menu">
               <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
-                <router-link class="dropdown-item"                  :to="`/trades/closed/${symbol}`">
+                <router-link class="dropdown-item" :to="{ path: `/trades/closed/${symbol}`, query: route.query }">
                   {{ symbol }} - {{ name }}
                 </router-link>
               </li>
@@ -100,9 +100,12 @@
 
 <script setup>
 import { onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { useFetchTrades } from '../composables/useFetchTrades';
 import { useSymbolSearch } from '../composables/useSymbolSearch';
 import { API_BASE_URL } from '@/config.js';
+
+const route = useRoute();
 
 const allSymbolsApiUrl = ref(`${API_BASE_URL}/trade/symbols_json`);
 const currentSymbolsApiUrl = ref(`${API_BASE_URL}/trade/current_holdings_symbols_json`);

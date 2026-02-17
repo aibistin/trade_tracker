@@ -1,10 +1,11 @@
 import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 export function useSymbolSearch(symbols) {
   const searchQuery = ref('');
   const isDropdownOpen = ref(false);
   const router = useRouter();
+  const route = useRoute();
 
   const filteredSymbols = computed(() => {
     if (!searchQuery.value) {
@@ -22,7 +23,7 @@ export function useSymbolSearch(symbols) {
   const selectSymbol = (symbol, scope = 'all') => {
     searchQuery.value = '';
     isDropdownOpen.value = false;
-    router.push(`/trades/${scope}/${symbol}`);
+    router.push({ path: `/trades/${scope}/${symbol}`, query: route.query });
   };
 
   return {
