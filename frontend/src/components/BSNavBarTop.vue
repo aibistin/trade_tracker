@@ -15,51 +15,36 @@
 
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              All Trades
+              Symbols
             </a>
-            <ul class="dropdown-menu">
+            <ul class="dropdown-menu" style="max-height: 400px; overflow-y: auto;">
               <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
-                <router-link class="dropdown-item" :to="{ path: `/trades/all/${symbol}`, query: route.query }">
+                <router-link class="dropdown-item" :to="{ path: `/trades/${activeScope}/${symbol}`, query: route.query }">
                   {{ symbol }} - {{ name }}
                 </router-link>
               </li>
             </ul>
           </li>
 
-          <li class="nav-item dropdown" size="3">
-            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              Open Trades
-            </a>
-            <ul class="dropdown-menu">
-              <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
-                <router-link class="dropdown-item" :to="{ path: `/trades/open/${symbol}`, query: route.query }">
-                  {{ symbol }} - {{ name }}
-                </router-link>
-              </li>
-            </ul>
-          </li>
-          <li class="nav-item dropdown" size="3">
-            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              Closed Trades
-            </a>
-            <ul class="dropdown-menu">
-              <li v-for="[symbol, name] in currentStockSymbols" :key="symbol">
-                <router-link class="dropdown-item" :to="{ path: `/trades/closed/${symbol}`, query: route.query }">
-                  {{ symbol }} - {{ name }}
-                </router-link>
-              </li>
-            </ul>
+          <li class="nav-item d-flex align-items-center ms-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Trade scope">
+              <button v-for="s in scopes" :key="s.value" type="button"
+                class="btn" :class="activeScope === s.value ? 'btn-primary' : 'btn-outline-primary'"
+                @click="setScope(s.value)">
+                {{ s.label }}
+              </button>
+            </div>
           </li>
         </ul>
 
         <form class="d-flex" role="search">
-          <input v-model="searchQuery" type="text" class="form-control" placeholder="View All Trades for ..."
+          <input v-model="searchQuery" type="text" class="form-control" placeholder="Search symbols..."
             @input="filterSymbols" @focus="isDropdownOpen = true" />
           <!-- Dropdown Menu -->
           <ul v-if="isDropdownOpen" class="dropdown-menu show"
             style="width: 100%; max-height: 300px; overflow-y: auto;">
             <li v-for="[symbol, name] in filteredSymbols" :key="symbol">
-              <a class="dropdown-item btn-outline-success" href="#" @click="selectAllTradesSymbol(symbol, 'all')">
+              <a class="dropdown-item btn-outline-success" href="#" @click="selectSymbolWithScope(symbol)">
                 {{ symbol }} - {{ name }}
               </a>
             </li>
@@ -99,20 +84,40 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { onMounted, ref, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useFetchTrades } from '../composables/useFetchTrades';
 import { useSymbolSearch } from '../composables/useSymbolSearch';
 import { API_BASE_URL } from '@/config.js';
 
 const route = useRoute();
+const router = useRouter();
+
+const scopes = [
+  { value: 'all', label: 'All' },
+  { value: 'open', label: 'Open' },
+  { value: 'closed', label: 'Closed' },
+];
+
+const activeScope = computed(() => route.params.scope || 'all');
+
+const setScope = (scope) => {
+  const symbol = route.params.stockSymbol;
+  if (symbol) {
+    router.push({ path: `/trades/${scope}/${symbol}`, query: route.query });
+  }
+};
 
 const allSymbolsApiUrl = ref(`${API_BASE_URL}/trade/symbols_json`);
 const currentSymbolsApiUrl = ref(`${API_BASE_URL}/trade/current_holdings_symbols_json`);
 
 const { data: stockSymbols, loading, error, fetchData } = useFetchTrades();
 const { data: currentStockSymbols, loading: currentLoading, error: currentError, fetchData: fetchCurrentSymbols } = useFetchTrades();
-const { searchQuery, isDropdownOpen, filteredSymbols, selectSymbol: selectAllTradesSymbol } = useSymbolSearch(stockSymbols);
+const { searchQuery, isDropdownOpen, filteredSymbols, selectSymbol } = useSymbolSearch(stockSymbols);
+
+const selectSymbolWithScope = (symbol) => {
+  selectSymbol(symbol, activeScope.value);
+};
 
 onMounted(() => {
   fetchData(allSymbolsApiUrl);
