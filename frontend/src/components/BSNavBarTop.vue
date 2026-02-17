@@ -35,6 +35,16 @@
               </button>
             </div>
           </li>
+
+          <li class="nav-item d-flex align-items-center ms-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Asset type">
+              <button v-for="t in assetTypes" :key="t.value" type="button"
+                class="btn" :class="activeAssetType === t.value ? 'btn-success' : 'btn-outline-success'"
+                @click="setAssetType(t.value)">
+                {{ t.label }}
+              </button>
+            </div>
+          </li>
         </ul>
 
         <form class="d-flex" role="search">
@@ -99,12 +109,32 @@ const scopes = [
   { value: 'closed', label: 'Closed' },
 ];
 
+const assetTypes = [
+  { value: 'all', label: 'All' },
+  { value: 'stock', label: 'Stock' },
+  { value: 'option', label: 'Option' },
+];
+
 const activeScope = computed(() => route.params.scope || 'all');
+const activeAssetType = computed(() => route.query.asset_type || 'all');
 
 const setScope = (scope) => {
   const symbol = route.params.stockSymbol;
   if (symbol) {
     router.push({ path: `/trades/${scope}/${symbol}`, query: route.query });
+  }
+};
+
+const setAssetType = (type) => {
+  const symbol = route.params.stockSymbol;
+  if (symbol) {
+    const query = { ...route.query };
+    if (type && type !== 'all') {
+      query.asset_type = type;
+    } else {
+      delete query.asset_type;
+    }
+    router.push({ path: route.path, query });
   }
 };
 

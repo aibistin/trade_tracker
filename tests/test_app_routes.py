@@ -159,6 +159,39 @@ class TestAppRoutes(unittest.TestCase):
                 "projected_sell_price": None,
                 "account": "O",
             },
+            # Option trades for FAKE1
+            {
+                "symbol": "FAKE1",
+                "action": "BO",
+                "label": "FAKE1 01/17/2025 50.00 C",
+                "trade_type": "C",
+                "trade_date": "2024-06-26 11:00",
+                "expiration_date": "2025-01-17",
+                "reason": "Test Buy Option FAKE1",
+                "quantity": 1,
+                "price": 5.00,
+                "amount": -500.0,
+                "target_price": 50.0,
+                "initial_stop_price": None,
+                "projected_sell_price": None,
+                "account": "C",
+            },
+            {
+                "symbol": "FAKE1",
+                "action": "SC",
+                "label": "FAKE1 01/17/2025 50.00 C",
+                "trade_type": "C",
+                "trade_date": "2024-12-15 11:00",
+                "expiration_date": "2025-01-17",
+                "reason": "Test Sell Option FAKE1",
+                "quantity": 1,
+                "price": 8.00,
+                "amount": 800.0,
+                "target_price": 50.0,
+                "initial_stop_price": None,
+                "projected_sell_price": None,
+                "account": "C",
+            },
         ]
 
         for row in transaction_rows:
@@ -380,7 +413,7 @@ class TestAppRoutes(unittest.TestCase):
         option_trades = transaction_stats["option"]["all_trades"]
 
         self.assertEqual(
-            len(option_trades), 0, f"Expected 0 option trades, got {len(option_trades)}"
+            len(option_trades), 2, f"Expected 2 option trades, got {len(option_trades)}"
         )
 
         # Verify summary data
@@ -661,6 +694,59 @@ class TestAppRoutes(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("account", response.json["error"])
+
+    # Tests for asset_type query parameter
+
+    def test_api_positions_asset_type_stock(self):
+        """Test GET with asset_type=stock returns only stock section"""
+        response = self.client.get("/api/trades/all/json/FAKE1?asset_type=stock")
+        self.assertEqual(response.status_code, 200)
+
+        trades_data = response.json
+        transaction_stats = trades_data["transaction_stats"]
+        self.assertIn("stock", transaction_stats, "Response should have 'stock' key")
+        self.assertNotIn("option", transaction_stats, "Response should not have 'option' key")
+        self.assertEqual(trades_data["filters"]["asset_type"], "stock")
+
+    def test_api_positions_asset_type_option(self):
+        """Test GET with asset_type=option returns only option section"""
+        response = self.client.get("/api/trades/all/json/FAKE1?asset_type=option")
+        self.assertEqual(response.status_code, 200)
+
+        trades_data = response.json
+        transaction_stats = trades_data["transaction_stats"]
+        self.assertIn("option", transaction_stats, "Response should have 'option' key")
+        self.assertNotIn("stock", transaction_stats, "Response should not have 'stock' key")
+        self.assertEqual(trades_data["filters"]["asset_type"], "option")
+
+        # Verify option trades exist for FAKE1
+        option_trades = transaction_stats["option"]["all_trades"]
+        self.assertGreater(len(option_trades), 0, "FAKE1 should have option trades")
+
+    def test_api_positions_asset_type_all(self):
+        """Test GET with asset_type=all (or omitted) returns both sections"""
+        # Explicit asset_type=all
+        response = self.client.get("/api/trades/all/json/FAKE1?asset_type=all")
+        self.assertEqual(response.status_code, 200)
+
+        trades_data = response.json
+        transaction_stats = trades_data["transaction_stats"]
+        self.assertIn("stock", transaction_stats)
+        self.assertIn("option", transaction_stats)
+        self.assertNotIn("filters", trades_data, "asset_type=all should not add filters")
+
+        # Omitted asset_type (default)
+        response2 = self.client.get("/api/trades/all/json/FAKE1")
+        self.assertEqual(response2.status_code, 200)
+        trades_data2 = response2.json
+        self.assertIn("stock", trades_data2["transaction_stats"])
+        self.assertIn("option", trades_data2["transaction_stats"])
+
+    def test_api_positions_asset_type_invalid(self):
+        """Test GET with invalid asset_type returns 400"""
+        response = self.client.get("/api/trades/all/json/FAKE1?asset_type=futures")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("asset_type", response.json["error"])
 
 
 if __name__ == "__main__":

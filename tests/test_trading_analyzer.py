@@ -2406,6 +2406,43 @@ class TestTradingAnalyzer(unittest.TestCase):
             msg=f"{symbol} - buy position should be closed after expiration")
 
 
+    def test_get_profit_loss_data_json_asset_type_stock(self):
+        """Test get_profit_loss_data_json with asset_type='stock' returns only stock key"""
+        symbol = "SN"
+        transactions = self.data_list[0][symbol]
+        analyzer = TradingAnalyzer(symbol, transactions)
+        analyzer.analyze_trades()
+        json_data = analyzer.get_profit_loss_data_json(asset_type="stock")
+        self.assertIn("stock", json_data, "Should have 'stock' key")
+        self.assertNotIn("option", json_data, "Should not have 'option' key")
+        self.assertTrue(json_data["stock"]["has_trades"], "SN should have stock trades")
+
+    def test_get_profit_loss_data_json_asset_type_option(self):
+        """Test get_profit_loss_data_json with asset_type='option' returns only option key"""
+        symbol = "SOUN"
+        transactions = self.data_list[5][symbol]
+        analyzer = TradingAnalyzer(symbol, transactions)
+        analyzer.analyze_trades()
+        json_data = analyzer.get_profit_loss_data_json(asset_type="option")
+        self.assertIn("option", json_data, "Should have 'option' key")
+        self.assertNotIn("stock", json_data, "Should not have 'stock' key")
+        self.assertTrue(json_data["option"]["has_trades"], "SOUN should have option trades")
+
+    def test_get_profit_loss_data_json_asset_type_all(self):
+        """Test get_profit_loss_data_json with default asset_type returns both keys"""
+        symbol = "SOUN"
+        transactions = self.data_list[5][symbol]
+        analyzer = TradingAnalyzer(symbol, transactions)
+        analyzer.analyze_trades()
+        # Default (no argument)
+        json_data = analyzer.get_profit_loss_data_json()
+        self.assertIn("stock", json_data, "Default should have 'stock' key")
+        self.assertIn("option", json_data, "Default should have 'option' key")
+        # Explicit "all"
+        json_data2 = analyzer.get_profit_loss_data_json(asset_type="all")
+        self.assertIn("stock", json_data2)
+        self.assertIn("option", json_data2)
+
     def test_option_sells_match_by_label(self):
         """Option sells must match buys by label, not just FIFO order."""
         # Two different option contracts for the same symbol and account.

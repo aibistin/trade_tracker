@@ -102,6 +102,10 @@ def get_positions_json(scope, stock_symbol):
     Optional query parameters:
         after_date: Filter trades on or after this date (YYYY-MM-DD format)
         account: Filter by account code (C, R, I, or O)
+        asset_type: Filter by asset type — 'stock', 'option', or 'all' (default: 'all').
+                    When set to 'stock' or 'option', only that section is included in the
+                    response. The frontend exposes this via a green toggle button group
+                    in the navbar, passed as a query parameter (e.g. ?asset_type=stock).
     """
 
     if scope not in ["all", "open", "closed"]:
@@ -114,6 +118,12 @@ def get_positions_json(scope, stock_symbol):
 
     after_date = request.args.get("after_date")
     account = request.args.get("account")
+    asset_type = request.args.get("asset_type", "all")
+
+    # Validate asset_type
+    valid_asset_types = ["stock", "option", "all"]
+    if asset_type not in valid_asset_types:
+        return jsonify({"error": f"asset_type must be one of {valid_asset_types}"}), 400
 
     # Validate after_date format if provided
     if after_date is not None:
@@ -130,7 +140,8 @@ def get_positions_json(scope, stock_symbol):
 
     log.info(f"[{stock_symbol}] Getting {scope.capitalize()} Positions JSON"
              + (f" after_date={after_date}" if after_date else "")
-             + (f" account={account}" if account else ""))
+             + (f" account={account}" if account else "")
+             + (f" asset_type={asset_type}" if asset_type != "all" else ""))
 
     trade_record = {
         "stock_symbol": stock_symbol,
@@ -138,20 +149,23 @@ def get_positions_json(scope, stock_symbol):
         "requested": f"{scope}_trades",
     }
 
-    if after_date or account:
-        trade_record["filters"] = {
-            "after_date": after_date,
-            "account": account,
-        }
+    if after_date or account or asset_type != "all":
+        trade_record["filters"] = {}
+        if after_date:
+            trade_record["filters"]["after_date"] = after_date
+        if account:
+            trade_record["filters"]["account"] = account
+        if asset_type != "all":
+            trade_record["filters"]["asset_type"] = asset_type
 
     trade_transactions = get_trade_data_for_analysis_new(stock_symbol)
 
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
 
     analyzer.analyze_trades(status=scope, after_date=after_date, account=account)
-    trade_record["transaction_stats"] = analyzer.get_profit_loss_data_json()
+    trade_record["transaction_stats"] = analyzer.get_profit_loss_data_json(asset_type=asset_type)
     log.debug(
-        f"[Routes] {scope.capitalize()} Stock all_trades for {stock_symbol}: {trade_record['transaction_stats']['stock']['all_trades']}"
+        f"[Routes] {scope.capitalize()} all_trades for {stock_symbol}: {trade_record['transaction_stats']}"
     )
 
     return jsonify(trade_record)

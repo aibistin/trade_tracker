@@ -26,7 +26,7 @@
         <button v-if="afterDate" class="btn btn-sm btn-outline-secondary" @click="clearDateFilter">Clear</button>
       </div>
 
-      <div v-if="data.transaction_stats.stock.has_trades === true">
+      <div v-if="data.transaction_stats.stock?.has_trades === true">
         <TransactionSummary :tradeSummary="data.transaction_stats.stock.summary" :stockSymbol="data.stock_symbol"
           stockType="Stock" :allTradeCount="data.transaction_stats.stock.all_trades?.length" />
         <buy-trade-summary :stockSymbol="data.stock_symbol" stockType="Stock">
@@ -38,7 +38,7 @@
       </div>
 
       <!-- Option trades here -->
-      <div v-if="data.transaction_stats.option.has_trades === true">
+      <div v-if="data.transaction_stats.option?.has_trades === true">
         <TransactionSummary :tradeSummary="data.transaction_stats.option.summary" :stockSymbol="data.stock_symbol"
           stockType="Option" :allTradeCount="data.transaction_stats.option.all_trades?.length" />
         <buy-trade-summary :stockSymbol="data.stock_symbol" stockType="Option">
@@ -147,23 +147,32 @@ export default {
     const afterDate = ref(route.query.after_date || "");
     const { data, loading, error, fetchData } = useFetchTrades();
 
-    const _createApiUrl = (scope, stockSymbolValue, afterDateValue) => {
+    const _createApiUrl = (scope, stockSymbolValue, query = {}) => {
       let url = `${API_BASE_URL}/trades/${scope}/json/${stockSymbolValue}`;
-      if (afterDateValue) {
-        url += `?after_date=${afterDateValue}`;
-      }
+      const params = new URLSearchParams();
+      if (query.after_date) params.set('after_date', query.after_date);
+      if (query.asset_type && query.asset_type !== 'all') params.set('asset_type', query.asset_type);
+      const qs = params.toString();
+      if (qs) url += `?${qs}`;
       return url;
     };
 
     const applyDateFilter = (dateValue) => {
       afterDate.value = dateValue;
-      const query = dateValue ? { after_date: dateValue } : {};
+      const query = { ...route.query };
+      if (dateValue) {
+        query.after_date = dateValue;
+      } else {
+        delete query.after_date;
+      }
       router.replace({ params: route.params, query });
     };
 
     const clearDateFilter = () => {
       afterDate.value = "";
-      router.replace({ params: route.params, query: {} });
+      const query = { ...route.query };
+      delete query.after_date;
+      router.replace({ params: route.params, query });
     };
 
     const toggleTrade = (tradeId) => {
@@ -172,18 +181,18 @@ export default {
       expandedTrades.value = newSet;
     };
 
-    apiUrl.value = _createApiUrl(props.scope, stockSymbol.value, afterDate.value);
+    apiUrl.value = _createApiUrl(props.scope, stockSymbol.value, route.query);
 
     onMounted(() => {
-      apiUrl.value = _createApiUrl(props.scope, stockSymbol.value, afterDate.value);
+      apiUrl.value = _createApiUrl(props.scope, stockSymbol.value, route.query);
       fetchData(apiUrl);
     });
 
     watch(
-      [() => props.scope, () => props.stockSymbol, () => route.query.after_date],
+      [() => props.scope, () => props.stockSymbol, () => route.query.after_date, () => route.query.asset_type],
       ([newScope, newSymbol, newAfterDate]) => {
         afterDate.value = newAfterDate || "";
-        apiUrl.value = _createApiUrl(newScope, newSymbol, newAfterDate);
+        apiUrl.value = _createApiUrl(newScope, newSymbol, route.query);
         fetchData(apiUrl);
       }
     );

@@ -373,9 +373,15 @@ class TradingAnalyzer:
                 result[key] = value
         return result
 
-    def get_profit_loss_data_json(self) -> Dict[str, Any]:
+    def get_profit_loss_data_json(self, asset_type: str = "all") -> Dict[str, Any]:
         """
         Returns profit/loss data in fully JSON-serializable format.
+
+        Args:
+            asset_type: Filter which sections to include. Valid values:
+                'all' (default) - both stock and option sections
+                'stock' - stock section only
+                'option' - option section only
 
         Returns:
             Dict[str, Any]: JSON-serializable profit_loss_data
@@ -383,7 +389,8 @@ class TradingAnalyzer:
         profit_loss_data = self.get_profit_loss_data()
         json_data = {}
 
-        for security_type in ["stock", "option"]:
+        security_types = ["stock", "option"] if asset_type == "all" else [asset_type]
+        for security_type in security_types:
             sec_data = profit_loss_data[security_type]
 
             # Convert all_buy_trades to dictionaries
