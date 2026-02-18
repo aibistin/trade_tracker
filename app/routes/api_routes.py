@@ -71,12 +71,13 @@ def get_current_holdings_json():
     holdings_list = [
         {
             "symbol": symbol,
+            "trade_type": trade_type,
             "shares": shares,
             "average_price": price,
             "profit_loss": pl,
             "name": name,
         }
-        for symbol, shares, price, pl, name in current_holdings
+        for symbol, trade_type, shares, price, pl, name in current_holdings
     ]
 
     log.debug(f"[get_current_holdings_json] Holdings list: {holdings_list}")

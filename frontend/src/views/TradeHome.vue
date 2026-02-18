@@ -37,21 +37,107 @@
     <div v-if="error" class="alert alert-danger">
       Error loading stock symbols: {{ error }}
     </div>
+
+    <!-- Holdings Loading State -->
+    <div v-if="holdingsLoading" class="text-center py-4">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mt-2">Loading holdings...</p>
+    </div>
+
+    <!-- Holdings Error State -->
+    <div v-if="holdingsError" class="alert alert-danger">
+      Error loading holdings: {{ holdingsError }}
+    </div>
+
+    <!-- Stock Holdings Table -->
+    <div v-if="stockHoldings.length > 0" class="mt-4">
+      <h4>Stock Holdings</h4>
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Name</th>
+            <th class="text-end">Shares</th>
+            <th class="text-end">Avg Price</th>
+            <th class="text-end">Cost Basis</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="holding in stockHoldings" :key="holding.symbol + holding.trade_type">
+            <td>
+              <router-link :to="`/trades/all/${holding.symbol}`">{{ holding.symbol }}</router-link>
+            </td>
+            <td>{{ holding.name }}</td>
+            <td class="text-end">{{ holding.shares }}</td>
+            <td class="text-end">{{ formatCurrency(holding.average_price) }}</td>
+            <td class="text-end" :class="profitLossClass(holding.profit_loss)">
+              {{ formatCurrency(holding.profit_loss) }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Option Holdings Table -->
+    <div v-if="optionHoldings.length > 0" class="mt-4">
+      <h4>Option Holdings</h4>
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Name</th>
+            <th class="text-end">Contracts</th>
+            <th class="text-end">Avg Price</th>
+            <th class="text-end">Cost Basis</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="holding in optionHoldings" :key="holding.symbol + holding.trade_type">
+            <td>
+              <router-link :to="`/trades/all/${holding.symbol}`">{{ holding.symbol }}</router-link>
+            </td>
+            <td>{{ holding.name }}</td>
+            <td class="text-end">{{ holding.shares }}</td>
+            <td class="text-end">{{ formatCurrency(holding.average_price) }}</td>
+            <td class="text-end" :class="profitLossClass(holding.profit_loss)">
+              {{ formatCurrency(holding.profit_loss) }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useFetchTrades } from '../composables/useFetchTrades';
 import { useSymbolSearch } from '../composables/useSymbolSearch';
+import { formatCurrency, profitLossClass } from '../utils/tradeUtils';
 import { API_BASE_URL } from '@/config.js';
 
 const allSymbolsApiUrl = ref(`${API_BASE_URL}/trade/symbols_json`);
 const { data: stockSymbols, loading, error, fetchData } = useFetchTrades();
 const { searchQuery, isDropdownOpen, filteredSymbols, selectSymbol } = useSymbolSearch(stockSymbols);
 
+const holdingsApiUrl = ref(`${API_BASE_URL}/trade/current_holdings_json`);
+const { data: holdingsData, loading: holdingsLoading, error: holdingsError, fetchData: fetchHoldings } = useFetchTrades();
+
+const stockHoldings = computed(() => {
+  if (!holdingsData.value) return [];
+  return holdingsData.value.filter(h => h.trade_type === 'L' || h.trade_type === 'S');
+});
+
+const optionHoldings = computed(() => {
+  if (!holdingsData.value) return [];
+  return holdingsData.value.filter(h => h.trade_type === 'C' || h.trade_type === 'P' || h.trade_type === 'O');
+});
+
 onMounted(() => {
   fetchData(allSymbolsApiUrl);
+  fetchHoldings(holdingsApiUrl);
 });
 </script>
 

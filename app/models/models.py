@@ -186,6 +186,7 @@ def get_current_holdings(symbol=None):
     result = (
         select(
             buy_sum.c.symbol,
+            buy_sum.c.trade_type,
             (buy_sum.c.bsum - func.coalesce(sell_sum.c.ssum, 0)).label("quantity"),
             # Calculate weighted average: total amount / total quantity
             case(
@@ -195,7 +196,7 @@ def get_current_holdings(symbol=None):
             (func.coalesce(sell_sum.c.samount, 0) - buy_sum.c.bamount).label("cost_basis"),
         )
         .select_from(buy_sum)
-        .outerjoin(sell_sum, buy_sum.c.symbol == sell_sum.c.symbol)
+        .outerjoin(sell_sum, (buy_sum.c.symbol == sell_sum.c.symbol) & (buy_sum.c.trade_type == sell_sum.c.trade_type))
         .where((buy_sum.c.bsum > sell_sum.c.ssum) | (sell_sum.c.ssum == None))
         .join(symbol_names, buy_sum.c.symbol == symbol_names.c.symbol)
         .add_columns(symbol_names.c.name.label("security_name"))
@@ -213,20 +214,15 @@ def get_current_holdings(symbol=None):
 
 
 def get_current_holdings_symbols():
-    """Returns a list of symbols from current holdings."""
+    """Returns a list of unique [symbol, name] pairs from current holdings."""
     current_holdings = get_current_holdings()
-    holdings_list = [
-        {
-            "symbol": symbol,
-            "shares": shares,
-            "average_price": price,
-            "profit_loss": pl,
-            "name": name,
-        }
-        for symbol, shares, price, pl, name in current_holdings
-    ]
-    # return [{"symbol": holding["symbol"], "name": holding["name"]} for holding in holdings_list]
-    return [[holding["symbol"], holding["name"]] for holding in holdings_list]
+    seen = set()
+    result = []
+    for symbol, trade_type, shares, price, pl, name in current_holdings:
+        if symbol not in seen:
+            seen.add(symbol)
+            result.append([symbol, name])
+    return result
 
 
 def get_raw_trade_data(symbol):

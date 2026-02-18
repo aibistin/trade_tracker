@@ -159,6 +159,23 @@ class TestAppRoutes(unittest.TestCase):
                 "projected_sell_price": None,
                 "account": "O",
             },
+            # Open stock position for FAKE3 (no sell)
+            {
+                "symbol": "FAKE3",
+                "action": "B",
+                "label": "",
+                "trade_type": "L",
+                "trade_date": "2025-03-01 10:00",
+                "expiration_date": "2025-03-01 10:00",
+                "reason": "Test Buy FAKE3 Open",
+                "quantity": 25,
+                "price": 200.00,
+                "amount": 5000.0,
+                "target_price": None,
+                "initial_stop_price": None,
+                "projected_sell_price": None,
+                "account": "C",
+            },
             # Option trades for FAKE1
             {
                 "symbol": "FAKE1",
@@ -441,16 +458,24 @@ class TestAppRoutes(unittest.TestCase):
 
         holdings = response.json
         self.assertIsInstance(holdings, list, "Response should be a list")
+        self.assertGreater(len(holdings), 0, "Holdings should not be empty")
 
         # Verify holdings data structure
         for holding in holdings:
             self.assertIn("symbol", holding, "Holding missing 'symbol' field")
+            self.assertIn("trade_type", holding, "Holding missing 'trade_type' field")
             self.assertIn("shares", holding, "Holding missing 'shares' field")
             self.assertIn(
                 "average_price", holding, "Holding missing 'average_price' field"
             )
             self.assertIn("profit_loss", holding, "Holding missing 'profit_loss' field")
             self.assertIn("name", holding, "Holding missing 'name' field")
+
+        # Verify FAKE3 open position is in holdings
+        fake3_holdings = [h for h in holdings if h["symbol"] == "FAKE3"]
+        self.assertEqual(len(fake3_holdings), 1, "FAKE3 should have 1 open holding")
+        self.assertEqual(fake3_holdings[0]["shares"], 25)
+        self.assertEqual(fake3_holdings[0]["trade_type"], "L")
 
     # @unittest.skip("Skip test_api_symbols")
     def test_api_symbols(self):
