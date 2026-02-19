@@ -92,6 +92,10 @@ class TradeSummary:
                 raise ValueError(
                     f"Trade {trade.trade_id}, is_option={trade.is_option} but Collection security_type={buy_trades_collection.security_type}"
                 )
+            if trade.is_buy_trade != True:
+                raise ValueError(
+                    f"Trade {trade.trade_id} is not a buy trade, is_buy_trade={trade.is_buy_trade}"
+                )
 
             # Process buy trade
             trade_summary.bought_quantity += trade.quantity
@@ -101,8 +105,9 @@ class TradeSummary:
             logging.debug(f"Buy: {trade}")
             # Process associated sell trades
             for sell in trade.sells:
+
                 # Validate sell date occurs after buy date
-                logging.debug(f"Buy: {sell}")
+                logging.debug(f"Sell: {sell}")
                 if sell.trade_date < trade.trade_date:
                     e_msg = f"Sell ID: {sell.trade_id} acct: {sell.account} date {sell.trade_date}, account {sell.account} before buy date {trade.trade_date}, ID: {trade.trade_id} account {trade.account}"
                     logging.error(e_msg)

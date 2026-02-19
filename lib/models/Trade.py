@@ -310,18 +310,18 @@ class BuyTrade(Trade):
         """Apply a sell trade to this position and return applied portion"""
         applied_sell = copy.deepcopy(sell_trade)
         qty_to_close = self.quantity - self.current_sold_qty
-        applied_qty = min(sell_trade.quantity, qty_to_close)
+        applied_qty = round(min(sell_trade.quantity, qty_to_close), 4)
         logging.debug(
             f"[{self.symbol}] Apply sell {sell_trade.trade_id} to buy {self.trade_id} - applied_qty: {applied_qty}"
         )
 
-        applied_sell.quantity = round(applied_qty, 4)
+        applied_sell.quantity = applied_qty
         applied_sell.amount = round(
             applied_qty * applied_sell.price * self.multiplier, 2
         )
 
         self.current_sold_qty += applied_qty
-        sell_trade.quantity -= applied_qty
+        sell_trade.quantity = round(sell_trade.quantity - applied_qty, 4)
         sell_trade.amount -= applied_sell.amount
         # TODO test in test_trade.py
         self.current_sold_amt += applied_sell.amount
@@ -346,7 +346,7 @@ class BuyTrade(Trade):
         applied_sell.profit_loss = round(amount_diff, 2)
         applied_sell.percent_profit_loss = (
             round((amount_diff / applied_sell.basis_amt) * 100, 2)
-            if amount_diff != 0
+            if applied_sell.basis_amt != 0
             else 0
         )
 
@@ -355,8 +355,10 @@ class BuyTrade(Trade):
         # TODO test in trade_test.py
         self.current_profit_loss += applied_sell.profit_loss
         self.current_percent_profit_loss = (
-            self.current_profit_loss / self.current_basis_sold_amt
-        ) * 100
+            (self.current_profit_loss / self.current_basis_sold_amt) * 100
+            if self.current_basis_sold_amt != 0
+            else 0
+        )
 
         logging.debug(
             f"[{self.symbol}] Applied {applied_qty} from sell {sell_trade.trade_id}"

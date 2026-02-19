@@ -187,10 +187,6 @@ class TradingAnalyzer:
                 f"[{symbol}] Filtered {security_type} BuyTrades: \n{buy_trades}"
             )
 
-            logging.debug(
-                f"[{symbol}] Filtered {security_type} BuyTrades: {buy_trades}"
-            )
-
             try:
                 trade_summary = TradeSummary.create_from_buy_trades_collection(
                     symbol=self.stock_symbol,
