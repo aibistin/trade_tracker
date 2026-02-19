@@ -51,8 +51,19 @@
       Error loading holdings: {{ holdingsError }}
     </div>
 
+    <!-- Holdings Filter Toggle -->
+    <div v-if="holdingsData && holdingsData.length > 0" class="mt-4 d-flex align-items-center gap-2">
+      <div class="btn-group btn-group-sm" role="group" aria-label="Holdings filter">
+        <button v-for="f in holdingsFilters" :key="f.value" type="button"
+          class="btn" :class="holdingsFilter === f.value ? 'btn-success' : 'btn-outline-success'"
+          @click="holdingsFilter = f.value">
+          {{ f.label }}
+        </button>
+      </div>
+    </div>
+
     <!-- Stock Holdings Table -->
-    <div v-if="stockHoldings.length > 0" class="mt-4">
+    <div v-if="holdingsFilter !== 'option' && stockHoldings.length > 0" class="mt-3">
       <h4>Stock Holdings</h4>
       <table class="table table-striped table-hover">
         <thead>
@@ -81,7 +92,7 @@
     </div>
 
     <!-- Option Holdings Table -->
-    <div v-if="optionHoldings.length > 0" class="mt-4">
+    <div v-if="holdingsFilter !== 'stock' && optionHoldings.length > 0" class="mt-4">
       <h4>Option Holdings</h4>
       <table class="table table-striped table-hover">
         <thead>
@@ -124,6 +135,13 @@ const { searchQuery, isDropdownOpen, filteredSymbols, selectSymbol } = useSymbol
 
 const holdingsApiUrl = ref(`${API_BASE_URL}/trade/current_holdings_json`);
 const { data: holdingsData, loading: holdingsLoading, error: holdingsError, fetchData: fetchHoldings } = useFetchTrades();
+
+const holdingsFilters = [
+  { value: 'all', label: 'All' },
+  { value: 'stock', label: 'Stocks' },
+  { value: 'option', label: 'Options' },
+];
+const holdingsFilter = ref('all');
 
 const stockHoldings = computed(() => {
   if (!holdingsData.value) return [];

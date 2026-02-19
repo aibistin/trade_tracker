@@ -26,7 +26,7 @@
             </ul>
           </li>
 
-          <li class="nav-item d-flex align-items-center ms-2">
+          <li v-if="route.name !== 'Home'" class="nav-item d-flex align-items-center ms-2">
             <div class="btn-group btn-group-sm" role="group" aria-label="Trade scope">
               <button v-for="s in scopes" :key="s.value" type="button"
                 class="btn" :class="activeScope === s.value ? 'btn-primary' : 'btn-outline-primary'"
@@ -36,7 +36,7 @@
             </div>
           </li>
 
-          <li class="nav-item d-flex align-items-center ms-2">
+          <li v-if="route.name !== 'Home'" class="nav-item d-flex align-items-center ms-2">
             <div class="btn-group btn-group-sm" role="group" aria-label="Asset type">
               <button v-for="t in assetTypes" :key="t.value" type="button"
                 class="btn" :class="activeAssetType === t.value ? 'btn-success' : 'btn-outline-success'"
