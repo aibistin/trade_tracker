@@ -104,7 +104,7 @@ class CSVProcessor:
 
     def is_option_trade(self, row):
         """Checks if the row is an option trade."""
-        if any(x in row["Action"] for x in ["Open", "Close", "Expired"]):
+        if any(x in row["Action"] for x in ["Open", "Close", "Expired", "Exercise"]):
             return True
         else:
             return False

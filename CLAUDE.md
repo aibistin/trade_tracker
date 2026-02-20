@@ -49,14 +49,14 @@ docker-compose up                 # Runs on port 5002 with gunicorn
 - **Routes split into two blueprints:**
   - `app/routes/web_routes.py` — HTML template rendering (Jinja2)
   - `app/routes/api_routes.py` — JSON API endpoints under `/api` prefix
-- **ORM models:** `app/models/models.py` — `Security` and `TradeTransaction` tables, plus query helpers like `get_trade_data_for_analysis_new()`
+- **ORM models:** `app/models/models.py` — `Security` and `TradeTransaction` tables, plus query helpers like `get_trade_data_for_analysis_new()`. `get_current_holdings()` returns `(symbol, trade_type, quantity, avg_price, cost_basis, name)` tuples, joining on both `symbol` and `trade_type` to correctly handle symbols with both stock and option positions. `get_current_holdings_symbols()` deduplicates so each symbol appears once.
 - **Database:** SQLite at `data/stock_trades.db`
 - **API authentication:** `X-API-KEY` header checked against `API_SECRET_KEY` env var; bypassed when `FLASK_ENV=dev`
 - **Logging:** Rotating file handler (`logs/trading_app.log`, 2MB, 5 backups). Level controlled by `LOG_LEVEL` env var. JSON logging optional via `JSON_LOGGING=Y`.
 
 ### Core Library (`lib/`)
 - `trading_analyzer.py` — Main analysis engine: converts transaction dicts → Trade objects, matches buys to sells, calculates P&L. Expects **lowercase dict keys** (`id`, `symbol`, `action`, etc.).
-- `models/Trade.py` — `Trade` base class with `BuyTrade` and `SellTrade` subclasses. BuyTrade holds matched `sells` list. Supports field aliases: `id`↔`trade_id`, `label`↔`trade_label`.
+- `models/Trade.py` — `Trade` base class with `BuyTrade` and `SellTrade` subclasses. BuyTrade holds matched `sells` list. Supports field aliases: `id`↔`trade_id`, `label`↔`trade_label`. `BuyTrade.apply_sell_trade()` rounds `applied_qty` to 4 decimal places and rounds `sell_trade.quantity` after each subtraction to prevent floating-point drift across partial fills.
 - `models/Trades.py` — Collection class that groups trades by account (`sells_by_account` dict), separates stocks from options
 - `models/TradeSummary.py` — Aggregates statistics (avg price, total P&L, share counts) from trade collections. Uses `dataclasses_json`.
 - `models/ActionMapping.py` — Maps action codes (B, S, BO, SC, etc.) to descriptions and trade types. `is_buy_type_action()` / `is_sell_type_action()` for classification.
@@ -67,12 +67,12 @@ docker-compose up                 # Runs on port 5002 with gunicorn
 ### Frontend (`frontend/`)
 - Vue 3 + Vite + Bootstrap 5 + Axios
 - **API config:** `src/config.js` reads `VITE_API_BASE_URL` env var (default: `http://localhost:5000/api`). Set via `frontend/.env` (gitignored).
-- Key views: `TradeHome.vue` (symbol picker), `AllTrades.vue` (trade display), `TransactionSummary.vue` (stats)
+- Key views: `TradeHome.vue` (symbol search + current stock/option holdings tables with All/Stocks/Options filter toggle), `AllTrades.vue` (trade display), `TransactionSummary.vue` (stats)
 - **Composables:**
   - `composables/useFetchTrades.js` — shared data fetching with loading/error state
   - `composables/useSymbolSearch.js` — shared symbol search/filter/dropdown logic (used by TradeHome + BSNavBarTop)
 - `utils/tradeUtils.js` — `formatCurrency`, `formatValue`, `profitLossClass`, `formatAction`, `formatTradeType`, etc.
-- `components/BSNavBarTop.vue` — Main navbar with symbol dropdowns for All/Open/Closed trades + search bar
+- `components/BSNavBarTop.vue` — Main navbar with symbol dropdowns, All/Open/Closed scope toggle, and Stock/Option/All asset type toggle. Scope and asset type toggles are hidden on the home page.
 
 ### Data Flow
 1. Schwab CSV → `bin/process_schwab_transactions.py` → SQLite

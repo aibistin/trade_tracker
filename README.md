@@ -1,69 +1,87 @@
-# trade_tracker
+# Trade Tracker
 
-## Track Trades Made on the Schwab Platform
+Track stock and options trades made on the Schwab brokerage platform.
 
-- A web application that allows users to track their stock trades and view their portfolio performance.
-- Uses Python, Flask, and SQLAlchemy.
-- The front end uses Bootstrap, Jinja2 and jQuery
+## Stack
 
-### Features
+- **Backend:** Python, Flask, SQLAlchemy, SQLite
+- **Frontend:** Vue 3, Vite, Bootstrap 5, Axios
+- **Data source:** Schwab transaction CSV exports
 
-- **Track trades:** Add, update, and delete trades.
-- **View portfolio summary:** See a high-level overview of your portfolio's performance, including total value, profit/loss, and top holdings.
-- **View individual transaction details:** Get detailed information about each trade, including price, quantity, and profit/loss.
+## Features
 
-### How to Use
+- **Home page:** Current stock and option holdings tables with All/Stocks/Options filter toggle; symbol search dropdown
+- **Trade view:** All, open, or closed positions for any symbol, with per-trade P&L
+- **Filtering:** Filter by date, account, and asset type (stock vs option)
+- **Transaction detail:** Price, quantity, profit/loss, and percent P&L per trade
+- **Schwab CSV import:** Process brokerage exports directly into the database
 
-1. Clone the repository:
+## Setup
 
-```bash
-    git clone https://github.com/aibistin/trade_tracker.git
-```
-
-2.Install dependencies:
+### 1. Clone the repository
 
 ```bash
-    pip install requirements.txt
+git clone https://github.com/aibistin/trade_tracker.git
+cd trade_tracker
 ```
 
-3.Create an SQLite3 database in the ./data directory:
+### 2. Backend — Python environment
 
 ```bash
-    python create_db.py
-    echo ./util/create_stock_trades.sql | sqlite3 ./data/stock_trades.db
+source python_setup.sh   # creates pyenv virtualenv "Trading" and installs requirements
 ```
 
-4.You can setup your environment with pyenv-virtualenv:
-Modify the paths in ./python_setup.sh
-
- ```bash
- ./python_setup.sh
- ```
-
-1. Run the application:
+### 3. Backend — Database
 
 ```bash
-    python app.py
-    # or Modify the PYTHONPATH in  run_flask.sh 
-    ./run_flask.sh
+echo ./util/create_stock_trades.sql | sqlite3 ./data/stock_trades.db
 ```
 
-2.Open a web browser and navigate to <http://localhost:5000> to use the application.
+### 4. Frontend
 
-### Contributing
+```bash
+cd frontend
+pnpm install
+pnpm build        # production build
+# or
+pnpm dev          # Vite dev server with hot reload
+```
 
-Contributions are welcome! Please submit a pull request if you have any improvements or new features to add.
+### 5. Run the app
 
-### License
+```bash
+./run_flask.sh              # Flask dev server on localhost:5000
+# or
+docker-compose up           # gunicorn on port 5002
+```
 
-This application is licensed under the MIT License.
+Open <http://localhost:5000> in a browser.
 
-### Acknowledgements
+## Import Schwab Data
 
-### Additional Notes
+```bash
+./bin/run_process_schwab_data.sh   # process a Schwab transaction CSV export
+```
 
-- This application is still under development.
-- Please report any bugs or issues you encounter.
-- I would love to hear your feedback on how to improve this application!-
+## Running Tests
 
-Thank you for using Trade Tracker!
+```bash
+python -m unittest discover -v                                           # all tests
+python -m unittest tests.test_trading_analyzer                           # single module
+python -m unittest tests.test_app_routes.TestAppRoutes.test_index_route  # single test
+```
+
+## Environment Variables
+
+| Variable | Purpose |
+|---|---|
+| `FLASK_ENV` | `dev` (skip API key check), `testing` (in-memory DB), `production` |
+| `API_SECRET_KEY` | Expected value of the `X-API-KEY` request header |
+| `SECRET_KEY` | Flask session secret (auto-generated if unset) |
+| `LOG_LEVEL` | Python logging level (default: INFO) |
+| `JSON_LOGGING` | Set to `Y` for JSON-formatted log output |
+| `VITE_API_BASE_URL` | Frontend API base URL (default: `http://localhost:5000/api`) |
+
+## License
+
+MIT
