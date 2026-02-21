@@ -720,6 +720,107 @@ class TestAppRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("account", response.json["error"])
 
+    # Tests for PATCH /api/trade/update/<id>
+
+    def test_api_update_trade(self):
+        """PATCH with all three editable fields updates the database record."""
+        transaction_id = self.first_transaction.id
+        payload = {
+            "reason": "Updated reason",
+            "initial_stop_price": 130.00,
+            "projected_sell_price": 175.00,
+        }
+
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            json=payload,
+        )
+        self.assertEqual(
+            response.status_code, 200,
+            f"Expected 200, got {response.status_code}: {response.json}",
+        )
+
+        body = response.json
+        self.assertTrue(body["success"])
+        self.assertEqual(body["updated"]["reason"], "Updated reason")
+        self.assertEqual(body["updated"]["initial_stop_price"], 130.00)
+        self.assertEqual(body["updated"]["projected_sell_price"], 175.00)
+
+        # Confirm the DB was actually written
+        updated = TradeTransaction.query.get(transaction_id)
+        self.assertEqual(updated.reason, "Updated reason")
+        self.assertAlmostEqual(updated.initial_stop_price, 130.00)
+        self.assertAlmostEqual(updated.projected_sell_price, 175.00)
+
+    def test_api_update_trade_partial(self):
+        """PATCH with only reason leaves the price fields unchanged."""
+        transaction_id = self.first_transaction.id
+        original_stop = self.first_transaction.initial_stop_price
+
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            json={"reason": "Partial update only"},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        updated = TradeTransaction.query.get(transaction_id)
+        self.assertEqual(updated.reason, "Partial update only")
+        # Price fields must be untouched
+        self.assertEqual(updated.initial_stop_price, original_stop)
+
+    def test_api_update_trade_clear_fields(self):
+        """PATCH with null values clears optional fields."""
+        transaction_id = self.first_transaction.id
+
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            json={"reason": None, "initial_stop_price": None},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        updated = TradeTransaction.query.get(transaction_id)
+        self.assertIsNone(updated.reason)
+        self.assertIsNone(updated.initial_stop_price)
+
+    def test_api_update_trade_not_found(self):
+        """PATCH with a non-existent trade ID returns 404."""
+        response = self.client.patch(
+            "/api/trade/update/999999",
+            json={"reason": "Ghost trade"},
+        )
+        self.assertEqual(
+            response.status_code, 404,
+            f"Expected 404, got {response.status_code}",
+        )
+        self.assertIn("error", response.json)
+
+    def test_api_update_trade_no_valid_fields(self):
+        """PATCH with a body containing no allowed fields returns 400."""
+        transaction_id = self.first_transaction.id
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            json={"symbol": "HACKED", "price": 0.01},
+        )
+        self.assertEqual(
+            response.status_code, 400,
+            f"Expected 400, got {response.status_code}",
+        )
+        self.assertIn("error", response.json)
+
+    def test_api_update_trade_no_json_body(self):
+        """PATCH with a non-JSON body returns 400."""
+        transaction_id = self.first_transaction.id
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            data="not json",
+            content_type="text/plain",
+        )
+        self.assertEqual(
+            response.status_code, 400,
+            f"Expected 400, got {response.status_code}",
+        )
+        self.assertIn("error", response.json)
+
     # Tests for asset_type query parameter
 
     def test_api_positions_asset_type_stock(self):

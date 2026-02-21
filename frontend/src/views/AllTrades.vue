@@ -233,8 +233,12 @@ export default {
 }
 
 /* ── Trade Card Section ─────────────────────────────────────── */
+/* Rounded container clips header + cards to give soft corners   */
 .tc-section {
   margin-bottom: 24px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #373b3e;
 }
 
 /* ── Column Header Row ──────────────────────────────────────── */
@@ -245,9 +249,8 @@ export default {
   grid-template-columns: 28px 100px 60px 75px 90px 65px 80px 95px 75px 95px 95px 70px 70px;
   gap: 6px;
   padding: 6px 12px 6px 16px;
-  margin-bottom: 2px;
   background: #212529;
-  border: 1px solid #373b3e;
+  border-bottom: 1px solid #4a5058;
 }
 .tc-hcell {
   font-size: 0.72rem;
