@@ -15,7 +15,9 @@ from ..models.models import (
     get_current_holdings,
     get_current_holdings_symbols,
     get_trade_data_for_analysis_new,
+    TradeTransaction,
 )
+from ..extensions import db
 
 
 # TODO Add proper authentication
@@ -236,5 +238,31 @@ def get_filtered_positions_json(scope, stock_symbol):
         f"[Routes] Filtered {scope} positions for {stock_symbol}: "
         f"Found {len(trade_record['transaction_stats']['stock']['all_trades'])} trades"
     )
-    
+
     return jsonify(trade_record)
+
+
+@api_bp.route("/trade/update/<int:transaction_id>", methods=["PATCH"])
+def update_trade(transaction_id):
+    """Update user-editable fields on a trade transaction (reason, initial_stop_price, projected_sell_price)."""
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "Request body must be valid JSON"}), 400
+
+    trade = db.session.get(TradeTransaction, transaction_id)
+    if trade is None:
+        return jsonify({"error": f"Trade {transaction_id} not found"}), 404
+
+    allowed_fields = {"reason", "initial_stop_price", "projected_sell_price"}
+    updated = {}
+    for field in allowed_fields:
+        if field in data:
+            setattr(trade, field, data[field])
+            updated[field] = data[field]
+
+    if not updated:
+        return jsonify({"error": "No valid fields to update"}), 400
+
+    db.session.commit()
+    log.info(f"[update_trade] Updated trade {transaction_id}: {updated}")
+    return jsonify({"success": True, "updated": updated}), 200
