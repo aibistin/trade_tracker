@@ -25,9 +25,11 @@ def create_app():
     log_level = getattr(logging, os.environ.get('LOG_LEVEL', 'INFO'))   
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    # File handler (rotating logs)
+    # File handler (rotating logs) — filename reflects the environment
+    flask_env = os.environ.get("FLASK_ENV", "dev")
+    log_filename = f"trading_app_{flask_env}.log"
     file_handler = RotatingFileHandler(
-        filename=os.path.join(logs_dir, "trading_app.log"),
+        filename=os.path.join(logs_dir, log_filename),
         maxBytes=2 * 1024 * 1024,  # 2MB
         backupCount=5,
     )

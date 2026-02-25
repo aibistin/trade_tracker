@@ -15,4 +15,8 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  preview: {
+    port: 4173,
+    strictPort: true,   // fail fast instead of silently using a different port
+  },
 })

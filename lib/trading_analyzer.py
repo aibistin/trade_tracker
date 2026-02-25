@@ -21,6 +21,7 @@ STOCK_MULTIPLIER = 1
 
 timestr = time.strftime("%Y%m%d")
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+flask_env = os.getenv("FLASK_ENV", "dev")
 
 
 # Set up logging to flush immediately (no buffering)
@@ -33,7 +34,7 @@ class FlushStreamHandler(logging.StreamHandler):
 logging.getLogger().handlers.clear()
 # logging.getLogger().addHandler(FlushStreamHandler())
 logging.basicConfig(
-    filename=f"./logs/trading_analyzer_{timestr}.log",
+    filename=f"./logs/trading_analyzer_{flask_env}_{timestr}.log",
     # level=logging.DEBUG,
     level=log_level,
     format="%(asctime)s - %(levelname)s - %(lineno)d> %(message)s",
