@@ -269,6 +269,7 @@ class TestTradeClasses(unittest.TestCase):
 
         # Buy trade should be closed
         self.assertTrue(buy.is_done, f"[{buy.symbol}] Buy trade should be done")
+        self.assertEqual(buy.closed_date, sell.trade_date, "closed_date should match sell trade_date")
         self.assertEqual(
             buy.quantity, 100.0, f"[{buy.symbol}] Got: {buy.quantity},expected: 100.0"
         )
@@ -399,6 +400,33 @@ class TestTradeClasses(unittest.TestCase):
         # Sell should be fully consumed
         self.assertTrue(sell.is_done)
         self.assertEqual(sell.quantity, 0)
+
+    def test_closed_date(self):
+        """closed_date is None on open positions and set to the closing sell's trade_date."""
+        buy_data = self.sample_trades[0]  # 100 shares, trade_date 2024-08-22
+        sell_data = self.sample_trades[1]  # 100 shares, trade_date 2024-08-23
+
+        # Open position — no sells applied yet
+        buy = BuyTrade(buy_data)
+        self.assertIsNone(buy.closed_date, "closed_date should be None for an open position")
+
+        # Partial sell — position still open
+        partial_sell_data = {**sell_data, "trade_id": "P001", "quantity": 50.0, "amount": 4447.14}
+        partial_sell = SellTrade(partial_sell_data)
+        buy.apply_sell_trade(partial_sell)
+        self.assertFalse(buy.is_done)
+        self.assertIsNone(buy.closed_date, "closed_date should still be None after a partial sell")
+
+        # Closing sell — position now done
+        closing_sell_data = {**sell_data, "trade_id": "P002", "quantity": 50.0, "amount": 4447.13,
+                             "trade_date": datetime(2024, 9, 5)}
+        closing_sell = SellTrade(closing_sell_data)
+        buy.apply_sell_trade(closing_sell)
+        self.assertTrue(buy.is_done)
+        self.assertEqual(
+            buy.closed_date, datetime(2024, 9, 5),
+            "closed_date should be the trade_date of the sell that closed the position",
+        )
 
     def test_apply_sell_trades_method(self):
         """Test applying multiple sells to a buy position"""

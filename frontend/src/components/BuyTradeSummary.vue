@@ -11,7 +11,7 @@
                 <th>Date</th>
                 <th>{{ stockType === 'Option' ? 'Qty x 100' : 'Qty' }}</th>
                 <th>Price</th>
-                <th>Basis</th>
+                <th>Cost</th>
                 <th>Sold Qty</th>
                 <th>Sold Amt</th>
                 <th>P/L</th>

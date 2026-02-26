@@ -1,67 +1,67 @@
 <template>
   <div class="ts-wrapper">
-  <table class="ts-table">
-    <thead>
-      <tr>
-        <th colspan="13" class="ts-title">
-          {{ stockType }} Transaction Summary —
-          <span class="ts-symbol">{{ stockSymbol }}</span>
-        </th>
-      </tr>
-      <tr>
-        <th colspan="3" class="ts-group ts-group-bought">Bought</th>
-        <th colspan="4" class="ts-group ts-group-sold">Sold</th>
-        <th colspan="3" class="ts-group ts-group-unsold">Unsold</th>
-        <th colspan="3" class="ts-group ts-group-result">Result</th>
-      </tr>
-      <tr>
-        <th class="ts-col">Total Qty</th>
-        <th class="ts-col">Avg Price</th>
-        <th class="ts-col">Cost Basis</th>
+    <table class="ts-table">
+      <thead>
+        <tr>
+          <th colspan="13" class="ts-title">
+            {{ stockType }} Transaction Summary —
+            <span class="ts-symbol">{{ stockSymbol }}</span>
+          </th>
+        </tr>
+        <tr>
+          <th colspan="3" class="ts-group ts-group-bought">Bought</th>
+          <th colspan="4" class="ts-group ts-group-sold">Sold</th>
+          <th colspan="3" class="ts-group ts-group-unsold">Unsold</th>
+          <th colspan="3" class="ts-group ts-group-result">Result</th>
+        </tr>
+        <tr>
+          <th class="ts-col">Qty</th>
+          <th class="ts-col">Avg Price</th>
+          <th class="ts-col">Cost</th>
 
-        <th class="ts-col">Qty</th>
-        <th class="ts-col">Avg Price</th>
-        <th class="ts-col">Cost Basis</th>
-        <th class="ts-col">Revenue</th>
+          <th class="ts-col">Qty</th>
+          <th class="ts-col">Avg Price</th>
+          <th class="ts-col">Cost</th>
+          <th class="ts-col">Revenue</th>
 
-        <th class="ts-col">Qty</th>
-        <th class="ts-col">Avg Price</th>
-        <th class="ts-col">Cost Basis</th>
+          <th class="ts-col">Qty</th>
+          <th class="ts-col">Avg Price</th>
+          <th class="ts-col">Cost</th>
 
-        <th class="ts-col">Profit/Loss</th>
-        <th class="ts-col">Profit/Loss %</th>
-        <th class="ts-col">Trade Ct</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr class="ts-data-row">
-        <td>{{ tradeSummary.bought_quantity }}</td>
-        <td>{{ formatCurrency(Math.abs(tradeSummary.average_bought_price || 0)) }}</td>
-        <td :class="profitLossClass(tradeSummary.bought_amount)">
-          {{ formatCurrency(tradeSummary.bought_amount || 0) }}
-        </td>
+          <th class="ts-col">P/L</th>
+          <th class="ts-col">P/L%</th>
+          <th class="ts-col">Trade Ct</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="ts-data-row">
+          <td>{{ tradeSummary.bought_quantity }}</td>
+          <td>{{ formatCurrency(Math.abs(tradeSummary.average_bought_price || 0)) }}</td>
+          <td :class="profitLossClass(tradeSummary.bought_amount)">
+            {{ formatCurrency(tradeSummary.bought_amount || 0) }}
+          </td>
 
-        <td>{{ tradeSummary.sold_quantity }}</td>
-        <td>{{ formatCurrency(tradeSummary.average_basis_sold_price || 0) }}</td>
-        <td :class="profitLossClass(tradeSummary.closed_bought_amount)">
-          {{ formatCurrency(tradeSummary.closed_bought_amount || 0) }}
-        </td>
-        <td>{{ formatCurrency(tradeSummary.sold_amount || 0) }}</td>
+          <td>{{ tradeSummary.sold_quantity }}</td>
+          <td>{{ formatCurrency(tradeSummary.average_basis_sold_price || 0) }}</td>
+          <td :class="profitLossClass(tradeSummary.closed_bought_amount)">
+            {{ formatCurrency(tradeSummary.closed_bought_amount || 0) }}
+          </td>
+          <td>{{ formatCurrency(tradeSummary.sold_amount || 0) }}</td>
 
-        <td>{{ tradeSummary.open_bought_quantity }}</td>
-        <td>{{ formatCurrency(tradeSummary.average_basis_open_price || 0) }}</td>
-        <td>{{ formatCurrency(tradeSummary.open_bought_amount || 0) }}</td>
+          <td>{{ tradeSummary.open_bought_quantity }}</td>
+          <td>{{ formatCurrency(tradeSummary.average_basis_open_price || 0) }}</td>
+          <td>{{ formatCurrency(tradeSummary.open_bought_amount || 0) }}</td>
 
-        <td :class="profitLossClass(tradeSummary.profit_loss)">
-          {{ formatCurrency(tradeSummary.profit_loss) }}
-        </td>
-        <td :class="profitLossClass(tradeSummary.percent_profit_loss)">
-          {{ formatValue(tradeSummary.percent_profit_loss) }}%
-        </td>
-        <td>{{ allTradeCount }}</td>
-      </tr>
-    </tbody>
-  </table>
+          <td :class="profitLossClass(tradeSummary.profit_loss)">
+            {{ formatCurrency(tradeSummary.profit_loss) }}
+          </td>
+          <td :class="profitLossClass(tradeSummary.percent_profit_loss)">
+            {{ formatValue(tradeSummary.percent_profit_loss) }}%
+          </td>
+          <td>{{ allTradeCount }}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
@@ -125,6 +125,7 @@ export default {
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+
 .ts-symbol {
   color: #74c2e1;
 }
@@ -147,16 +148,19 @@ export default {
   color: #7ab3e8;
   border-bottom-color: #0d6efd;
 }
+
 .ts-group-sold {
   background: #2a0d0d;
   color: #e88a8a;
   border-bottom-color: #dc3545;
 }
+
 .ts-group-unsold {
   background: #0a2116;
   color: #7acca0;
   border-bottom-color: #198754;
 }
+
 .ts-group-result {
   background: #1f1200;
   color: #e8b47a;
@@ -187,6 +191,7 @@ export default {
   border: 1px solid #bacbe3;
   font-weight: 500;
 }
+
 .ts-data-row td:hover {
   background: #bfdaec;
 }

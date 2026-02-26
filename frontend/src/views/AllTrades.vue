@@ -39,19 +39,15 @@
             <div class="tc-hcell">Date</div>
             <div class="tc-hcell">Qty</div>
             <div class="tc-hcell">Price</div>
-            <div class="tc-hcell">Basis</div>
+            <div class="tc-hcell">Cost</div>
             <div class="tc-hcell">Sold Qty</div>
             <div class="tc-hcell">Sold Amt</div>
             <div class="tc-hcell">P/L</div>
             <div class="tc-hcell">P/L%</div>
             <div class="tc-hcell">Status</div>
           </div>
-          <TradeCard
-            v-for="trade in buyTrades(data.transaction_stats.stock.all_trades)"
-            :key="trade.trade_id"
-            :trade="transformTrade(trade)"
-            stockType="Stock"
-          />
+          <TradeCard v-for="trade in buyTrades(data.transaction_stats.stock.all_trades)" :key="trade.trade_id"
+            :trade="transformTrade(trade)" stockType="Stock" />
         </div>
       </div>
 
@@ -68,19 +64,15 @@
             <div class="tc-hcell">Date</div>
             <div class="tc-hcell">Qty x 100</div>
             <div class="tc-hcell">Price</div>
-            <div class="tc-hcell">Basis</div>
+            <div class="tc-hcell">Cost</div>
             <div class="tc-hcell">Sold Qty</div>
             <div class="tc-hcell">Sold Amt</div>
             <div class="tc-hcell">P/L</div>
             <div class="tc-hcell">P/L%</div>
             <div class="tc-hcell">Status</div>
           </div>
-          <TradeCard
-            v-for="trade in buyTrades(data.transaction_stats.option.all_trades)"
-            :key="trade.trade_id"
-            :trade="transformTrade(trade)"
-            stockType="Option"
-          />
+          <TradeCard v-for="trade in buyTrades(data.transaction_stats.option.all_trades)" :key="trade.trade_id"
+            :trade="transformTrade(trade)" stockType="Option" />
         </div>
       </div>
 
@@ -252,6 +244,7 @@ export default {
   background: #212529;
   border-bottom: 1px solid #4a5058;
 }
+
 .tc-hcell {
   font-size: 0.72rem;
   text-transform: uppercase;

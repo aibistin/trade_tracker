@@ -282,11 +282,11 @@ class BuyTrade(Trade):
         super().__init__(trade_data)
         self.is_buy_trade: bool = True
         self.current_sold_qty: float = 0.0
-        # TODO: Add to test_trade.py
         self.current_basis_sold_amt: float = 0.0
         self.current_sold_amt: float = 0.0
         self.current_profit_loss: float = 0.0
         self.current_percent_profit_loss: float = 0.0
+        self.closed_date: Optional[datetime] = None
         self.sells: List[SellTrade] = []
 
     def __repr__(self) -> str:
@@ -334,6 +334,8 @@ class BuyTrade(Trade):
         )
         # Update the position status
         self.is_done = self.current_sold_qty >= self.quantity
+        if self.is_done and self.closed_date is None:
+            self.closed_date = sell_trade.trade_date
         logging.debug(f"[{self.symbol}] Sell trade_quantity: {sell_trade.quantity}")
         # Sell trade is removed if it's done
         sell_trade.is_done = sell_trade.quantity == 0
