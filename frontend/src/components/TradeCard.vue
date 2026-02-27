@@ -141,7 +141,7 @@
       <div class="tc-edit-form">
         <div class="tc-edit-field">
           <label class="tc-edit-label">Reason</label>
-          <input type="text" v-model="editReason" placeholder="Enter reason…" maxlength="80"
+          <input type="text" v-model="editReason" placeholder="Enter reason…" maxlength="500"
             class="form-control form-control-sm" @click.stop />
         </div>
         <div class="tc-edit-field">
@@ -284,11 +284,25 @@ export default {
   color: #000;
 }
 
-.tc-accent-long  { border-left-color: #0d6efd; }
-.tc-accent-short { border-left-color: #dc3545; }
-.tc-accent-call  { border-left-color: #198754; }
-.tc-accent-put   { border-left-color: #fd7e14; }
-.tc-accent-other { border-left-color: #6c757d; }
+.tc-accent-long {
+  border-left-color: #0d6efd;
+}
+
+.tc-accent-short {
+  border-left-color: #dc3545;
+}
+
+.tc-accent-call {
+  border-left-color: #198754;
+}
+
+.tc-accent-put {
+  border-left-color: #fd7e14;
+}
+
+.tc-accent-other {
+  border-left-color: #6c757d;
+}
 
 /* ── Main Row ───────────────────────────────────────────────── */
 .tc-row {
@@ -363,9 +377,17 @@ export default {
   gap: 8px;
 }
 
-.tc-group-position { gap: 6px; }
-.tc-group-sold     { gap: 6px; }
-.tc-group-pl       { gap: 14px; }
+.tc-group-position {
+  gap: 6px;
+}
+
+.tc-group-sold {
+  gap: 6px;
+}
+
+.tc-group-pl {
+  gap: 14px;
+}
 
 /* Inline separators (@, =, /) sit at baseline of values */
 .tc-sep {
@@ -430,10 +452,25 @@ export default {
   color: #212529;
 }
 
-.pill-long  { background: rgba(13, 110, 253, 0.15); color: #0a58ca; }
-.pill-short { background: rgba(220, 53, 69, 0.15);  color: #b02a37; }
-.pill-call  { background: rgba(25, 135, 84, 0.15);  color: #146c43; }
-.pill-put   { background: rgba(253, 126, 20, 0.15); color: #ca6510; }
+.pill-long {
+  background: rgba(13, 110, 253, 0.15);
+  color: #0a58ca;
+}
+
+.pill-short {
+  background: rgba(220, 53, 69, 0.15);
+  color: #b02a37;
+}
+
+.pill-call {
+  background: rgba(25, 135, 84, 0.15);
+  color: #146c43;
+}
+
+.pill-put {
+  background: rgba(253, 126, 20, 0.15);
+  color: #ca6510;
+}
 
 /* ── Status Pills ───────────────────────────────────────────── */
 .tc-status-pill {
@@ -445,10 +482,26 @@ export default {
   flex-shrink: 0;
 }
 
-.tc-open    { background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; }
-.tc-win     { background: #198754; color: #fff; }
-.tc-loss    { background: #dc3545; color: #fff; }
-.tc-neutral { background: #6c757d; color: #fff; }
+.tc-open {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+}
+
+.tc-win {
+  background: #198754;
+  color: #fff;
+}
+
+.tc-loss {
+  background: #dc3545;
+  color: #fff;
+}
+
+.tc-neutral {
+  background: #6c757d;
+  color: #fff;
+}
 
 /* ── Option Label Sub-row ───────────────────────────────────── */
 .tc-option-label {
@@ -530,8 +583,13 @@ export default {
   margin-bottom: 3px;
 }
 
-.tc-save-btn    { min-width: 64px; }
-.tc-save-status { font-size: 0.8rem; }
+.tc-save-btn {
+  min-width: 64px;
+}
+
+.tc-save-status {
+  font-size: 0.8rem;
+}
 
 /* ── Matched Sells ──────────────────────────────────────────── */
 .tc-sells {

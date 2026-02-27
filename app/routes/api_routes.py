@@ -253,6 +253,40 @@ def update_trade(transaction_id):
     if trade is None:
         return jsonify({"error": f"Trade {transaction_id} not found"}), 404
 
+    errors = {}
+
+    # Validate reason
+    if "reason" in data:
+        reason = data["reason"]
+        if reason is not None:
+            if not isinstance(reason, str):
+                errors["reason"] = "Must be a string"
+            elif len(reason) > 500:
+                errors["reason"] = "Must be 500 characters or fewer"
+
+    # Validate initial_stop_price
+    if "initial_stop_price" in data:
+        val = data["initial_stop_price"]
+        if val is not None:
+            try:
+                if float(val) <= 0:
+                    errors["initial_stop_price"] = "Must be a positive number"
+            except (TypeError, ValueError):
+                errors["initial_stop_price"] = "Must be a positive number"
+
+    # Validate projected_sell_price
+    if "projected_sell_price" in data:
+        val = data["projected_sell_price"]
+        if val is not None:
+            try:
+                if float(val) <= 0:
+                    errors["projected_sell_price"] = "Must be a positive number"
+            except (TypeError, ValueError):
+                errors["projected_sell_price"] = "Must be a positive number"
+
+    if errors:
+        return jsonify({"error": "Validation failed", "fields": errors}), 422
+
     allowed_fields = {"reason", "initial_stop_price", "projected_sell_price"}
     updated = {}
     for field in allowed_fields:

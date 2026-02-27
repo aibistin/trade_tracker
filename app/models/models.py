@@ -241,6 +241,9 @@ def get_raw_trade_data(symbol):
             TradeTransaction.target_price,
             TradeTransaction.amount,
             TradeTransaction.account,
+            TradeTransaction.reason,
+            TradeTransaction.initial_stop_price,
+            TradeTransaction.projected_sell_price,
         )
         .filter(
             TradeTransaction.symbol == symbol,
@@ -275,6 +278,9 @@ def get_trade_data_for_analysis_new(stock_symbol):
         target_price,
         amount,
         account,
+        reason,
+        initial_stop_price,
+        projected_sell_price,
     ) in raw_trade_data:
 
         trade_transactions.append(
@@ -291,6 +297,9 @@ def get_trade_data_for_analysis_new(stock_symbol):
                 "target_price": target_price,
                 "amount": amount,
                 "account": account,
+                "reason": reason,
+                "initial_stop_price": initial_stop_price,
+                "projected_sell_price": projected_sell_price,
             }
         )
     return trade_transactions

@@ -821,6 +821,63 @@ class TestAppRoutes(unittest.TestCase):
         )
         self.assertIn("error", response.json)
 
+    def test_api_update_trade_reason_too_long(self):
+        """PATCH with reason exceeding 500 chars returns 422."""
+        transaction_id = self.first_transaction.id
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            json={"reason": "x" * 501},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("reason", response.json["fields"])
+
+    def test_api_update_trade_negative_stop_price(self):
+        """PATCH with a negative initial_stop_price returns 422."""
+        transaction_id = self.first_transaction.id
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            json={"initial_stop_price": -10.0},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("initial_stop_price", response.json["fields"])
+
+    def test_api_update_trade_zero_target_price(self):
+        """PATCH with projected_sell_price of zero returns 422."""
+        transaction_id = self.first_transaction.id
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            json={"projected_sell_price": 0},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("projected_sell_price", response.json["fields"])
+
+    def test_api_update_trade_non_numeric_price(self):
+        """PATCH with a non-numeric price string returns 422."""
+        transaction_id = self.first_transaction.id
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            json={"initial_stop_price": "not-a-number"},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("initial_stop_price", response.json["fields"])
+
+    def test_api_update_trade_multiple_validation_errors(self):
+        """PATCH with multiple invalid fields returns all errors in one 422."""
+        transaction_id = self.first_transaction.id
+        response = self.client.patch(
+            f"/api/trade/update/{transaction_id}",
+            json={
+                "reason": "y" * 501,
+                "initial_stop_price": -5.0,
+                "projected_sell_price": 0,
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+        fields = response.json["fields"]
+        self.assertIn("reason", fields)
+        self.assertIn("initial_stop_price", fields)
+        self.assertIn("projected_sell_price", fields)
+
     # Tests for asset_type query parameter
 
     def test_api_positions_asset_type_stock(self):
