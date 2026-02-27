@@ -1,15 +1,6 @@
 import yfinance as yf
+from yfinance import Ticker
 import json, logging, os, time
-from requests import Session
-from requests_cache import CacheMixin, SQLiteCache
-from requests_ratelimiter import LimiterMixin, InMemoryBucket
-from pyrate_limiter import Duration, Rate, Limiter
-
-
-# Combine requests_cache with rate-limiting
-# to avoid triggering Yahoo's rate-limiter/blocker that can corrupt data.
-class CachedLimiterSession(CacheMixin, LimiterMixin, Session):
-    pass
 
 
 timestr = time.strftime("%Y%m%d")
@@ -29,7 +20,7 @@ class YahooFinance:
         results (dict): A dictionary to store the retrieved stock data.
     """
 
-    def __init__(self, stock_symbol, ticker_class=yf.Ticker):
+    def __init__(self, stock_symbol, ticker_class=Ticker):
         """
         Initializes YahooFinance with a stock symbol and a ticker class.
         Args:
@@ -39,15 +30,6 @@ class YahooFinance:
         self.stock_symbol = stock_symbol
         self.ticker_class = ticker_class  # Store the ticker class
         self.results = {}
-
-        self.session = CachedLimiterSession(
-            limiter=Limiter(
-                Rate(2, Duration.SECOND * 5)
-            ),  # max 2 requests per 5 seconds
-            bucket_class=InMemoryBucket,
-            backend=SQLiteCache("./data/yfinance/yfinance.cache"),
-        )
-        self.session.headers["User-agent"] = "trade-analyzer/1.0"
 
     def get_stock_data(self, max_age_minutes=60):
         """
@@ -95,7 +77,7 @@ class YahooFinance:
         """Fetch fresh stock data and cache it."""
         try:
             stock_results = self.ticker_class(
-                self.stock_symbol, session=self.session
+                self.stock_symbol
             )  # Use the injected ticker class
             stock_results.actions  # This is a dummy call to trigger the cache
             logging.debug(f"Got results for {self.stock_symbol}: {stock_results.info}")
