@@ -3,18 +3,11 @@
 It will export formatCurrency, profitLossClass, formatValue, formatDate, rowClass
 */
 function formatCurrency(value) {
-
-  if (!value) {
-    return null;
-  }   
-
+  if (value == null) return null;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    currencySign: "accounting",
-  })
-    .format(value)
-    .trim();
+  }).format(value).trim();
 }
 
 function profitLossClass(value) {

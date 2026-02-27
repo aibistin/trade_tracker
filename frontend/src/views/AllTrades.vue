@@ -31,21 +31,6 @@
         <TransactionSummary :tradeSummary="data.transaction_stats.stock.summary" :stockSymbol="data.stock_symbol"
           stockType="Stock" :allTradeCount="data.transaction_stats.stock.all_trades?.length" />
         <div class="tc-section">
-          <div class="tc-header-row">
-            <div class="tc-hcell"></div>
-            <div class="tc-hcell">ID-Acct</div>
-            <div class="tc-hcell">Type</div>
-            <div class="tc-hcell">Date</div>
-            <div class="tc-hcell">Closed</div>
-            <div class="tc-hcell">Qty</div>
-            <div class="tc-hcell">Price</div>
-            <div class="tc-hcell">Cost</div>
-            <div class="tc-hcell">Sold Qty</div>
-            <div class="tc-hcell">Sold Amt</div>
-            <div class="tc-hcell">P/L</div>
-            <div class="tc-hcell">P/L%</div>
-            <div class="tc-hcell">Status</div>
-          </div>
           <TradeCard v-for="trade in buyTrades(data.transaction_stats.stock.all_trades)" :key="trade.trade_id"
             :trade="transformTrade(trade)" stockType="Stock" />
         </div>
@@ -56,21 +41,6 @@
         <TransactionSummary :tradeSummary="data.transaction_stats.option.summary" :stockSymbol="data.stock_symbol"
           stockType="Option" :allTradeCount="data.transaction_stats.option.all_trades?.length" />
         <div class="tc-section">
-          <div class="tc-header-row">
-            <div class="tc-hcell"></div>
-            <div class="tc-hcell">ID-Acct</div>
-            <div class="tc-hcell">Type</div>
-            <div class="tc-hcell">Date</div>
-            <div class="tc-hcell">Closed</div>
-            <div class="tc-hcell">Qty x 100</div>
-            <div class="tc-hcell">Price</div>
-            <div class="tc-hcell">Cost</div>
-            <div class="tc-hcell">Sold Qty</div>
-            <div class="tc-hcell">Sold Amt</div>
-            <div class="tc-hcell">P/L</div>
-            <div class="tc-hcell">P/L%</div>
-            <div class="tc-hcell">Status</div>
-          </div>
           <TradeCard v-for="trade in buyTrades(data.transaction_stats.option.all_trades)" :key="trade.trade_id"
             :trade="transformTrade(trade)" stockType="Option" />
         </div>
@@ -234,23 +204,4 @@ export default {
   border: 1px solid #373b3e;
 }
 
-/* ── Column Header Row ──────────────────────────────────────── */
-/* Matches Bootstrap table-dark: #212529 bg, white text          */
-/* Must match TradeCard.vue's .tc-row grid-template-columns exactly */
-.tc-header-row {
-  display: grid;
-  grid-template-columns: 28px 100px 60px 90px 90px 65px 80px 95px 75px 95px 95px 70px 70px;
-  gap: 6px;
-  padding: 6px 12px 6px 16px;
-  background: #212529;
-  border-bottom: 1px solid #4a5058;
-}
-
-.tc-hcell {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #dee2e6;
-  white-space: nowrap;
-}
 </style>
