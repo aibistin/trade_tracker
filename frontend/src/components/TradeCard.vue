@@ -9,8 +9,8 @@
       <div class="tc-cell tc-type">
         <span class="tc-type-pill" :class="typePillClass">{{ formatTradeType(trade) }}</span>
       </div>
-      <div class="tc-cell tc-action">{{ formatAction(trade) }}</div>
       <div class="tc-cell tc-date">{{ formatDate(trade.trade_date) }}</div>
+      <div class="tc-cell tc-closed-date">{{ trade.is_done && trade.closed_date ? formatDate(trade.closed_date) : '' }}</div>
       <div class="tc-cell tc-qty">{{ trade.quantity }}</div>
       <div class="tc-cell tc-price">{{ formatCurrency(trade.price) }}</div>
       <div class="tc-cell tc-basis" :class="profitLossClass(trade.amount)">{{ formatCurrency(trade.amount) }}</div>
@@ -86,8 +86,8 @@
       <!-- Matched Sell Trades -->
       <div v-if="hasSells" class="tc-sells">
         <div class="tc-sells-header">Matched Sells ({{ trade.sells.length }})</div>
-        <table class="table table-sm table-dark table-bordered mb-0 tc-sells-table">
-          <thead>
+        <table class="table table-sm table-bordered mb-0 tc-sells-table">
+          <thead class="table-dark">
             <tr>
               <th>ID-Acct</th>
               <th>Sell Date</th>
@@ -121,7 +121,7 @@
 </template>
 
 <script>
-import { formatAction, formatCurrency, formatTradeType, profitLossClass, formatValue, formatDate } from '@/utils/tradeUtils.js';
+import { formatCurrency, formatTradeType, profitLossClass, formatValue, formatDate } from '@/utils/tradeUtils.js';
 import { API_BASE_URL } from '@/config.js';
 
 export default {
@@ -149,10 +149,13 @@ export default {
     },
     statusText() {
       if (!this.trade.is_done) return 'O';
-      return this.trade.current_profit_loss > 0 ? 'W' : this.trade.current_profit_loss < 0 ? 'L' : '-';
+      const pl = this.trade.current_profit_loss;
+      return pl > 0 ? 'W' : pl < 0 ? 'L' : '-';
     },
     statusPillClass() {
-      return this.trade.is_done ? 'tc-closed' : 'tc-open';
+      if (!this.trade.is_done) return 'tc-open';
+      const pl = this.trade.current_profit_loss;
+      return pl > 0 ? 'tc-win' : pl < 0 ? 'tc-loss' : 'tc-neutral';
     },
     accentClass() {
       const t = this.trade.trade_type;
@@ -175,7 +178,6 @@ export default {
     },
   },
   methods: {
-    formatAction,
     formatCurrency,
     formatTradeType,
     profitLossClass,
@@ -258,7 +260,7 @@ export default {
 /* ── Main Row Grid ──────────────────────────────────────────── */
 .tc-row {
   display: grid;
-  grid-template-columns: 28px 100px 60px 75px 90px 65px 80px 95px 75px 95px 95px 70px 70px;
+  grid-template-columns: 28px 100px 60px 90px 90px 65px 80px 95px 75px 95px 95px 70px 70px;
   gap: 6px;
   align-items: center;
   padding: 7px 12px;
@@ -335,13 +337,24 @@ export default {
 }
 
 .tc-open {
-  background: rgba(25, 135, 84, 0.2);
-  color: #146c43;
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
 }
 
-.tc-closed {
-  background: rgba(108, 117, 125, 0.2);
-  color: #495057;
+.tc-win {
+  background: #198754;
+  color: #fff;
+}
+
+.tc-loss {
+  background: #dc3545;
+  color: #fff;
+}
+
+.tc-neutral {
+  background: #6c757d;
+  color: #fff;
 }
 
 /* ── Option Label Sub-row ───────────────────────────────────── */
@@ -450,6 +463,11 @@ export default {
   font-size: 0.8rem;
   border-radius: 0;
   margin-bottom: 0;
+}
+
+.tc-sells-table tbody tr {
+  background: #e0f4fa;
+  color: #000;
 }
 
 .tc-sells-table th {

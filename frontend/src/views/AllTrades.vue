@@ -35,8 +35,8 @@
             <div class="tc-hcell"></div>
             <div class="tc-hcell">ID-Acct</div>
             <div class="tc-hcell">Type</div>
-            <div class="tc-hcell">Action</div>
             <div class="tc-hcell">Date</div>
+            <div class="tc-hcell">Closed</div>
             <div class="tc-hcell">Qty</div>
             <div class="tc-hcell">Price</div>
             <div class="tc-hcell">Cost</div>
@@ -60,8 +60,8 @@
             <div class="tc-hcell"></div>
             <div class="tc-hcell">ID-Acct</div>
             <div class="tc-hcell">Type</div>
-            <div class="tc-hcell">Action</div>
             <div class="tc-hcell">Date</div>
+            <div class="tc-hcell">Closed</div>
             <div class="tc-hcell">Qty x 100</div>
             <div class="tc-hcell">Price</div>
             <div class="tc-hcell">Cost</div>
@@ -132,6 +132,7 @@ export default {
         "profit_loss",
         "percent_profit_loss",
         "is_done",
+        "closed_date",
         /* BuyTrade specific fields */
         "current_sold_qty",
         "current_sold_amt",
@@ -238,7 +239,7 @@ export default {
 /* Must match TradeCard.vue's .tc-row grid-template-columns exactly */
 .tc-header-row {
   display: grid;
-  grid-template-columns: 28px 100px 60px 75px 90px 65px 80px 95px 75px 95px 95px 70px 70px;
+  grid-template-columns: 28px 100px 60px 90px 90px 65px 80px 95px 75px 95px 95px 70px 70px;
   gap: 6px;
   padding: 6px 12px 6px 16px;
   background: #212529;
