@@ -6,17 +6,17 @@ export function useFetchTrades() {
   const loading = ref(false);
   const error = ref(null);
 
-  const fetchData = async (apiUrl) => {
+  const fetchData = async (url) => {
     try {
       loading.value = true;
       error.value = null;
-      const response = await axios.get(`${apiUrl.value}`, {
+      const response = await axios.get(url, {
         headers: { Accept: "application/json" },
         timeout: 5000,
       });
       data.value = response.data;
     } catch (err) {
-      error.value = err.message || `Failed to fetch trades, URL: ${apiUrl.value}`;
+      error.value = err.message || `Failed to fetch: ${url}`;
       data.value = null;
     } finally {
       loading.value = false;

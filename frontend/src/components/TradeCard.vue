@@ -169,107 +169,90 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onBeforeUnmount } from 'vue';
+import axios from 'axios';
 import { formatCurrency, formatTradeType, profitLossClass, formatValue, formatDate } from '@/utils/tradeUtils.js';
 import { API_BASE_URL } from '@/config.js';
 
-export default {
-  props: {
-    trade: { type: Object, required: true },
-    stockType: { type: String, default: 'Stock' },
-  },
-  data() {
-    return {
-      expanded: false,
-      editReason: this.trade.reason || '',
-      editStopPrice: this.trade.initial_stop_price != null ? String(this.trade.initial_stop_price) : '',
-      editTargetSell: this.trade.projected_sell_price != null ? String(this.trade.projected_sell_price) : '',
-      saving: false,
-      saveStatus: '',
-      saveTimer: null,
+const props = defineProps({
+  trade: { type: Object, required: true },
+  stockType: { type: String, default: 'Stock' },
+});
+
+const emit = defineEmits(['trade-updated']);
+
+const expanded = ref(false);
+const editReason = ref(props.trade.reason || '');
+const editStopPrice = ref(props.trade.initial_stop_price != null ? String(props.trade.initial_stop_price) : '');
+const editTargetSell = ref(props.trade.projected_sell_price != null ? String(props.trade.projected_sell_price) : '');
+const saving = ref(false);
+const saveStatus = ref('');
+let saveTimer = null;
+
+const isOption = computed(() => ['C', 'P', 'O'].includes(props.trade.trade_type));
+const hasSells = computed(() => Array.isArray(props.trade.sells) && props.trade.sells.length > 0);
+
+const statusText = computed(() => {
+  if (!props.trade.is_done) return 'O';
+  const pl = props.trade.current_profit_loss;
+  return pl > 0 ? 'W' : pl < 0 ? 'L' : '-';
+});
+
+const statusPillClass = computed(() => {
+  if (!props.trade.is_done) return 'tc-open';
+  const pl = props.trade.current_profit_loss;
+  return pl > 0 ? 'tc-win' : pl < 0 ? 'tc-loss' : 'tc-neutral';
+});
+
+const accentClass = computed(() => {
+  const t = props.trade.trade_type;
+  if (t === 'C') return 'tc-accent-call';
+  if (t === 'P') return 'tc-accent-put';
+  if (t === 'L') return 'tc-accent-long';
+  if (t === 'S') return 'tc-accent-short';
+  return 'tc-accent-other';
+});
+
+const typePillClass = computed(() => {
+  const t = props.trade.trade_type;
+  if (t === 'C') return 'pill-call';
+  if (t === 'P') return 'pill-put';
+  if (t === 'L') return 'pill-long';
+  if (t === 'S') return 'pill-short';
+  return '';
+});
+
+const saveStatusClass = computed(() => saveStatus.value === 'Saved!' ? 'text-success' : 'text-danger');
+
+function toggle() {
+  expanded.value = !expanded.value;
+}
+
+async function save() {
+  saving.value = true;
+  saveStatus.value = '';
+  if (saveTimer) clearTimeout(saveTimer);
+  try {
+    const fields = {
+      reason: editReason.value || null,
+      initial_stop_price: editStopPrice.value !== '' ? parseFloat(editStopPrice.value) : null,
+      projected_sell_price: editTargetSell.value !== '' ? parseFloat(editTargetSell.value) : null,
     };
-  },
-  computed: {
-    isOption() {
-      return ['C', 'P', 'O'].includes(this.trade.trade_type);
-    },
-    hasSells() {
-      return Array.isArray(this.trade.sells) && this.trade.sells.length > 0;
-    },
-    statusText() {
-      if (!this.trade.is_done) return 'O';
-      const pl = this.trade.current_profit_loss;
-      return pl > 0 ? 'W' : pl < 0 ? 'L' : '-';
-    },
-    statusPillClass() {
-      if (!this.trade.is_done) return 'tc-open';
-      const pl = this.trade.current_profit_loss;
-      return pl > 0 ? 'tc-win' : pl < 0 ? 'tc-loss' : 'tc-neutral';
-    },
-    accentClass() {
-      const t = this.trade.trade_type;
-      if (t === 'C') return 'tc-accent-call';
-      if (t === 'P') return 'tc-accent-put';
-      if (t === 'L') return 'tc-accent-long';
-      if (t === 'S') return 'tc-accent-short';
-      return 'tc-accent-other';
-    },
-    typePillClass() {
-      const t = this.trade.trade_type;
-      if (t === 'C') return 'pill-call';
-      if (t === 'P') return 'pill-put';
-      if (t === 'L') return 'pill-long';
-      if (t === 'S') return 'pill-short';
-      return '';
-    },
-    saveStatusClass() {
-      return this.saveStatus === 'Saved!' ? 'text-success' : 'text-danger';
-    },
-  },
-  methods: {
-    formatCurrency,
-    formatTradeType,
-    profitLossClass,
-    formatValue,
-    formatDate,
-    toggle() {
-      this.expanded = !this.expanded;
-    },
-    async save() {
-      this.saving = true;
-      this.saveStatus = '';
-      if (this.saveTimer) clearTimeout(this.saveTimer);
-      try {
-        const payload = {
-          reason: this.editReason || null,
-          initial_stop_price: this.editStopPrice !== '' ? parseFloat(this.editStopPrice) : null,
-          projected_sell_price: this.editTargetSell !== '' ? parseFloat(this.editTargetSell) : null,
-        };
-        const resp = await fetch(`${API_BASE_URL}/trade/update/${this.trade.trade_id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          throw new Error(err.error || 'Save failed');
-        }
-        this.trade.reason = this.editReason || null;
-        this.trade.initial_stop_price = this.editStopPrice !== '' ? parseFloat(this.editStopPrice) : null;
-        this.trade.projected_sell_price = this.editTargetSell !== '' ? parseFloat(this.editTargetSell) : null;
-        this.saveStatus = 'Saved!';
-      } catch (e) {
-        this.saveStatus = e.message || 'Error saving';
-      } finally {
-        this.saving = false;
-        this.saveTimer = setTimeout(() => { this.saveStatus = ''; }, 3000);
-      }
-    },
-  },
-  beforeUnmount() {
-    if (this.saveTimer) clearTimeout(this.saveTimer);
-  },
-};
+    await axios.patch(`${API_BASE_URL}/trade/update/${props.trade.trade_id}`, fields);
+    emit('trade-updated', props.trade.trade_id, fields);
+    saveStatus.value = 'Saved!';
+  } catch (e) {
+    saveStatus.value = e.response?.data?.error || e.message || 'Error saving';
+  } finally {
+    saving.value = false;
+    saveTimer = setTimeout(() => { saveStatus.value = ''; }, 3000);
+  }
+}
+
+onBeforeUnmount(() => {
+  if (saveTimer) clearTimeout(saveTimer);
+});
 </script>
 
 <style scoped>

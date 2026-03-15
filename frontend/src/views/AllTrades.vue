@@ -31,8 +31,8 @@
         <TransactionSummary :tradeSummary="data.transaction_stats.stock.summary" :stockSymbol="data.stock_symbol"
           stockType="Stock" :allTradeCount="data.transaction_stats.stock.all_trades?.length" />
         <div class="tc-section">
-          <TradeCard v-for="trade in buyTrades(data.transaction_stats.stock.all_trades)" :key="trade.trade_id"
-            :trade="transformTrade(trade)" stockType="Stock" />
+          <TradeCard v-for="trade in allBuyTrades.stock" :key="trade.trade_id"
+            :trade="trade" stockType="Stock" @trade-updated="updateTrade" />
         </div>
       </div>
 
@@ -41,153 +41,127 @@
         <TransactionSummary :tradeSummary="data.transaction_stats.option.summary" :stockSymbol="data.stock_symbol"
           stockType="Option" :allTradeCount="data.transaction_stats.option.all_trades?.length" />
         <div class="tc-section">
-          <TradeCard v-for="trade in buyTrades(data.transaction_stats.option.all_trades)" :key="trade.trade_id"
-            :trade="transformTrade(trade)" stockType="Option" />
+          <TradeCard v-for="trade in allBuyTrades.option" :key="trade.trade_id"
+            :trade="trade" stockType="Option" @trade-updated="updateTrade" />
         </div>
       </div>
-
     </div>
   </div>
 </template>
 
-<script>
-import { onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { API_BASE_URL } from "@/config.js";
-import { useFetchTrades } from "../composables/useFetchTrades";
-import TransactionSummary from "./TransactionSummary.vue";
-import TradeCard from "../components/TradeCard.vue";
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { API_BASE_URL } from '@/config.js';
+import { useFetchTrades } from '@/composables/useFetchTrades.js';
+import TransactionSummary from '@/components/TransactionSummary.vue';
+import TradeCard from '@/components/TradeCard.vue';
 
-export default {
-  components: {
-    TransactionSummary,
-    TradeCard,
+const props = defineProps({
+  stockSymbol: {
+    type: String,
+    required: true,
+    validator: (v) => v === v.toUpperCase(),
   },
-  props: {
-    stockSymbol: {
-      type: String,
-      required: true,
-      default: "",
-      validator: (value) => value === value.toUpperCase(),
-    },
-    scope: {
-      type: String,
-      required: true,
-      validator: (value) => ["all", "open", "closed"].includes(value),
-    },
+  scope: {
+    type: String,
+    required: true,
+    validator: (v) => ['all', 'open', 'closed'].includes(v),
   },
-  methods: {
-    titleCase(str) {
-      return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-    },
-    buyTrades(trades) {
-      if (!trades) return [];
-      return trades.filter((t) => t.is_buy_trade === true);
-    },
-    transformTrade(trade) {
-      const wantedKeys = [
-        "trade_id",
-        "account",
-        "trade_type",
-        "action",
-        "trade_label",
-        "is_option",
-        "trade_date",
-        "price",
-        "is_buy_trade",
-        "target_price",
-        "expiration_date",
-        "quantity",
-        "amount",
-        "profit_loss",
-        "percent_profit_loss",
-        "is_done",
-        "closed_date",
-        /* BuyTrade specific fields */
-        "current_sold_qty",
-        "current_sold_amt",
-        "current_profit_loss",
-        "current_percent_profit_loss",
-        /* Matched sells */
-        "sells",
-        /* User-editable fields */
-        "reason",
-        "initial_stop_price",
-        "projected_sell_price",
-      ];
+});
 
-      let newTrade = {};
-      wantedKeys.forEach((key) => {
-        if (Object.prototype.hasOwnProperty.call(trade, key)) {
-          newTrade[key] = trade[key];
-        }
-      });
-      return newTrade;
-    },
-  },
+const route = useRoute();
+const router = useRouter();
+const afterDate = ref(route.query.after_date || '');
+const { data, loading, error, fetchData } = useFetchTrades();
 
-  setup(props) {
-    const route = useRoute();
-    const router = useRouter();
-    const apiUrl = ref(null);
-    const stockSymbol = ref(props.stockSymbol);
-    const afterDate = ref(route.query.after_date || "");
-    const { data, loading, error, fetchData } = useFetchTrades();
+const WANTED_KEYS = [
+  'trade_id', 'account', 'trade_type', 'action', 'trade_label', 'is_option',
+  'trade_date', 'price', 'is_buy_trade', 'target_price', 'expiration_date',
+  'quantity', 'amount', 'profit_loss', 'percent_profit_loss', 'is_done',
+  'closed_date', 'current_sold_qty', 'current_sold_amt', 'current_profit_loss',
+  'current_percent_profit_loss', 'sells', 'reason', 'initial_stop_price',
+  'projected_sell_price',
+];
 
-    const _createApiUrl = (scope, stockSymbolValue, query = {}) => {
-      let url = `${API_BASE_URL}/trades/${scope}/json/${stockSymbolValue}`;
-      const params = new URLSearchParams();
-      if (query.after_date) params.set('after_date', query.after_date);
-      if (query.asset_type && query.asset_type !== 'all') params.set('asset_type', query.asset_type);
-      const qs = params.toString();
-      if (qs) url += `?${qs}`;
-      return url;
-    };
+function transformTrade(trade) {
+  const result = {};
+  for (const key of WANTED_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(trade, key)) {
+      result[key] = trade[key];
+    }
+  }
+  return result;
+}
 
-    const applyDateFilter = (dateValue) => {
-      afterDate.value = dateValue;
-      const query = { ...route.query };
-      if (dateValue) {
-        query.after_date = dateValue;
-      } else {
-        delete query.after_date;
-      }
-      router.replace({ params: route.params, query });
-    };
+const allBuyTrades = computed(() => {
+  if (!data.value) return { stock: [], option: [] };
+  return {
+    stock: (data.value.transaction_stats.stock?.all_trades ?? [])
+      .filter((t) => t.is_buy_trade === true)
+      .map(transformTrade),
+    option: (data.value.transaction_stats.option?.all_trades ?? [])
+      .filter((t) => t.is_buy_trade === true)
+      .map(transformTrade),
+  };
+});
 
-    const clearDateFilter = () => {
-      afterDate.value = "";
-      const query = { ...route.query };
-      delete query.after_date;
-      router.replace({ params: route.params, query });
-    };
+function titleCase(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
 
-    apiUrl.value = _createApiUrl(props.scope, stockSymbol.value, route.query);
+function createApiUrl(scope, symbol, query = {}) {
+  let url = `${API_BASE_URL}/trades/${scope}/json/${symbol}`;
+  const params = new URLSearchParams();
+  if (query.after_date) params.set('after_date', query.after_date);
+  if (query.asset_type && query.asset_type !== 'all') params.set('asset_type', query.asset_type);
+  const qs = params.toString();
+  if (qs) url += `?${qs}`;
+  return url;
+}
 
-    onMounted(() => {
-      apiUrl.value = _createApiUrl(props.scope, stockSymbol.value, route.query);
-      fetchData(apiUrl);
-    });
+function applyDateFilter(dateValue) {
+  afterDate.value = dateValue;
+  const query = { ...route.query };
+  if (dateValue) {
+    query.after_date = dateValue;
+  } else {
+    delete query.after_date;
+  }
+  router.replace({ params: route.params, query });
+}
 
-    watch(
-      [() => props.scope, () => props.stockSymbol, () => route.query.after_date, () => route.query.asset_type],
-      ([newScope, newSymbol, newAfterDate]) => {
-        afterDate.value = newAfterDate || "";
-        apiUrl.value = _createApiUrl(newScope, newSymbol, route.query);
-        fetchData(apiUrl);
-      }
-    );
+function clearDateFilter() {
+  afterDate.value = '';
+  const query = { ...route.query };
+  delete query.after_date;
+  router.replace({ params: route.params, query });
+}
 
-    return {
-      data,
-      loading,
-      error,
-      afterDate,
-      applyDateFilter,
-      clearDateFilter,
-    };
-  },
-};
+// Update source data when TradeCard saves changes (data-down/events-up)
+function updateTrade(tradeId, fields) {
+  for (const section of ['stock', 'option']) {
+    const trades = data.value?.transaction_stats?.[section]?.all_trades;
+    if (!trades) continue;
+    const idx = trades.findIndex((t) => t.trade_id === tradeId);
+    if (idx !== -1) {
+      Object.assign(trades[idx], fields);
+      return;
+    }
+  }
+}
+
+onMounted(() => {
+  fetchData(createApiUrl(props.scope, props.stockSymbol, route.query));
+});
+
+watch(
+  [() => props.scope, () => props.stockSymbol, () => route.query.after_date, () => route.query.asset_type],
+  ([newScope, newSymbol, newAfterDate]) => {
+    afterDate.value = newAfterDate || '';
+    fetchData(createApiUrl(newScope, newSymbol, route.query));
+  }
+);
 </script>
 
 <style scoped>
@@ -203,5 +177,4 @@ export default {
   overflow: hidden;
   border: 1px solid #373b3e;
 }
-
 </style>

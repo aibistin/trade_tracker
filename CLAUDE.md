@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
+Frontend-specific guidance lives in `frontend/CLAUDE.md` (loaded automatically when working inside `frontend/`).
 
 ## Commands
 
@@ -12,15 +13,6 @@ source python_setup.sh            # Create pyenv venv + install requirements (gi
 ### Running the App
 ```bash
 ./run_flask.sh                    # Flask dev server on localhost:5000
-```
-
-### Frontend (from frontend/ directory)
-```bash
-pnpm install                      # Install dependencies
-pnpm dev                          # Vite dev server
-pnpm build                        # Production build
-pnpm lint                         # ESLint with auto-fix
-pnpm test:e2e                     # Playwright end-to-end tests
 ```
 
 ### Tests (unittest, no pytest)
@@ -68,7 +60,9 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 - **Routes split into two blueprints:**
   - `app/routes/web_routes.py` — HTML template rendering (Jinja2)
   - `app/routes/api_routes.py` — JSON API endpoints under `/api` prefix
-- **ORM models:** `app/models/models.py` — `Security` and `TradeTransaction` tables, plus query helpers like `get_trade_data_for_analysis_new()`. `get_current_holdings()` returns `(symbol, trade_type, quantity, avg_price, cost_basis, name)` tuples, joining on both `symbol` and `trade_type` to correctly handle symbols with both stock and option positions. `get_current_holdings_symbols()` deduplicates so each symbol appears once.
+- **ORM models:** `app/models/models.py` — `Security` and `TradeTransaction` tables only. No query logic.
+- **Repository layer:** `app/repositories/trade_repository.py` — all query functions (`get_current_holdings()`, `get_trade_data_for_analysis()`, etc.). `get_current_holdings()` returns `(symbol, trade_type, quantity, avg_price, cost_basis, name)` tuples, joining on both `symbol` and `trade_type` to correctly handle symbols with both stock and option positions.
+- **Service layer:** `app/services/trade_service.py` — `validate_trade_update()` shared by both route blueprints.
 - **Database:** SQLite at `data/stock_trades.db`
 - **API authentication:** `X-API-KEY` header checked against `API_SECRET_KEY` env var; bypassed when `FLASK_ENV=dev`
 - **Logging:** Rotating file handler, 2MB, 5 backups. Filename is env-specific: `logs/trading_app_dev.log` (dev) or `logs/trading_app_production.log` (production). Level controlled by `LOG_LEVEL` env var. JSON logging optional via `JSON_LOGGING=Y`.
@@ -83,27 +77,16 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 - `db_utils.py` — `DatabaseInserter` helper for bulk inserts with parameterized SQL
 - `yfinance.py` — Yahoo Finance integration. File-based JSON caching (60min TTL) in `data/yfinance/`. Does **not** pass a custom session to `yf.Ticker` (yfinance requires its own `curl_cffi` session internally). `ticker_class` param allows injection for testing.
 
-### Frontend (`frontend/`)
-- Vue 3 + Vite + Bootstrap 5 + Axios
-- **API config:** `src/config.js` reads `VITE_API_BASE_URL` env var (default: `http://localhost:5000/api`). Set via `frontend/.env` (gitignored).
-- Key views: `TradeHome.vue` (symbol search + current stock/option holdings tables with All/Stocks/Options filter toggle), `AllTrades.vue` (trade display), `TransactionSummary.vue` (stats)
-- **Composables:**
-  - `composables/useFetchTrades.js` — shared data fetching with loading/error state
-  - `composables/useSymbolSearch.js` — shared symbol search/filter/dropdown logic (used by TradeHome + BSNavBarTop)
-- `utils/tradeUtils.js` — `formatCurrency` (standard `-$x.xx`, no accounting parentheses), `formatValue`, `profitLossClass`, `formatTradeType`, etc.
-- `components/BSNavBarTop.vue` — Main navbar with symbol dropdowns, All/Open/Closed scope toggle, and Stock/Option/All asset type toggle. Scope and asset type toggles are hidden on the home page.
-- `components/TradeCard.vue` — Card-based buy trade display. Flex layout with labeled groups (Opened/Closed dates, Qty@Price=Cost, Qty Sold/Proceeds, P/L/P/L%). Left accent border by trade type. Expandable detail panel shows: matched sells (div-based grid rows), metrics bar (Live Price for open trades only, Stop, Target, Reason), and edit form for `reason`/`initial_stop_price`/`projected_sell_price`. Edit form calls `PATCH /api/trade/update/<id>`.
-
 ### Data Flow
 1. Schwab CSV → `bin/process_schwab_transactions.py` → SQLite
-2. API request → `get_trade_data_for_analysis_new()` → raw transaction dicts (lowercase keys, includes `reason`, `initial_stop_price`, `projected_sell_price`)
+2. API request → `get_trade_data_for_analysis(symbol)` → raw transaction dicts (lowercase keys, includes `reason`, `initial_stop_price`, `projected_sell_price`)
 3. `TradingAnalyzer.analyze_trades(status, account, after_date)` → converts to Trade objects, matches buys/sells, computes P&L
 4. `get_profit_loss_data_json()` → JSON-serializable dict with `stock` and `option` sections
 5. JSON response → Vue frontend renders with TradeCard components
 
 ### Trade Update API
 `PATCH /api/trade/update/<id>` — updates `reason`, `initial_stop_price`, `projected_sell_price` on a `TradeTransaction`.
-Server-side validation: `reason` max 500 chars; prices must be positive floats (null clears them). Returns `422` with `fields` dict on validation failure.
+Server-side validation in `app/services/trade_service.py`: `reason` max 500 chars; prices must be positive floats (null clears them). Returns `422` with `fields` dict on validation failure.
 
 ## Testing Patterns
 - **Framework:** unittest (not pytest). No conftest.py.
@@ -118,10 +101,9 @@ Server-side validation: `reason` max 500 chars; prices must be positive floats (
 - Trade types: L=Long, S=Short, C=Call, P=Put, O=Other (exercise/expiration)
 - Account codes: C, R, I, O (different brokerage accounts). Validated on filtered API endpoint.
 - Action codes: B=Buy, S=Sell, BO=Buy to Open, SC=Sell to Close, EE=Exchange/Exercise, EXP=Expired, RS=Reinvest Shares
-- EXP and EE actions are normalized to SC (Sell to Close) internally by Trade.__init__
+- EXP and EE actions are normalized to SC (Sell to Close) internally by `Trade.__init__`
 - Python version managed via pyenv virtualenv named "Trading" (see `.python-version`)
 - `python_setup.sh` is gitignored — it auto-detects the best pyenv Python version and installs requirements
-- Frontend env files (`.env`) are gitignored; defaults live in `src/config.js`
 
 ## Environment Variables
 | Variable | Where | Purpose |
@@ -131,4 +113,4 @@ Server-side validation: `reason` max 500 chars; prices must be positive floats (
 | `API_SECRET_KEY` | Backend | Expected value for `X-API-KEY` header |
 | `LOG_LEVEL` | Backend | Python logging level (default: INFO) |
 | `JSON_LOGGING` | Backend | Set to `Y` for JSON-formatted log output |
-| `VITE_API_BASE_URL` | Frontend | API base URL (default: `http://localhost:5000/api`) |
+| `VITE_API_BASE_URL` | Frontend | API base URL (default: `http://localhost:5000/api`) — see `frontend/CLAUDE.md` |

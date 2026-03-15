@@ -47,28 +47,16 @@
           </li>
         </ul>
 
-        <form class="d-flex" role="search">
-          <input v-model="searchQuery" type="text" class="form-control" placeholder="Search symbols..."
-            @input="filterSymbols" @focus="isDropdownOpen = true" />
-          <!-- Dropdown Menu -->
-          <ul v-if="isDropdownOpen" class="dropdown-menu show"
-            style="width: 100%; max-height: 300px; overflow-y: auto;">
-            <li v-for="[symbol, name] in filteredSymbols" :key="symbol">
-              <a class="dropdown-item btn-outline-success" href="#" @click="selectSymbolWithScope(symbol)">
-                {{ symbol }} - {{ name }}
-              </a>
-            </li>
-            <li v-if="filteredSymbols.length === 0">
-              <a class="dropdown-item disabled">No matching symbols found</a>
-            </li>
-          </ul>
-        </form>
-
+        <SymbolSearchDropdown
+          :symbols="stockSymbols ?? []"
+          placeholder="Search symbols..."
+          @select="selectSymbolWithScope"
+        />
       </div>
     </div>
   </nav>
 
-  <!-- Loading State -->
+  <!-- Loading States -->
   <div v-if="loading" class="text-center py-4">
     <div class="spinner-border text-primary" role="status">
       <span class="visually-hidden">Loading all symbols...</span>
@@ -83,22 +71,22 @@
     <p class="mt-2">Loading current stock symbols...</p>
   </div>
 
-  <!-- Error State -->
+  <!-- Error States -->
   <div v-if="error" class="alert alert-danger">
     Error loading all stock symbols: {{ error }}
   </div>
-  <!-- Error State -->
   <div v-if="currentError" class="alert alert-danger">
-    Error loading open stock symbols: {{ error }}
+    Error loading open stock symbols: {{ currentError }}
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useFetchTrades } from '../composables/useFetchTrades';
-import { useSymbolSearch } from '../composables/useSymbolSearch';
+import { useFetchTrades } from '@/composables/useFetchTrades.js';
+import { useSymbolSearch } from '@/composables/useSymbolSearch.js';
 import { API_BASE_URL } from '@/config.js';
+import SymbolSearchDropdown from './SymbolSearchDropdown.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -138,20 +126,15 @@ const setAssetType = (type) => {
   }
 };
 
-const allSymbolsApiUrl = ref(`${API_BASE_URL}/trade/symbols_json`);
-const currentSymbolsApiUrl = ref(`${API_BASE_URL}/trade/current_holdings_symbols_json`);
-
 const { data: stockSymbols, loading, error, fetchData } = useFetchTrades();
 const { data: currentStockSymbols, loading: currentLoading, error: currentError, fetchData: fetchCurrentSymbols } = useFetchTrades();
-const { searchQuery, isDropdownOpen, filteredSymbols, selectSymbol } = useSymbolSearch(stockSymbols);
+const { selectSymbol } = useSymbolSearch();
 
-const selectSymbolWithScope = (symbol) => {
-  selectSymbol(symbol, activeScope.value);
-};
+const selectSymbolWithScope = (symbol) => selectSymbol(symbol, activeScope.value);
 
 onMounted(() => {
-  fetchData(allSymbolsApiUrl);
-  fetchCurrentSymbols(currentSymbolsApiUrl);
+  fetchData(`${API_BASE_URL}/trade/symbols_json`);
+  fetchCurrentSymbols(`${API_BASE_URL}/trade/current_holdings_symbols_json`);
 });
 </script>
 

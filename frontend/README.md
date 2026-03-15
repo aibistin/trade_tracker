@@ -1,54 +1,46 @@
-# trading
+# Trade Tracker — Frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+Vue 3 + Vite + Bootstrap 5 frontend for the Trade Tracker application.
 
-## Recommended IDE Setup
+## Setup
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+```bash
 pnpm install
 ```
 
-### Compile and Hot-Reload for Development
+## Development
 
-```sh
-pnpm dev
+```bash
+pnpm dev        # Vite dev server with hot reload (http://localhost:5173)
+pnpm build      # Production build (output: dist/)
+pnpm preview    # Serve the production build on port 4173
+pnpm lint       # ESLint with auto-fix
 ```
 
-### Compile and Minify for Production
+## Testing
 
-```sh
-pnpm build
+### Unit tests (Vitest + @vue/test-utils)
+
+Tests live in `src/tests/`. Cover utility functions, composables, and components.
+
+```bash
+pnpm test:unit            # run once
+pnpm test:unit:watch      # watch mode during development
+pnpm test:unit:coverage   # run with coverage report
 ```
 
-### Run End-to-End Tests with [Playwright](https://playwright.dev)
+### End-to-end tests (Playwright)
 
-```sh
-# Install browsers for the first run
-npx playwright install
-
-# When testing on CI, must build the project first
-pnpm build
-
-# Runs the end-to-end tests
-pnpm test:e2e
-# Runs the tests only on Chromium
-pnpm test:e2e --project=chromium
-# Runs the tests of a specific file
-pnpm test:e2e tests/example.spec.ts
-# Runs the tests in debug mode
-pnpm test:e2e --debug
+```bash
+npx playwright install    # first run only — installs browsers
+pnpm test:e2e             # run all E2E tests (headless)
+pnpm test:e2e --project=chromium  # Chromium only
+pnpm test:e2e --debug     # debug mode with inspector
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+E2E tests are in `e2e/`. The Playwright config auto-starts the dev server locally and uses the preview server (`pnpm preview`) on CI.
 
-```sh
-pnpm lint
-```
+## Environment
+
+API base URL is read from `VITE_API_BASE_URL` (default: `http://localhost:5000/api`).
+Set it in `frontend/.env` (gitignored) for local overrides, or `frontend/.env.production` for production builds.

@@ -65,10 +65,31 @@ Open <http://localhost:5000> in a browser.
 
 ## Running Tests
 
+### Backend (Python/unittest)
+
 ```bash
 python -m unittest discover -v                                           # all tests
 python -m unittest tests.test_trading_analyzer                           # single module
 python -m unittest tests.test_app_routes.TestAppRoutes.test_index_route  # single test
+```
+
+### Frontend (Vitest unit tests)
+
+```bash
+cd frontend
+pnpm test:unit            # run once
+pnpm test:unit:watch      # watch mode
+pnpm test:unit:coverage   # with coverage report
+```
+
+### Frontend (Playwright end-to-end tests)
+
+```bash
+cd frontend
+npx playwright install    # first run only — installs browsers
+pnpm test:e2e             # run all E2E tests
+pnpm test:e2e --project=chromium  # Chromium only
+pnpm test:e2e --debug     # debug mode
 ```
 
 ## Environment Variables

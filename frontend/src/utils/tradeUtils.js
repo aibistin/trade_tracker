@@ -1,9 +1,5 @@
-/*
- This is a Vue.js component that provides utility functions for formatting trade data.
-It will export formatCurrency, profitLossClass, formatValue, formatDate, rowClass
-*/
 function formatCurrency(value) {
-  if (value == null) return null;
+  if (value == null) return '';
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -19,7 +15,10 @@ function formatValue(value) {
 }
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString("en-US");
+  if (!dateString) return '';
+  // Append local time to prevent UTC interpretation shifting the date by one day
+  const normalized = String(dateString).includes('T') ? dateString : `${dateString}T00:00:00`;
+  return new Date(normalized).toLocaleDateString("en-US");
 }
 
 function rowClass(trade) {
@@ -68,7 +67,7 @@ function getFullAction(code) {
 }
 
 function formatTradeType(trade) {
-  return getFullTradeType(trade.trade_type); // trade_type is a property of the trade object
+  return getFullTradeType(trade.trade_type);
 }
 
 function getFullTradeType(code) {
@@ -76,7 +75,7 @@ function getFullTradeType(code) {
     L: "Long",
     S: "Short",
     C: "Call",
-    P: "Put ",
+    P: "Put",
     O: "Other",
   };
 

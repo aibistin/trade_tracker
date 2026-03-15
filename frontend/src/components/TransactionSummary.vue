@@ -37,15 +37,11 @@
         <tr class="ts-data-row">
           <td>{{ tradeSummary.bought_quantity }}</td>
           <td>{{ formatCurrency(Math.abs(tradeSummary.average_bought_price || 0)) }}</td>
-          <td :class="profitLossClass(tradeSummary.bought_amount)">
-            {{ formatCurrency(tradeSummary.bought_amount || 0) }}
-          </td>
+          <td>{{ formatCurrency(tradeSummary.bought_amount || 0) }}</td>
 
           <td>{{ tradeSummary.sold_quantity }}</td>
           <td>{{ formatCurrency(tradeSummary.average_basis_sold_price || 0) }}</td>
-          <td :class="profitLossClass(tradeSummary.closed_bought_amount)">
-            {{ formatCurrency(tradeSummary.closed_bought_amount || 0) }}
-          </td>
+          <td>{{ formatCurrency(tradeSummary.closed_bought_amount || 0) }}</td>
           <td>{{ formatCurrency(tradeSummary.sold_amount || 0) }}</td>
 
           <td>{{ tradeSummary.open_bought_quantity }}</td>
@@ -65,35 +61,15 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { formatCurrency, profitLossClass, formatValue } from '@/utils/tradeUtils.js';
 
-export default {
-  props: {
-    stockSymbol: {
-      type: String,
-      required: true
-    },
-    stockType: {
-      type: String,
-      required: true
-    },
-    tradeSummary: {
-      type: Object,
-      required: true
-    },
-    allTradeCount: {
-      type: Number,
-      required: false,
-      default: 0
-    },
-  },
-  methods: {
-    formatCurrency,
-    profitLossClass,
-    formatValue,
-  }
-};
+defineProps({
+  stockSymbol: { type: String, required: true },
+  stockType: { type: String, required: true },
+  tradeSummary: { type: Object, required: true },
+  allTradeCount: { type: Number, default: 0 },
+});
 </script>
 
 <style scoped>

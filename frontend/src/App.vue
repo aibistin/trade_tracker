@@ -1,7 +1,7 @@
 <script setup>
 // import { ref, onMounted, inject, watch } from "vue";
 import { onMounted, inject } from "vue";
-import AppContainer from "./views/AppContainer.vue";
+import AppContainer from "./components/AppContainer.vue";
 // import AllTrades from './views/AllTrades.vue';
 import BSNavBarTop from "./components/BSNavBarTop.vue";
 

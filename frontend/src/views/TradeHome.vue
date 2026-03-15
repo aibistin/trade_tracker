@@ -1,28 +1,16 @@
-<!-- New Way  -->
 <template>
   <div>
     <h1>Stock Trading App - Home</h1>
     <p>Select a stock symbol from the dropdown to view its trades.</p>
 
-    <!-- Custom Dropdown for Stock Symbols -->
+    <!-- Symbol Search -->
     <div class="mb-3">
-      <label for="stockSymbol" class="form-label">Select a Stock:</label>
-      <div class="dropdown">
-        <!-- Search Input -->
-        <input v-model="searchQuery" type="text" class="form-control" placeholder="Type to search..."
-          @input="filterSymbols" @focus="isDropdownOpen = true" />
-        <!-- Dropdown Menu -->
-        <ul v-if="isDropdownOpen" class="dropdown-menu show" style="width: 100%; max-height: 300px; overflow-y: auto;">
-          <li v-for="[symbol, name] in filteredSymbols" :key="symbol">
-            <a class="dropdown-item" href="#" @click="selectSymbol(symbol)">
-              {{ symbol }} - {{ name }}
-            </a>
-          </li>
-          <li v-if="filteredSymbols.length === 0">
-            <a class="dropdown-item disabled">No matching symbols found</a>
-          </li>
-        </ul>
-      </div>
+      <label class="form-label">Select a Stock:</label>
+      <SymbolSearchDropdown
+        :symbols="stockSymbols ?? []"
+        placeholder="Type to search..."
+        @select="selectSymbol"
+      />
     </div>
 
     <!-- Loading State -->
@@ -124,17 +112,15 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useFetchTrades } from '../composables/useFetchTrades';
-import { useSymbolSearch } from '../composables/useSymbolSearch';
-import { formatCurrency, profitLossClass } from '../utils/tradeUtils';
+import { useFetchTrades } from '@/composables/useFetchTrades.js';
+import { useSymbolSearch } from '@/composables/useSymbolSearch.js';
+import { formatCurrency, profitLossClass } from '@/utils/tradeUtils.js';
 import { API_BASE_URL } from '@/config.js';
+import SymbolSearchDropdown from '@/components/SymbolSearchDropdown.vue';
 
-const allSymbolsApiUrl = ref(`${API_BASE_URL}/trade/symbols_json`);
 const { data: stockSymbols, loading, error, fetchData } = useFetchTrades();
-const { searchQuery, isDropdownOpen, filteredSymbols, selectSymbol } = useSymbolSearch(stockSymbols);
-
-const holdingsApiUrl = ref(`${API_BASE_URL}/trade/current_holdings_json`);
 const { data: holdingsData, loading: holdingsLoading, error: holdingsError, fetchData: fetchHoldings } = useFetchTrades();
+const { selectSymbol } = useSymbolSearch();
 
 const holdingsFilters = [
   { value: 'all', label: 'All' },
@@ -145,53 +131,16 @@ const holdingsFilter = ref('all');
 
 const stockHoldings = computed(() => {
   if (!holdingsData.value) return [];
-  return holdingsData.value.filter(h => h.trade_type === 'L' || h.trade_type === 'S');
+  return holdingsData.value.filter((h) => h.trade_type === 'L' || h.trade_type === 'S');
 });
 
 const optionHoldings = computed(() => {
   if (!holdingsData.value) return [];
-  return holdingsData.value.filter(h => h.trade_type === 'C' || h.trade_type === 'P' || h.trade_type === 'O');
+  return holdingsData.value.filter((h) => h.trade_type === 'C' || h.trade_type === 'P' || h.trade_type === 'O');
 });
 
 onMounted(() => {
-  fetchData(allSymbolsApiUrl);
-  fetchHoldings(holdingsApiUrl);
+  fetchData(`${API_BASE_URL}/trade/symbols_json`);
+  fetchHoldings(`${API_BASE_URL}/trade/current_holdings_json`);
 });
 </script>
-
-
-<style scoped>
-.dropdown {
-  position: relative;
-}
-
-.dropdown-menu {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 1000;
-  background-color: white;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 0.25rem;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.175);
-}
-
-.dropdown-menu.show {
-  display: block;
-}
-
-.dropdown-item {
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-}
-
-.dropdown-item:hover {
-  background-color: #f8f9fa;
-}
-
-.dropdown-item.disabled {
-  color: #6c757d;
-  pointer-events: none;
-}
-</style>
