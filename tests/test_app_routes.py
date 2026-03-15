@@ -1,5 +1,8 @@
+import os
 import unittest
 import logging
+from unittest.mock import patch, MagicMock
+from sqlalchemy import select, delete
 from app import create_app
 from app.models.models import Security, TradeTransaction
 from app.extensions import db
@@ -45,6 +48,9 @@ TRANSACTION_KEYS = [
 
 class TestAppRoutes(unittest.TestCase):
     def setUp(self):
+        # Ensure API auth is bypassed in dev mode regardless of shell environment
+        os.environ["FLASK_ENV"] = "dev"
+
         # Create test app with testing configuration
         self.app = create_app()
         self.app.config["TESTING"] = True
@@ -218,26 +224,20 @@ class TestAppRoutes(unittest.TestCase):
             )
 
         # Retrieve the ID of the first inserted transaction
-        self.first_transaction = TradeTransaction.query.filter_by(
-            reason="Test Buy FAKE1"
-        ).first()
+        self.first_transaction = db.session.execute(
+            select(TradeTransaction).filter_by(reason="Test Buy FAKE1")
+        ).scalars().first()
 
         test_logger.info("Test setup completed")
 
     def tearDown(self):
         # Clean up database
 
-        TradeTransaction.query.filter(
-            TradeTransaction.symbol.in_(
-                [
-                    "FAKE1",
-                    "FAKE2",
-                ]
-            )
-        ).delete(synchronize_session=False)
-
-        Security.query.filter(Security.symbol.in_(TEST_SECURITIES.keys())).delete(
-            synchronize_session=False
+        db.session.execute(
+            delete(TradeTransaction).where(TradeTransaction.symbol.in_(["FAKE1", "FAKE2"]))
+        )
+        db.session.execute(
+            delete(Security).where(Security.symbol.in_(TEST_SECURITIES.keys()))
         )
 
         db.session.commit()
@@ -299,12 +299,12 @@ class TestAppRoutes(unittest.TestCase):
 
         # Get transaction ID
 
-        self.first_transaction = TradeTransaction.query.filter_by(
-            reason="Test Buy FAKE1"
-        ).first()
+        self.first_transaction = db.session.execute(
+            select(TradeTransaction).filter_by(reason="Test Buy FAKE1")
+        ).scalars().first()
 
         transaction_id = self.first_transaction.id
-        original_transaction = TradeTransaction.query.get(transaction_id)
+        original_transaction = db.session.get(TradeTransaction, transaction_id)
         test_logger.info(f"Original Transaction: {vars(original_transaction)}")
 
         # Send update request
@@ -322,7 +322,7 @@ class TestAppRoutes(unittest.TestCase):
         )
 
         # Verify database update
-        updated_transaction = TradeTransaction.query.get(transaction_id)
+        updated_transaction = db.session.get(TradeTransaction, transaction_id)
 
         test_logger.info(f"Updated Transaction: {vars(updated_transaction)}")
 
@@ -747,7 +747,7 @@ class TestAppRoutes(unittest.TestCase):
         self.assertEqual(body["updated"]["projected_sell_price"], 175.00)
 
         # Confirm the DB was actually written
-        updated = TradeTransaction.query.get(transaction_id)
+        updated = db.session.get(TradeTransaction, transaction_id)
         self.assertEqual(updated.reason, "Updated reason")
         self.assertAlmostEqual(updated.initial_stop_price, 130.00)
         self.assertAlmostEqual(updated.projected_sell_price, 175.00)
@@ -763,7 +763,7 @@ class TestAppRoutes(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
-        updated = TradeTransaction.query.get(transaction_id)
+        updated = db.session.get(TradeTransaction, transaction_id)
         self.assertEqual(updated.reason, "Partial update only")
         # Price fields must be untouched
         self.assertEqual(updated.initial_stop_price, original_stop)
@@ -778,7 +778,7 @@ class TestAppRoutes(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
-        updated = TradeTransaction.query.get(transaction_id)
+        updated = db.session.get(TradeTransaction, transaction_id)
         self.assertIsNone(updated.reason)
         self.assertIsNone(updated.initial_stop_price)
 
@@ -930,6 +930,103 @@ class TestAppRoutes(unittest.TestCase):
         response = self.client.get("/api/trades/all/json/FAKE1?asset_type=futures")
         self.assertEqual(response.status_code, 400)
         self.assertIn("asset_type", response.json["error"])
+
+    def test_api_get_stock_data(self):
+        """GET /api/get_stock_data/<symbol> returns JSON from YahooFinance."""
+        mock_data = {"currentPrice": 150.0, "symbol": "FAKE1", "quoteType": "EQUITY"}
+        with patch("app.routes.api_routes.YahooFinance") as MockYF:
+            instance = MockYF.return_value
+            instance.get_stock_data.return_value = None
+            instance.get_results.return_value = mock_data
+
+            response = self.client.get("/api/get_stock_data/FAKE1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, mock_data)
+
+    def test_api_current_holdings_symbols_json(self):
+        """GET /api/trade/current_holdings_symbols_json returns deduplicated [symbol, name] pairs."""
+        response = self.client.get("/api/trade/current_holdings_symbols_json")
+        self.assertEqual(response.status_code, 200)
+
+        symbols = response.json
+        self.assertIsInstance(symbols, list)
+        # Each entry must be a two-element list of [symbol, name]
+        for entry in symbols:
+            self.assertEqual(len(entry), 2, f"Expected [symbol, name] pair, got {entry}")
+        # FAKE1 has both stock and option open positions — should appear only once
+        symbol_names = [entry[0] for entry in symbols]
+        self.assertEqual(len(symbol_names), len(set(symbol_names)), "Symbols should be deduplicated")
+
+    # --- Web route tests ---
+
+    def test_web_view_transaction(self):
+        """GET /transaction/<id> returns 200 for an existing transaction."""
+        transaction_id = self.first_transaction.id
+        response = self.client.get(f"/transaction/{transaction_id}")
+        self.assertEqual(response.status_code, 200)
+
+    def test_web_view_transaction_not_found(self):
+        """GET /transaction/<id> returns 404 for a non-existent ID."""
+        response = self.client.get("/transaction/999999")
+        self.assertEqual(response.status_code, 404)
+
+    def test_web_trade_stats_summary(self):
+        """GET /trade_stats_summary returns 200 and renders without error."""
+        response = self.client.get("/trade_stats_summary")
+        self.assertEqual(response.status_code, 200)
+
+    def test_web_open_trades(self):
+        """GET /open_trades/<symbol> returns 200 (route handles missing method gracefully)."""
+        response = self.client.get("/open_trades/FAKE3")
+        self.assertEqual(response.status_code, 200)
+
+
+class TestAPIAuth(unittest.TestCase):
+    """Tests that the API key enforcement works when not in dev mode."""
+
+    def setUp(self):
+        # Remove dev bypass so auth is enforced
+        self._prev_flask_env = os.environ.pop("FLASK_ENV", None)
+        os.environ["API_SECRET_KEY"] = "test-secret-key"
+
+        self.app = create_app()
+        self.app.config["TESTING"] = True
+        self.app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+        self.client = self.app.test_client()
+
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        db.create_all()
+
+    def tearDown(self):
+        db.session.remove()
+        self.app_context.pop()
+        if self._prev_flask_env is not None:
+            os.environ["FLASK_ENV"] = self._prev_flask_env
+        os.environ.pop("API_SECRET_KEY", None)
+
+    def test_missing_api_key_returns_401(self):
+        """Request without X-API-KEY returns 401."""
+        response = self.client.get("/api/trade/symbols_json")
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("error", response.json)
+
+    def test_wrong_api_key_returns_401(self):
+        """Request with incorrect X-API-KEY returns 401."""
+        response = self.client.get(
+            "/api/trade/symbols_json",
+            headers={"X-API-KEY": "wrong-key"},
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_correct_api_key_returns_200(self):
+        """Request with correct X-API-KEY returns 200."""
+        response = self.client.get(
+            "/api/trade/symbols_json",
+            headers={"X-API-KEY": "test-secret-key"},
+        )
+        self.assertEqual(response.status_code, 200)
 
 
 if __name__ == "__main__":

@@ -1,14 +1,11 @@
 import yfinance as yf
 from yfinance import Ticker
-import json, logging, os, time
+import json
+import logging
+import os
+import time
 
-
-timestr = time.strftime("%Y%m%d")
-logging.basicConfig(
-    filename=f"./logs/yfinance_{timestr}.log",
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(lineno)d> %(message)s",
-)
+log = logging.getLogger(__name__)
 
 
 class YahooFinance:
@@ -48,12 +45,12 @@ class YahooFinance:
 
         # Check if local cached file exists and is recent
         if self.is_cache_valid(file_path, max_age_minutes):
-            logging.debug(f"Using cached data for {self.stock_symbol}")
+            log.debug(f"Using cached data for {self.stock_symbol}")
             self.load_cached_data(file_path)
             return  # Return cached data
 
         # Fetch fresh data from Yahoo Finance
-        logging.info(f"Fetching fresh data for {self.stock_symbol}")
+        log.info(f"Fetching fresh data for {self.stock_symbol}")
         self.fetch_fresh_data(file_path)
 
     def is_cache_valid(self, file_path, max_age_minutes):
@@ -68,9 +65,9 @@ class YahooFinance:
         try:
             with open(file_path, "r") as f:
                 self.results = json.load(f)
-                logging.debug(f"Loaded cached for {self.stock_symbol}: {self.results}")
+                log.debug(f"Loaded cached for {self.stock_symbol}: {self.results}")
         except Exception as e:
-            logging.error(f"Error reading cached data for {self.stock_symbol}: {e}")
+            log.error(f"Error reading cached data for {self.stock_symbol}: {e}")
             self.results = {}
 
     def fetch_fresh_data(self, file_path):
@@ -80,7 +77,7 @@ class YahooFinance:
                 self.stock_symbol
             )  # Use the injected ticker class
             stock_results.actions  # This is a dummy call to trigger the cache
-            logging.debug(f"Got results for {self.stock_symbol}: {stock_results.info}")
+            log.debug(f"Got results for {self.stock_symbol}: {stock_results.info}")
 
             if all(value is None for value in stock_results.info.values()):
                 self.results = {}
@@ -102,7 +99,7 @@ class YahooFinance:
                 json.dump(self.results, f, indent=4)
 
         except Exception as e:
-            logging.error(f"Error fetching data for {self.stock_symbol}: {e}")
+            log.error(f"Error fetching data for {self.stock_symbol}: {e}")
             self.results = {}
 
     def get_results(self):

@@ -112,8 +112,3 @@ def create_app():
         app.logger.info("[__init__.py] Database tables created")
 
     return app
-
-
-# Create app instance
-app = create_app()
-app.logger.info("[__init__.py] Application instance created")

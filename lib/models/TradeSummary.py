@@ -5,10 +5,7 @@ import logging
 from typing import List, Optional, Union
 from lib.models.Trade import BuyTrade, SellTrade
 from lib.models.Trades import BuyTrades
-
-# TODO - Create test script for TradeSummary
-OPTIONS_MULTIPLIER = 100
-STOCK_MULTIPLIER = 1
+from lib.constants import OPTIONS_MULTIPLIER, STOCK_MULTIPLIER
 
 
 @dataclass_json

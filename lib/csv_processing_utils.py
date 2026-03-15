@@ -199,7 +199,7 @@ class CSVProcessor:
         price = self.convert_to_float(row["Price"])
 
         try:
-            return round(price * 0.95)
+            return round(price * 0.95, 2)
         except ValueError:
             log.warning(f"calculate_stop: Invalid price format: {price}")
             return 0.0
@@ -212,7 +212,7 @@ class CSVProcessor:
         price = self.convert_to_float(row["Price"])
 
         try:
-            return round(price * 1.15)
+            return round(price * 1.15, 2)
         except ValueError:
             log.warning(f"calculate_sell: Invalid price format: {price}")
             return None
@@ -280,7 +280,7 @@ class CSVProcessor:
 
     def is_duplicate_row(self, row, seen_rows, account):
         """Check for duplicate rows."""
-        row_tuple = tuple([row.values(), account])
+        row_tuple = tuple(row.values()) + (account,)
         if row_tuple in seen_rows:
             return True
         seen_rows.add(row_tuple)

@@ -4,10 +4,9 @@ import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any, TypedDict
 from lib.models.ActionMapping import ActionMapping
+from lib.constants import Action, OPTIONS_MULTIPLIER, STOCK_MULTIPLIER
 
 ACTION_MAP = ActionMapping()
-OPTIONS_MULTIPLIER = 100
-STOCK_MULTIPLIER = 1
 
 
 # Required fields
@@ -70,7 +69,6 @@ class Trade:
 
     _DEFAULTS = {
         "trade_type": "",
-        "account": "",
         "quantity": 0.0,
         "price": 0.0,
         "amount": 0.0,
@@ -238,13 +236,13 @@ class Trade:
             )
 
         # Option if trade type is Call/Put or action is expiration/exercise
-        return self.trade_type in ("C", "P") or self.action in ("EXP", "EE")
+        return self.trade_type in ("C", "P") or self.action in (Action.EXPIRED, Action.EXERCISED)
 
     def _normalize_special_trade_types(self):
         """Convert special trade types (EXP/EE) to standard sell trades"""
-        if self.action == "EXP":
+        if self.action == Action.EXPIRED:
             self._convert_expired_option()
-        elif self.action == "EE":
+        elif self.action == Action.EXERCISED:
             self._convert_exercised_option()
 
     def _convert_expired_option(self):
@@ -252,7 +250,7 @@ class Trade:
         if not self.is_option:
             logging.warning(f"Trade {self.trade_id} marked as EXP but is not option")
 
-        self.action = "SC"
+        self.action = Action.SELL_TO_CLOSE
         self.price = 0.0
         self.amount = 0.0
         self.reason = "Expired Option"
@@ -266,7 +264,7 @@ class Trade:
         if self.target_price is None:
             raise ValueError(f"Exercised option {self.trade_id} missing target_price")
 
-        self.action = "SC"
+        self.action = Action.SELL_TO_CLOSE
         self.price = self.target_price
         self.amount = self.price * self.quantity * OPTIONS_MULTIPLIER
         self.reason = "Exercised Option"

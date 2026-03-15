@@ -14,11 +14,10 @@ log = logging.getLogger(__name__)
 # web_logger = logging.getLogger('web_routes')
 
 
-from ..models.models import (
-    Security,
-    TradeTransaction,
-    get_trade_data_for_analysis_new,
-)
+from ..models.models import Security, TradeTransaction
+from ..repositories.trade_repository import get_trade_data_for_analysis, get_trade_stats_summary
+from ..services.trade_service import validate_trade_update
+from lib.constants import Action
 
 
 @web_bp.route("/")
@@ -67,27 +66,25 @@ def update_transaction(transaction_id):
         log.error(f"[update_transaction] Transaction not found: {transaction_id}")
         return "Transaction not found", 404
 
-    reason = request.form.get("reason")
-    if reason is not None:
-        transaction.reason = reason
+    data = {
+        k: request.form.get(k)
+        for k in ("reason", "initial_stop_price", "projected_sell_price")
+        if request.form.get(k) is not None
+    }
 
-    initial_stop_price = request.form.get("initial_stop_price")
-    if initial_stop_price is not None:
-        try:
-            transaction.initial_stop_price = float(initial_stop_price)
-        except (ValueError, TypeError):
-            flash("Invalid Initial Stop Price. Please enter a number.", "error")
-            log.error(f"Invalid Initial Stop Price: {initial_stop_price}")
-            return redirect(url_for("web.view_transaction", transaction_id=transaction_id))
+    errors = validate_trade_update(data)
+    if errors:
+        for field, msg in errors.items():
+            flash(f"{field}: {msg}", "error")
+            log.error(f"[update_transaction] Validation error — {field}: {msg}")
+        return redirect(url_for("web.view_transaction", transaction_id=transaction_id))
 
-    projected_sell_price = request.form.get("projected_sell_price")
-    if projected_sell_price is not None:
-        try:
-            transaction.projected_sell_price = float(projected_sell_price)
-        except (ValueError, TypeError):
-            flash("Invalid Projected Sell Price. Please enter a number.", "error")
-            log.error(f"Invalid Projected Sell Price: {projected_sell_price}") 
-            return redirect(url_for("web.view_transaction", transaction_id=transaction_id))
+    if "reason" in data:
+        transaction.reason = data["reason"]
+    if "initial_stop_price" in data:
+        transaction.initial_stop_price = float(data["initial_stop_price"])
+    if "projected_sell_price" in data:
+        transaction.projected_sell_price = float(data["projected_sell_price"])
 
     log.info(f"Committing the update for transaction id: {transaction_id}")
     db.session.commit()
@@ -102,22 +99,20 @@ def recent_trades(days):
     log.info("Inside Recent Trades route '/recent_trades'")
     days_ago = datetime.now(pytz.timezone("America/New_York")) - timedelta(days=days)
 
-    transactions = (
-        db.session.query(TradeTransaction, Security.name)  # Query both tables
-        # Join on symbol
+    stmt = (
+        select(TradeTransaction, Security.name)
         .join(Security, TradeTransaction.symbol == Security.symbol)
-        .filter(
-            TradeTransaction.action.in_(["B", "RS", "S"]),
+        .where(
+            TradeTransaction.action.in_([Action.BUY, Action.REINVEST_SHARES, Action.SELL]),
             TradeTransaction.trade_date > days_ago,
         )
         .order_by(
             TradeTransaction.symbol,
-            # TradeTransaction.trade_date.desc(),
             TradeTransaction.trade_date,
             TradeTransaction.action,
         )
-        .all()
     )
+    transactions = db.session.execute(stmt).all()
     return render_template("recent_trades.html", transactions=transactions, days=days)
 
 
@@ -126,14 +121,15 @@ def trades_by_symbol(symbol):
     """Fetches all buy and sell transactions for the given symbol, ordered by trade date."""
 
     log.info(f"Inside Trades By Symbol route '/trades/{symbol}'")
-    transactions = (
-        TradeTransaction.query.filter(
-            TradeTransaction.action.in_(["B", "RS", "S"]),
+    stmt = (
+        select(TradeTransaction)
+        .where(
+            TradeTransaction.action.in_([Action.BUY, Action.REINVEST_SHARES, Action.SELL]),
             TradeTransaction.symbol == symbol,
         )
         .order_by(TradeTransaction.trade_date)
-        .all()
     )
+    transactions = db.session.execute(stmt).scalars().all()
     log.debug(f"/trades/symbol Transactions: {transactions}")
     return render_template(
         "trades_by_symbol.html", transactions=transactions, symbol=symbol
@@ -144,7 +140,7 @@ def trades_by_symbol(symbol):
 def trade_detail_by_symbol(symbol):
     """Detailed buy, sell, profit and loss transactions for the given symbol."""
 
-    trade_transactions = get_trade_data_for_analysis_new(symbol)
+    trade_transactions = get_trade_data_for_analysis(symbol)
     all_trade_stats = {}
     analyzer = TradingAnalyzer(symbol, trade_transactions)
     analyzer.analyze_trades()
@@ -162,7 +158,7 @@ def trade_detail_by_symbol(symbol):
 @web_bp.route("/trade_stats_summary")
 def trade_stats_summary():
     """Fetches trade statistics summary and renders the template."""
-    trade_stats = TradeTransaction.get_trade_stats_summary()
+    trade_stats = get_trade_stats_summary()
     return render_template("trade_stats_summary.html", trade_stats=trade_stats)
 
 
@@ -173,7 +169,7 @@ def open_positions(stock_symbol):
     log.info(f"[{stock_symbol}] Getting Open Positions")
 
     # Fetch trade data from the database
-    trade_transactions = get_trade_data_for_analysis_new(stock_symbol)
+    trade_transactions = get_trade_data_for_analysis(stock_symbol)
     open_position_data = {}
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
     analyzer.analyze_trades()

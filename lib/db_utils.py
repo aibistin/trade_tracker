@@ -4,6 +4,7 @@ from sqlite3 import Connection, Cursor
 from typing import Dict, Optional, Any, Union
 from contextlib import contextmanager
 from lib.models.ActionMapping import ActionMapping
+from lib.constants import Action
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +216,7 @@ class DatabaseInserter(DatabaseConnection):
     ) -> Optional[float]:
         """Parse and validate price values."""
         if price in (None, ""):
-            if action in ("EE", "EXP"):
+            if action in (Action.EXERCISED, Action.EXPIRED):
                 logger.info("Defaulting price to 0.0 for action %s", action)
                 return 0.0
             return None

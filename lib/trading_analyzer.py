@@ -1,44 +1,18 @@
 # lib/trading_analyzer.py
 from dotenv import load_dotenv
-import os
-
-load_dotenv()
-
-import warnings
 import logging
 import os
-import time
 from datetime import datetime
 from typing import Any, cast, Dict, List, Optional
 from lib.models.Trade import BuyTrade, SellTrade, TradeData
 from lib.models.Trades import Trades, BuyTrades
 from lib.models.TradeSummary import TradeSummary
 from lib.models.ActionMapping import ActionMapping
+from lib.constants import OPTIONS_MULTIPLIER, STOCK_MULTIPLIER
 
+load_dotenv()
 
-OPTIONS_MULTIPLIER = 100
-STOCK_MULTIPLIER = 1
-
-timestr = time.strftime("%Y%m%d")
-log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-flask_env = os.getenv("FLASK_ENV", "dev")
-
-
-# Set up logging to flush immediately (no buffering)
-class FlushStreamHandler(logging.StreamHandler):
-    def emit(self, record):
-        super().emit(record)
-        self.flush()
-
-
-logging.getLogger().handlers.clear()
-# logging.getLogger().addHandler(FlushStreamHandler())
-logging.basicConfig(
-    filename=f"./logs/trading_analyzer_{flask_env}_{timestr}.log",
-    # level=logging.DEBUG,
-    level=log_level,
-    format="%(asctime)s - %(levelname)s - %(lineno)d> %(message)s",
-)
+log = logging.getLogger(__name__)
 
 
 class TradingAnalyzer:
@@ -51,8 +25,7 @@ class TradingAnalyzer:
         if not isinstance(trade_transactions, list):
             raise TypeError("trade_transactions must be a list")
 
-        logging.warning(f"Log level set to: {log_level}")
-        logging.warning(f"Log level env: {os.getenv('LOG_LEVEL')}")
+        log.debug("TradingAnalyzer initialized for %s", stock_symbol)
         self.stock_symbol = stock_symbol
         self.trade_transactions = trade_transactions
 
@@ -78,8 +51,6 @@ class TradingAnalyzer:
             },
         }
 
-        # TODO incorporate these buy type actions: "RD", "PYDR", "QDR", "SO"
-        self.buy_sell_actions = ["B", "Buy", "BO", "RS", "S", "SC", "EXP", "EE", "BC"]
         self.action_mapping = ActionMapping()
 
     def _convert_to_trade(self, trade: Dict[str, Any]) -> BuyTrade | SellTrade:
@@ -96,12 +67,13 @@ class TradingAnalyzer:
 
         for field in self.required_trade_fields:
             if field not in trade:
-                logging.error(f"[{self.stock_symbol}] missing field: {trade}")
+                log.error(f"[{self.stock_symbol}] missing field: {trade}")
                 raise ValueError(
                     f"{self.stock_symbol} - is missing required field: {field}"
                 )
 
-        if trade["action"] in (self.buy_sell_actions):
+        if (self.action_mapping.is_buy_type_action(trade["action"])
+                or self.action_mapping.is_sell_type_action(trade["action"])):
             # if not isinstance(trade["price"], (int, float)) or trade["price"] <= 0:
             if not isinstance(trade["price"], (int, float)) or trade["price"] < 0:
                 raise ValueError(
@@ -111,7 +83,7 @@ class TradingAnalyzer:
         # Check that Trade Date is either a string or datetime
         if not isinstance(trade["trade_date"], (str, datetime)):
             raise ValueError(
-                f"{trade['symbol']} ID: {trade['id']} -Invalid trade date: {trade['Trade Date']}, must be a string or datetime"
+                f"{trade['symbol']} ID: {trade['id']} -Invalid trade date: {trade['trade_date']}, must be a string or datetime"
             )
 
         if self.action_mapping.is_buy_type_action(trade["action"]):
@@ -119,7 +91,7 @@ class TradingAnalyzer:
         elif self.action_mapping.is_sell_type_action(trade["action"]):
             return SellTrade(cast(TradeData, trade))
         else:
-            logging.error(f"[{self.stock_symbol}] Unknown action: {trade['action']}")
+            log.error(f"[{self.stock_symbol}] Unknown action: {trade['action']}")
             raise ValueError(
                 f"[{self.stock_symbol}] Unknown action: {trade['action']} - ID {trade['id']}"
             )
@@ -142,10 +114,10 @@ class TradingAnalyzer:
                     else option_trades.add_trade(trade)
                 )
         except Exception as e:
-            logging.error(f"[{symbol}] Error converting trades to Trade: {e}")
+            log.error(f"[{symbol}] Error converting trades to Trade: {e}")
             raise
 
-        logging.info(
+        log.info(
             f"[{symbol}] {len(self.trade_transactions)} trades converted to Trade"
         )
 
@@ -153,16 +125,16 @@ class TradingAnalyzer:
             stock_trades.sort_trades()
             option_trades.sort_trades()
         except Exception as e:
-            logging.error(f"[{symbol}] Error sorting trades: {e}")
+            log.error(f"[{symbol}] Error sorting trades: {e}")
             raise
 
-        logging.debug(f"[{symbol}] All sell trades are sorted")
-        # logging.debug(f"[{symbol}] Sorted Stock Trades: {stock_trades}")
+        log.debug(f"[{symbol}] All sell trades are sorted")
+        # log.debug(f"[{symbol}] Sorted Stock Trades: {stock_trades}")
 
         for trades in [stock_trades, option_trades]:
             security_type = trades.security_type
             if len(trades.buy_trades) == 0:
-                logging.info(f"[{symbol}] No {security_type} trades")
+                log.info(f"[{symbol}] No {security_type} trades")
                 continue
 
             try:
@@ -174,17 +146,17 @@ class TradingAnalyzer:
                     after_date=after_date,
                 )
             except Exception as e:
-                logging.error(
+                log.error(
                     f"[{symbol}] Error creating BuyTrades collection for {security_type}: {e}"
                 )
                 raise
 
             if buy_trades is None:
-                logging.warning(f"[{symbol}] Has no {security_type} BuyTrades")
+                log.warning(f"[{symbol}] Has no {security_type} BuyTrades")
                 continue
 
             buy_trades.filter_buy_trades()
-            logging.debug(
+            log.debug(
                 f"[{symbol}] Filtered {security_type} BuyTrades: \n{buy_trades}"
             )
 
@@ -196,12 +168,12 @@ class TradingAnalyzer:
                     after_date=after_date,
                 )
             except Exception as e:
-                logging.error(
+                log.error(
                     f"[{symbol}] Error creating {buy_trades.security_type} summary record: {e}"
                 )
                 raise
 
-            logging.debug(f"[{symbol}] {security_type} Summary: {trade_summary}")
+            log.debug(f"[{symbol}] {security_type} Summary: {trade_summary}")
 
             # Update profit/loss data
             self.profit_loss_data[security_type]["has_trades"] = (
@@ -212,7 +184,7 @@ class TradingAnalyzer:
             try:
                 trade_summary.security_summary_sanity_check(symbol)
             except Exception as e:
-                logging.error(
+                log.error(
                     f"[{symbol}] Error in {security_type} summary sanity check: {e}"
                 )
                 raise
@@ -233,7 +205,7 @@ class TradingAnalyzer:
         """Group sell trades with their corresponding buy trades (stock or option)."""
 
         if not trades.buy_trades:
-            logging.info(f"[{symbol}] No {trades.security_type} buy trades")
+            log.info(f"[{symbol}] No {trades.security_type} buy trades")
             return None
 
         FilteredBuyTrades = BuyTrades(
@@ -257,7 +229,7 @@ class TradingAnalyzer:
             try:
                 FilteredBuyTrades.add_trade(current_buy_record)
             except Exception as e:
-                logging.error(
+                log.error(
                     f"[{symbol}] Error adding buy trade to BuyTrades collection: {e}"
                 )
                 raise
@@ -302,7 +274,7 @@ class TradingAnalyzer:
         # Validate status parameter
         valid_statuses = ["all", "open", "closed", None]
         if status not in valid_statuses:
-            logging.error(f"[{self.stock_symbol}] Invalid status: {status}")
+            log.error(f"[{self.stock_symbol}] Invalid status: {status}")
             raise ValueError(
                 f"Invalid status: '{status}'. Must be one of {valid_statuses}"
             )
@@ -311,14 +283,14 @@ class TradingAnalyzer:
             try:
                 datetime.strptime(after_date, "%Y-%m-%d")
             except ValueError:
-                logging.error(
+                log.error(
                     f"[{self.stock_symbol}] Invalid after_date format: {after_date}"
                 )
                 raise ValueError(
                     f"after_date must be in 'yyyy-mm-dd' format, got: {after_date}"
                 )
 
-        logging.info(
+        log.info(
             f"[{self.stock_symbol}] Analyzing trades after: {after_date}, status: {status}"
         )
 

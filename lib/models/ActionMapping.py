@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict
+from lib.constants import Action
 
 
 @dataclass
@@ -47,13 +48,18 @@ class ActionMapping:
 
     def is_buy_type_action(self, acronym: str) -> bool:
         """Check if the acronym is a buy type action (Buy, Buy to Open, Sell to Open)"""
-        return (
-            True if acronym in {"B", "BO", "RS", "RD", "PYDR", "QDR", "SO"} else False
-        )
+        return acronym in {
+            Action.BUY, Action.BUY_TO_OPEN, Action.REINVEST_SHARES,
+            Action.REINVEST_DIVIDEND, Action.PRIOR_YR_DIV_REINVEST,
+            Action.QUAL_DIV_REINVEST, Action.SELL_TO_OPEN,
+        }
 
     def is_sell_type_action(self, acronym: str) -> bool:
-        """Check if the acronym is a sell type action (Sell, Buy to Close , Sell to Close)"""
-        return acronym in {"S", "EE", "EXP", "BC", "SC"}
+        """Check if the acronym is a sell type action (Sell, Sell to Close, Buy to Close)"""
+        return acronym in {
+            Action.SELL, Action.EXERCISED, Action.EXPIRED,
+            Action.BUY_TO_CLOSE, Action.SELL_TO_CLOSE,
+        }
 
     def get_full_name(self, acronym: str) -> str | None:
         """Get full action name from acronym or None"""

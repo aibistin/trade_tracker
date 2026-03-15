@@ -10,14 +10,15 @@ from lib.yfinance import YahooFinance
 api_bp = Blueprint("api", __name__)
 log = logging.getLogger(__name__)
 
-from ..models.models import (
+from ..models.models import TradeTransaction
+from ..repositories.trade_repository import (
     get_all_securities,
     get_current_holdings,
     get_current_holdings_symbols,
-    get_trade_data_for_analysis_new,
-    TradeTransaction,
+    get_trade_data_for_analysis,
 )
 from ..extensions import db
+from ..services.trade_service import validate_trade_update
 
 
 # TODO Add proper authentication
@@ -161,7 +162,7 @@ def get_positions_json(scope, stock_symbol):
         if asset_type != "all":
             trade_record["filters"]["asset_type"] = asset_type
 
-    trade_transactions = get_trade_data_for_analysis_new(stock_symbol)
+    trade_transactions = get_trade_data_for_analysis(stock_symbol)
 
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
 
@@ -221,7 +222,7 @@ def get_filtered_positions_json(scope, stock_symbol):
         }
     }
 
-    trade_transactions = get_trade_data_for_analysis_new(stock_symbol)
+    trade_transactions = get_trade_data_for_analysis(stock_symbol)
     log.debug(f"[Routes][get_filtered_positions_json] raw_data: {trade_transactions}")
     analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
 
@@ -253,36 +254,7 @@ def update_trade(transaction_id):
     if trade is None:
         return jsonify({"error": f"Trade {transaction_id} not found"}), 404
 
-    errors = {}
-
-    # Validate reason
-    if "reason" in data:
-        reason = data["reason"]
-        if reason is not None:
-            if not isinstance(reason, str):
-                errors["reason"] = "Must be a string"
-            elif len(reason) > 500:
-                errors["reason"] = "Must be 500 characters or fewer"
-
-    # Validate initial_stop_price
-    if "initial_stop_price" in data:
-        val = data["initial_stop_price"]
-        if val is not None:
-            try:
-                if float(val) <= 0:
-                    errors["initial_stop_price"] = "Must be a positive number"
-            except (TypeError, ValueError):
-                errors["initial_stop_price"] = "Must be a positive number"
-
-    # Validate projected_sell_price
-    if "projected_sell_price" in data:
-        val = data["projected_sell_price"]
-        if val is not None:
-            try:
-                if float(val) <= 0:
-                    errors["projected_sell_price"] = "Must be a positive number"
-            except (TypeError, ValueError):
-                errors["projected_sell_price"] = "Must be a positive number"
+    errors = validate_trade_update(data)
 
     if errors:
         return jsonify({"error": "Validation failed", "fields": errors}), 422
