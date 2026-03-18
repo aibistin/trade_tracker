@@ -12,6 +12,12 @@ body {
   color: #0d6efd !important;
 }
 
+/* ── WinLossBar detail text ──────────────────────────────────── */
+.wlb-detail {
+  color: #6c757d;
+  font-size: 0.75rem;
+}
+
 /* ── Responsive table overflow ───────────────────────────────── */
 .table-responsive {
   border-radius: 6px;

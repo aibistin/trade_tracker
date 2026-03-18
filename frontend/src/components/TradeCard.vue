@@ -125,6 +125,10 @@
           <span v-else-if="livePrice != null" class="tc-metric-value">{{ formatCurrency(livePrice) }}</span>
           <span v-else class="tc-metric-value text-muted">—</span>
         </div>
+        <div v-if="unrealizedPnl != null" class="tc-metric">
+          <span class="tc-metric-label">Unreal. P&amp;L{{ isOption ? ' (est.)' : '' }}</span>
+          <span class="tc-metric-value" :class="profitLossClass(unrealizedPnl)">{{ formatCurrency(unrealizedPnl) }}</span>
+        </div>
         <div v-if="trade.initial_stop_price" class="tc-metric">
           <span class="tc-metric-label">Stop</span>
           <span class="tc-metric-value text-danger">{{ formatCurrency(trade.initial_stop_price) }}</span>
@@ -197,6 +201,14 @@ let saveTimer = null;
 
 const isOption = computed(() => ['C', 'P', 'O'].includes(props.trade.trade_type));
 const hasSells = computed(() => Array.isArray(props.trade.sells) && props.trade.sells.length > 0);
+
+// Unrealized P&L based on live price. Options use 100x multiplier (estimated — live price
+// is the underlying, not the option contract value).
+const unrealizedPnl = computed(() => {
+  if (livePrice.value == null || props.trade.is_done) return null;
+  const multiplier = isOption.value ? 100 : 1;
+  return (livePrice.value - props.trade.price) * props.trade.quantity * multiplier;
+});
 
 const statusText = computed(() => {
   if (!props.trade.is_done) return 'O';

@@ -32,7 +32,9 @@
           stockType="Stock" :allTradeCount="data.transaction_stats.stock.all_trades?.length" />
         <WinLossBar
           :wins="data.transaction_stats.stock.summary?.winning_trades_count ?? 0"
-          :losses="data.transaction_stats.stock.summary?.losing_trades_count ?? 0" />
+          :losses="data.transaction_stats.stock.summary?.losing_trades_count ?? 0"
+          :avgWin="avgClosedPnl(data.transaction_stats.stock.all_trades, true)"
+          :avgLoss="avgClosedPnl(data.transaction_stats.stock.all_trades, false)" />
         <div class="tc-section">
           <TradeCard v-for="trade in allBuyTrades.stock" :key="trade.trade_id"
             :trade="trade" stockType="Stock" @trade-updated="updateTrade" />
@@ -45,7 +47,9 @@
           stockType="Option" :allTradeCount="data.transaction_stats.option.all_trades?.length" />
         <WinLossBar
           :wins="data.transaction_stats.option.summary?.winning_trades_count ?? 0"
-          :losses="data.transaction_stats.option.summary?.losing_trades_count ?? 0" />
+          :losses="data.transaction_stats.option.summary?.losing_trades_count ?? 0"
+          :avgWin="avgClosedPnl(data.transaction_stats.option.all_trades, true)"
+          :avgLoss="avgClosedPnl(data.transaction_stats.option.all_trades, false)" />
         <div class="tc-section">
           <TradeCard v-for="trade in allBuyTrades.option" :key="trade.trade_id"
             :trade="trade" stockType="Option" @trade-updated="updateTrade" />
@@ -112,6 +116,16 @@ const allBuyTrades = computed(() => {
       .map(transformTrade),
   };
 });
+
+// Returns avg P&L of winning (isWin=true) or losing closed buy trades, or null if none exist.
+function avgClosedPnl(trades, isWin) {
+  const closed = (trades ?? []).filter(t => t.is_buy_trade && t.is_done);
+  const filtered = isWin
+    ? closed.filter(t => t.current_profit_loss > 0)
+    : closed.filter(t => t.current_profit_loss < 0);
+  if (!filtered.length) return null;
+  return filtered.reduce((sum, t) => sum + t.current_profit_loss, 0) / filtered.length;
+}
 
 function titleCase(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();

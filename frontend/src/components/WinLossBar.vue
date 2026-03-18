@@ -5,6 +5,12 @@
       <span class="wlb-sep"> / </span>
       <span class="wlb-losses">{{ losses }}L</span>
       <span class="wlb-avg"> · {{ (battingAvg * 100).toFixed(1) }}% win rate</span>
+      <span v-if="avgWin != null" class="wlb-detail">
+        · avg win <span class="wlb-wins">{{ formatCurrency(avgWin) }}</span>
+      </span>
+      <span v-if="avgLoss != null" class="wlb-detail">
+        / avg loss <span class="wlb-losses">{{ formatCurrency(avgLoss) }}</span>
+      </span>
     </div>
     <div class="wlb-track">
       <div class="wlb-fill wlb-fill-win" :style="{ width: winPct + '%' }"></div>
@@ -15,10 +21,13 @@
 
 <script setup>
 import { computed } from 'vue'
+import { formatCurrency } from '@/utils/tradeUtils.js'
 
 const props = defineProps({
   wins: { type: Number, default: 0 },
   losses: { type: Number, default: 0 },
+  avgWin: { type: Number, default: null },
+  avgLoss: { type: Number, default: null },
 })
 
 const total = computed(() => props.wins + props.losses)
