@@ -1,6 +1,23 @@
 @import './base.css';
 @import 'bootstrap/dist/css/bootstrap.css';
 
+/* ── App-level layout ────────────────────────────────────────── */
+body {
+  background-color: #f0f2f5;
+}
+
+/* ── Active nav-link highlight ───────────────────────────────── */
+.nav-link.router-link-active {
+  font-weight: 600;
+  color: #0d6efd !important;
+}
+
+/* ── Responsive table overflow ───────────────────────────────── */
+.table-responsive {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
 /* 
 #app {
   max-width: 1280px;

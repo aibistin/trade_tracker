@@ -19,7 +19,7 @@ pnpm test:e2e             # Playwright end-to-end tests
 
 ## Architecture
 
-**Vue 3 + Vite + Bootstrap 5 + Axios. No Vuex/Pinia — state is router-based or component-local.**
+**Vue 3 + Vite + Bootstrap 5 + Axios + chart.js (via vue-chartjs). No Vuex/Pinia — state is router-based or component-local.**
 
 ### API Config
 `src/config.js` exports `API_BASE_URL` read from `VITE_API_BASE_URL` env var (default: `http://localhost:5000/api`).
@@ -32,16 +32,21 @@ src/
     AppContainer.vue          — Bootstrap .container wrapper
     BSNavBarTop.vue           — Top navbar: symbol dropdown, scope/asset-type toggles, search
     SymbolSearchDropdown.vue  — Self-contained search input + filtered dropdown; emits @select
-    TradeCard.vue             — Expandable buy-trade card with inline edit form
+    TradeCard.vue             — Expandable buy-trade card; lazy-fetches live price on expand (open trades only)
     TransactionSummary.vue    — Trade stats summary table
+    WinLossBar.vue            — Horizontal W/L bar: accepts wins/losses props, shows win rate %
   composables/
     useFetchTrades.js   — Generic GET fetch: fetchData(url: string) → { data, loading, error }
     useSymbolSearch.js  — Navigation helper: selectSymbol(symbol, scope) → router.push
+    useStockPrice.js    — Live price fetch: fetchPrice(symbol) → { price, loading, error }. Module-level
+                          Map cache (5-min TTL) so repeated calls within a tab skip the API.
   utils/
     tradeUtils.js       — Pure formatting functions (no Vue deps): formatCurrency, formatDate,
                           profitLossClass, formatValue, formatTradeType, formatAction, rowClass
   views/              # Page-level components registered in the router
-    AllTrades.vue   — Trade detail view for a symbol+scope
+    AllTrades.vue   — Trade detail view for a symbol+scope; shows WinLossBar below each TransactionSummary
+    Dashboard.vue   — Performance dashboard: summary cards, P&L bar chart, win-rate line chart,
+                      holdings table with on-demand live prices, by-symbol breakdown
     TradeHome.vue   — Home page: symbol search + current holdings tables
     NotFound.vue    — 404 page
   router/index.js   — Route definitions (lazy-loaded)

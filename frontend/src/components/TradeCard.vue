@@ -121,7 +121,9 @@
       <div class="tc-metrics-bar">
         <div v-if="!trade.is_done" class="tc-metric">
           <span class="tc-metric-label">Live Price</span>
-          <span class="tc-metric-value text-muted">—</span>
+          <span v-if="priceLoading" class="tc-metric-value text-muted">…</span>
+          <span v-else-if="livePrice != null" class="tc-metric-value">{{ formatCurrency(livePrice) }}</span>
+          <span v-else class="tc-metric-value text-muted">—</span>
         </div>
         <div v-if="trade.initial_stop_price" class="tc-metric">
           <span class="tc-metric-label">Stop</span>
@@ -174,6 +176,7 @@ import { ref, computed, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { formatCurrency, formatTradeType, profitLossClass, formatValue, formatDate } from '@/utils/tradeUtils.js';
 import { API_BASE_URL } from '@/config.js';
+import { useStockPrice } from '@/composables/useStockPrice.js';
 
 const props = defineProps({
   trade: { type: Object, required: true },
@@ -183,6 +186,8 @@ const props = defineProps({
 const emit = defineEmits(['trade-updated']);
 
 const expanded = ref(false);
+const { price: livePrice, loading: priceLoading, fetchPrice } = useStockPrice();
+
 const editReason = ref(props.trade.reason || '');
 const editStopPrice = ref(props.trade.initial_stop_price != null ? String(props.trade.initial_stop_price) : '');
 const editTargetSell = ref(props.trade.projected_sell_price != null ? String(props.trade.projected_sell_price) : '');
@@ -227,6 +232,10 @@ const saveStatusClass = computed(() => saveStatus.value === 'Saved!' ? 'text-suc
 
 function toggle() {
   expanded.value = !expanded.value;
+  // Lazy-fetch live price when expanding an open trade
+  if (expanded.value && !props.trade.is_done && props.trade.symbol && livePrice.value === null) {
+    fetchPrice(props.trade.symbol);
+  }
 }
 
 async function save() {

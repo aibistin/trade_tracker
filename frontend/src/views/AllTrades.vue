@@ -30,6 +30,9 @@
       <div v-if="data.transaction_stats.stock?.has_trades === true">
         <TransactionSummary :tradeSummary="data.transaction_stats.stock.summary" :stockSymbol="data.stock_symbol"
           stockType="Stock" :allTradeCount="data.transaction_stats.stock.all_trades?.length" />
+        <WinLossBar
+          :wins="data.transaction_stats.stock.summary?.winning_trades_count ?? 0"
+          :losses="data.transaction_stats.stock.summary?.losing_trades_count ?? 0" />
         <div class="tc-section">
           <TradeCard v-for="trade in allBuyTrades.stock" :key="trade.trade_id"
             :trade="trade" stockType="Stock" @trade-updated="updateTrade" />
@@ -40,6 +43,9 @@
       <div v-if="data.transaction_stats.option?.has_trades === true">
         <TransactionSummary :tradeSummary="data.transaction_stats.option.summary" :stockSymbol="data.stock_symbol"
           stockType="Option" :allTradeCount="data.transaction_stats.option.all_trades?.length" />
+        <WinLossBar
+          :wins="data.transaction_stats.option.summary?.winning_trades_count ?? 0"
+          :losses="data.transaction_stats.option.summary?.losing_trades_count ?? 0" />
         <div class="tc-section">
           <TradeCard v-for="trade in allBuyTrades.option" :key="trade.trade_id"
             :trade="trade" stockType="Option" @trade-updated="updateTrade" />
@@ -56,6 +62,7 @@ import { API_BASE_URL } from '@/config.js';
 import { useFetchTrades } from '@/composables/useFetchTrades.js';
 import TransactionSummary from '@/components/TransactionSummary.vue';
 import TradeCard from '@/components/TradeCard.vue';
+import WinLossBar from '@/components/WinLossBar.vue';
 
 const props = defineProps({
   stockSymbol: {
@@ -81,7 +88,7 @@ const WANTED_KEYS = [
   'quantity', 'amount', 'profit_loss', 'percent_profit_loss', 'is_done',
   'closed_date', 'current_sold_qty', 'current_sold_amt', 'current_profit_loss',
   'current_percent_profit_loss', 'sells', 'reason', 'initial_stop_price',
-  'projected_sell_price',
+  'projected_sell_price', 'symbol',
 ];
 
 function transformTrade(trade) {

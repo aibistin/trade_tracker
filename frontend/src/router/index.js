@@ -31,6 +31,11 @@ const routes = [
   // }
 
   {
+    path: "/dashboard",
+    name: "Dashboard",
+    component: () => import("@/views/Dashboard.vue"),
+  },
+  {
     path: "/", // Redirect root to /home
     component: () => import("@/views/TradeHome.vue"),
     redirect: "/home",

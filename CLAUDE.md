@@ -88,6 +88,12 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 `PATCH /api/trade/update/<id>` — updates `reason`, `initial_stop_price`, `projected_sell_price` on a `TradeTransaction`.
 Server-side validation in `app/services/trade_service.py`: `reason` max 500 chars; prices must be positive floats (null clears them). Returns `422` with `fields` dict on validation failure.
 
+### Dashboard API
+`GET /api/dashboard/summary` — cross-symbol aggregate (closed trades): `overall` stats + `by_symbol` list with `stock`, `option`, and `combined` keys per symbol.
+`GET /api/dashboard/pnl_over_time?asset_type=all|stock|option` — monthly and quarterly P&L buckets (sorted by period). Both endpoints loop all traded symbols through TradingAnalyzer and skip broken symbols gracefully. Helper `_build_symbol_stats(symbol, scope)` in `api_routes.py`.
+
+`TradeSummary` (in `lib/models/TradeSummary.py`) now includes `winning_trades_count`, `losing_trades_count`, and `batting_average`, computed from closed buy trades (`is_done=True`) at the end of `process_all_trades()`.
+
 ## Testing Patterns
 - **Framework:** unittest (not pytest). No conftest.py.
 - **Database:** Tests use in-memory SQLite (`sqlite:///:memory:`) with `DatabaseInserter` for test data
