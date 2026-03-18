@@ -981,6 +981,122 @@ class TestAppRoutes(unittest.TestCase):
         response = self.client.get("/open_trades/FAKE3")
         self.assertEqual(response.status_code, 200)
 
+    def test_dashboard_summary_structure(self):
+        """Dashboard summary returns correct top-level structure."""
+        response = self.client.get("/api/dashboard/summary")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertIn("overall", data)
+        self.assertIn("by_symbol", data)
+
+        overall = data["overall"]
+        for key in ("total_realized_pnl", "total_winning_trades", "total_losing_trades",
+                    "batting_average", "symbols_traded"):
+            self.assertIn(key, overall, f"Missing key in overall: {key}")
+
+    def test_dashboard_summary_overall_types(self):
+        """Dashboard summary overall values have correct types and FAKE1 option is a win."""
+        response = self.client.get("/api/dashboard/summary")
+        data = response.get_json()
+        overall = data["overall"]
+
+        # Type checks
+        self.assertIsInstance(overall["total_winning_trades"], int)
+        self.assertIsInstance(overall["total_losing_trades"], int)
+        self.assertIsInstance(overall["total_realized_pnl"], float)
+        self.assertIsInstance(overall["batting_average"], float)
+        self.assertIsInstance(overall["symbols_traded"], int)
+        self.assertGreaterEqual(overall["total_winning_trades"], 0)
+        self.assertGreaterEqual(overall["total_losing_trades"], 0)
+        self.assertGreaterEqual(overall["batting_average"], 0.0)
+        self.assertLessEqual(overall["batting_average"], 1.0)
+
+        # FAKE1 option (buy $5, sell $8) should show as a win in by_symbol
+        fake1 = next((e for e in data["by_symbol"] if e["symbol"] == "FAKE1"), None)
+        self.assertIsNotNone(fake1, "FAKE1 should appear in by_symbol")
+        self.assertIsNotNone(fake1["option"], "FAKE1 should have option stats")
+        self.assertEqual(fake1["option"]["winning_trades_count"], 1)
+        self.assertEqual(fake1["option"]["losing_trades_count"], 0)
+
+    def test_dashboard_summary_by_symbol_entries(self):
+        """Each by_symbol entry has required fields."""
+        response = self.client.get("/api/dashboard/summary")
+        data = response.get_json()
+        self.assertTrue(len(data["by_symbol"]) > 0)
+
+        entry = data["by_symbol"][0]
+        self.assertIn("symbol", entry)
+        self.assertIn("name", entry)
+        self.assertIn("combined", entry)
+        combined = entry["combined"]
+        for key in ("winning_trades_count", "losing_trades_count", "batting_average", "profit_loss"):
+            self.assertIn(key, combined, f"Missing combined key: {key}")
+
+    def test_dashboard_pnl_over_time_structure(self):
+        """pnl_over_time returns monthly and quarterly lists with required keys."""
+        response = self.client.get("/api/dashboard/pnl_over_time")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertIn("monthly", data)
+        self.assertIn("quarterly", data)
+
+        required_keys = ("period", "label", "winning_trades", "losing_trades",
+                         "batting_average", "pnl_dollars", "pnl_pct_avg")
+        for bucket_list in (data["monthly"], data["quarterly"]):
+            self.assertIsInstance(bucket_list, list)
+            if bucket_list:
+                for key in required_keys:
+                    self.assertIn(key, bucket_list[0], f"Missing key in bucket: {key}")
+
+    def test_dashboard_pnl_over_time_values(self):
+        """pnl_over_time monthly and quarterly lists are sorted and well-formed.
+
+        FAKE1 option closed 2024-12-15 → 2024-12 must appear.
+        FILT1 stock  closed 2025-02-02 → 2025-02 must appear.
+        """
+        response = self.client.get("/api/dashboard/pnl_over_time")
+        data = response.get_json()
+
+        monthly = {b["period"]: b for b in data["monthly"]}
+        quarterly = {b["period"]: b for b in data["quarterly"]}
+
+        # Both test-data periods must be present
+        self.assertIn("2024-12", monthly)
+        self.assertIn("2025-02", monthly)
+        self.assertIn("2024-Q4", quarterly)
+        self.assertIn("2025-Q1", quarterly)
+
+        # Verify list is chronologically sorted
+        periods = [b["period"] for b in data["monthly"]]
+        self.assertEqual(periods, sorted(periods))
+
+        # FAKE1 option win must be counted in 2024-12
+        self.assertGreaterEqual(monthly["2024-12"]["winning_trades"], 1)
+
+        # Each bucket has valid types
+        bucket = data["monthly"][0]
+        self.assertIsInstance(bucket["winning_trades"], int)
+        self.assertIsInstance(bucket["losing_trades"], int)
+        self.assertIsInstance(bucket["pnl_dollars"], float)
+        self.assertIsInstance(bucket["batting_average"], float)
+
+    def test_dashboard_pnl_over_time_asset_type_filter(self):
+        """asset_type filter changes results: stock-only total differs from all."""
+        all_resp = self.client.get("/api/dashboard/pnl_over_time?asset_type=all")
+        stock_resp = self.client.get("/api/dashboard/pnl_over_time?asset_type=stock")
+        self.assertEqual(all_resp.status_code, 200)
+        self.assertEqual(stock_resp.status_code, 200)
+
+        all_total = sum(b["winning_trades"] for b in all_resp.get_json()["monthly"])
+        stock_total = sum(b["winning_trades"] for b in stock_resp.get_json()["monthly"])
+        # Stock-only should have fewer wins than all (options excluded)
+        self.assertLess(stock_total, all_total)
+
+    def test_dashboard_pnl_over_time_invalid_asset_type(self):
+        """Invalid asset_type returns 400."""
+        response = self.client.get("/api/dashboard/pnl_over_time?asset_type=bad")
+        self.assertEqual(response.status_code, 400)
+
 
 class TestAPIAuth(unittest.TestCase):
     """Tests that the API key enforcement works when not in dev mode."""

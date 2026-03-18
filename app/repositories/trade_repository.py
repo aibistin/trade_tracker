@@ -231,3 +231,10 @@ def get_all_securities():
     """Fetches all securities from the database."""
     stmt = select(Security.symbol, Security.name).order_by(Security.symbol)
     return db.session.execute(stmt).all()
+
+
+def get_all_traded_symbols():
+    """Returns all unique symbols that have at least one trade transaction."""
+    from sqlalchemy import distinct
+    stmt = select(distinct(TradeTransaction.symbol)).order_by(TradeTransaction.symbol)
+    return [row[0] for row in db.session.execute(stmt).all()]

@@ -506,6 +506,91 @@ class TestTradeSummary(unittest.TestCase):
             f"[{self.symbol}] Expected basis sold: 0.0 Got: {summary.average_basis_sold_price}",
         )
 
+    def _make_closed_buy(self, trade_id, price_buy, price_sell, qty):
+        """Helper: create a fully closed BuyTrade via apply_sell_trade."""
+        buy = BuyTrade(cast(TradeData, {
+            "trade_id": trade_id,
+            "symbol": self.symbol,
+            "action": "B",
+            "trade_date": self.buy_date,
+            "trade_type": "L",
+            "quantity": qty,
+            "price": price_buy,
+            "amount": -(price_buy * qty),
+            "is_option": False,
+        }))
+        sell = SellTrade(cast(TradeData, {
+            "trade_id": trade_id + 1000,
+            "symbol": self.symbol,
+            "action": "S",
+            "trade_date": self.sell_date,
+            "trade_type": "L",
+            "quantity": qty,
+            "price": price_sell,
+            "amount": price_sell * qty,
+            "is_option": False,
+        }))
+        buy.apply_sell_trade(sell)
+        return buy
+
+    def test_win_loss_all_winners(self):
+        """Two closed winning trades → counts and batting average correct."""
+        from dataclasses import dataclass as dc
+        from typing import List as L
+
+        @dc
+        class MockBuyTrades:
+            security_type: str
+            buy_trades: list
+
+        buy1 = self._make_closed_buy(trade_id=10, price_buy=10.0, price_sell=12.0, qty=100)
+        buy2 = self._make_closed_buy(trade_id=20, price_buy=20.0, price_sell=25.0, qty=50)
+        collection = MockBuyTrades(security_type="stock", buy_trades=[buy1, buy2])
+
+        summary = TradeSummary.create_from_buy_trades_collection(
+            symbol=self.symbol, buy_trades_collection=collection
+        )
+        summary.process_all_trades(self.symbol)
+
+        self.assertEqual(summary.winning_trades_count, 2)
+        self.assertEqual(summary.losing_trades_count, 0)
+        self.assertEqual(summary.batting_average, 1.0)
+
+    def test_win_loss_mixed(self):
+        """Two wins, one loss → batting average is 0.667."""
+        from dataclasses import dataclass as dc
+
+        @dc
+        class MockBuyTrades:
+            security_type: str
+            buy_trades: list
+
+        win1 = self._make_closed_buy(trade_id=10, price_buy=10.0, price_sell=12.0, qty=100)
+        win2 = self._make_closed_buy(trade_id=20, price_buy=10.0, price_sell=11.0, qty=50)
+        loss1 = self._make_closed_buy(trade_id=30, price_buy=10.0, price_sell=8.0, qty=100)
+        collection = MockBuyTrades(security_type="stock", buy_trades=[win1, win2, loss1])
+
+        summary = TradeSummary.create_from_buy_trades_collection(
+            symbol=self.symbol, buy_trades_collection=collection
+        )
+        summary.process_all_trades(self.symbol)
+
+        self.assertEqual(summary.winning_trades_count, 2)
+        self.assertEqual(summary.losing_trades_count, 1)
+        self.assertEqual(summary.batting_average, 0.667)
+
+    def test_win_loss_no_closed_trades(self):
+        """Open trades only → all counts are zero, batting_average is 0.0."""
+        summary = TradeSummary.create_from_buy_trades_collection(
+            symbol=self.symbol, buy_trades_collection=self.stock_trades
+        )
+        summary.process_all_trades(self.symbol)
+
+        # stock_buy has only 50 of 100 shares sold → is_done=False
+        self.assertEqual(summary.winning_trades_count, 0)
+        self.assertEqual(summary.losing_trades_count, 0)
+        self.assertEqual(summary.batting_average, 0.0)
+
     def test_date_conversion(self):
         """Test after_date conversion to ISO format"""
         # Test with datetime object

@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 from ..models.models import TradeTransaction
 from ..repositories.trade_repository import (
     get_all_securities,
+    get_all_traded_symbols,
     get_current_holdings,
     get_current_holdings_symbols,
     get_trade_data_for_analysis,
@@ -272,3 +273,182 @@ def update_trade(transaction_id):
     db.session.commit()
     log.info(f"[update_trade] Updated trade {transaction_id}: {updated}")
     return jsonify({"success": True, "updated": updated}), 200
+
+
+def _build_symbol_stats(symbol, scope="closed"):
+    """Run TradingAnalyzer for a symbol and return serializable stats for stock and option."""
+    try:
+        transactions = get_trade_data_for_analysis(symbol)
+        if not transactions:
+            return None
+        analyzer = TradingAnalyzer(symbol, transactions)
+        analyzer.analyze_trades(status=scope)
+        data = analyzer.get_profit_loss_data_json()
+    except Exception as e:
+        log.warning(f"[dashboard] Skipping {symbol}: {e}")
+        return None
+
+    result = {}
+    for asset_type in ("stock", "option"):
+        sec = data.get(asset_type, {})
+        if not sec.get("has_trades"):
+            continue
+        summary = sec.get("summary", {})
+        result[asset_type] = {
+            "winning_trades_count": summary.get("winning_trades_count", 0) or 0,
+            "losing_trades_count": summary.get("losing_trades_count", 0) or 0,
+            "batting_average": summary.get("batting_average", 0.0) or 0.0,
+            "profit_loss": summary.get("profit_loss", 0.0) or 0.0,
+            "percent_profit_loss": summary.get("percent_profit_loss", 0.0) or 0.0,
+        }
+    return result if result else None
+
+
+@api_bp.route("/dashboard/summary")
+def get_dashboard_summary():
+    """Aggregate win/loss and P&L stats across all symbols (closed trades only)."""
+    # Build a name lookup from the security table
+    name_map = {symbol: name for symbol, name in get_all_securities()}
+    symbols = get_all_traded_symbols()
+
+    total_wins = 0
+    total_losses = 0
+    total_pnl = 0.0
+    by_symbol = []
+
+    for symbol in symbols:
+        stats = _build_symbol_stats(symbol, scope="closed")
+        if stats is None:
+            continue
+
+        symbol_wins = sum(s["winning_trades_count"] for s in stats.values())
+        symbol_losses = sum(s["losing_trades_count"] for s in stats.values())
+        symbol_pnl = sum(s["profit_loss"] for s in stats.values())
+
+        total_wins += symbol_wins
+        total_losses += symbol_losses
+        total_pnl += symbol_pnl
+
+        total_decided = symbol_wins + symbol_losses
+        by_symbol.append({
+            "symbol": symbol,
+            "name": name_map.get(symbol, ""),
+            "stock": stats.get("stock"),
+            "option": stats.get("option"),
+            "combined": {
+                "winning_trades_count": symbol_wins,
+                "losing_trades_count": symbol_losses,
+                "batting_average": round(symbol_wins / total_decided, 3) if total_decided else 0.0,
+                "profit_loss": round(symbol_pnl, 2),
+            },
+        })
+
+    total_decided = total_wins + total_losses
+    overall = {
+        "total_realized_pnl": round(total_pnl, 2),
+        "total_winning_trades": total_wins,
+        "total_losing_trades": total_losses,
+        "batting_average": round(total_wins / total_decided, 3) if total_decided else 0.0,
+        "symbols_traded": len(by_symbol),
+    }
+
+    log.info(f"[dashboard/summary] {len(by_symbol)} symbols, overall: {overall}")
+    return jsonify({"overall": overall, "by_symbol": by_symbol})
+
+
+@api_bp.route("/dashboard/pnl_over_time")
+def get_pnl_over_time():
+    """Monthly and quarterly P&L aggregates across all closed trades.
+
+    Optional query param:
+        asset_type: 'all' (default), 'stock', or 'option'
+    """
+    asset_type = request.args.get("asset_type", "all")
+    valid_asset_types = ["all", "stock", "option"]
+    if asset_type not in valid_asset_types:
+        return jsonify({"error": f"asset_type must be one of {valid_asset_types}"}), 400
+
+    symbols = get_all_traded_symbols()
+    security_types = ["stock", "option"] if asset_type == "all" else [asset_type]
+
+    # Collect all closed buy trades across all symbols
+    monthly = {}   # key: "YYYY-MM"
+    quarterly = {} # key: "YYYY-QN"
+
+    for symbol in symbols:
+        try:
+            transactions = get_trade_data_for_analysis(symbol)
+            if not transactions:
+                continue
+            analyzer = TradingAnalyzer(symbol, transactions)
+            analyzer.analyze_trades(status="closed")
+            data = analyzer.get_profit_loss_data_json()
+        except Exception as e:
+            log.warning(f"[dashboard/pnl_over_time] Skipping {symbol}: {e}")
+            continue
+
+        for sec_type in security_types:
+            sec = data.get(sec_type, {})
+            if not sec.get("has_trades"):
+                continue
+            for trade in sec.get("all_trades", []):
+                if not trade.get("is_buy_trade") or not trade.get("is_done"):
+                    continue
+                closed_date = trade.get("closed_date")
+                if not closed_date:
+                    continue
+
+                from datetime import datetime as dt
+                try:
+                    close_dt = dt.fromisoformat(closed_date)
+                except (ValueError, TypeError):
+                    continue
+
+                pnl = trade.get("current_profit_loss", 0.0) or 0.0
+                pnl_pct = trade.get("current_percent_profit_loss", 0.0) or 0.0
+                is_win = pnl > 0
+
+                month_key = close_dt.strftime("%Y-%m")
+                q_num = (close_dt.month - 1) // 3 + 1
+                quarter_key = f"{close_dt.year}-Q{q_num}"
+
+                for bucket_key, buckets in ((month_key, monthly), (quarter_key, quarterly)):
+                    if bucket_key not in buckets:
+                        buckets[bucket_key] = {
+                            "winning_trades": 0,
+                            "losing_trades": 0,
+                            "pnl_dollars": 0.0,
+                            "pnl_pct_sum": 0.0,
+                            "trade_count": 0,
+                        }
+                    b = buckets[bucket_key]
+                    b["winning_trades"] += 1 if is_win else 0
+                    b["losing_trades"] += 0 if is_win else 1
+                    b["pnl_dollars"] += pnl
+                    b["pnl_pct_sum"] += pnl_pct
+                    b["trade_count"] += 1
+
+    def _format_bucket(key, b, is_quarterly):
+        decided = b["winning_trades"] + b["losing_trades"]
+        avg_pct = round(b["pnl_pct_sum"] / b["trade_count"], 2) if b["trade_count"] else 0.0
+        if is_quarterly:
+            year, q = key.split("-")
+            label = f"{q} {year}"
+        else:
+            from datetime import datetime as dt
+            label = dt.strptime(key, "%Y-%m").strftime("%b %Y")
+        return {
+            "period": key,
+            "label": label,
+            "winning_trades": b["winning_trades"],
+            "losing_trades": b["losing_trades"],
+            "batting_average": round(b["winning_trades"] / decided, 3) if decided else 0.0,
+            "pnl_dollars": round(b["pnl_dollars"], 2),
+            "pnl_pct_avg": avg_pct,
+        }
+
+    monthly_list = [_format_bucket(k, v, False) for k, v in sorted(monthly.items())]
+    quarterly_list = [_format_bucket(k, v, True) for k, v in sorted(quarterly.items())]
+
+    log.info(f"[dashboard/pnl_over_time] {len(monthly_list)} months, {len(quarterly_list)} quarters")
+    return jsonify({"monthly": monthly_list, "quarterly": quarterly_list})

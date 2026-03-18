@@ -295,7 +295,15 @@ class TradeSummary:
             all_buy_trades.append(current_buy_record)
 
         self.calculate_final_totals(running_sold_quantity, running_sold_amount)
-        # TODO: remove buy trades
+
+        # Compute win/loss counts from fully closed trades
+        done_trades = [t for t in all_buy_trades if t.is_done]
+        self.winning_trades_count = sum(1 for t in done_trades if t.current_profit_loss > 0)
+        self.losing_trades_count = sum(1 for t in done_trades if t.current_profit_loss < 0)
+        total_decided = self.winning_trades_count + self.losing_trades_count
+        self.batting_average = (
+            round(self.winning_trades_count / total_decided, 3) if total_decided > 0 else 0.0
+        )
 
         return all_buy_trades
 
