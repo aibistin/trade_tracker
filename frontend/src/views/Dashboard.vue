@@ -71,14 +71,14 @@
       </div>
     </div>
 
-    <!-- Current Holdings -->
+    <!-- Stock Holdings -->
     <div class="dash-section">
-      <h5 class="dash-section-title">Current Holdings</h5>
+      <h5 class="dash-section-title">Stock Holdings</h5>
       <div v-if="holdingsLoading" class="text-center py-4">
         <div class="spinner-border text-warning" role="status"></div>
       </div>
       <div v-else-if="holdingsError" class="alert alert-danger">{{ holdingsError }}</div>
-      <div v-else-if="holdings && holdings.length > 0" class="table-responsive">
+      <div v-else-if="stockHoldings.length > 0" class="table-responsive">
         <table class="table table-sm table-hover dash-holdings-table">
           <thead>
             <tr>
@@ -92,13 +92,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="h in holdings" :key="h.symbol + h.trade_type">
+            <tr v-for="h in stockHoldings" :key="h.symbol + h.trade_type">
               <td>
                 <router-link :to="`/trades/open/${h.symbol}`" class="dash-symbol-link">{{ h.symbol }}</router-link>
               </td>
               <td class="text-muted small">{{ h.name }}</td>
               <td><span class="dash-type-badge" :class="typeBadgeClass(h.trade_type)">{{ tradeTypeLabel(h.trade_type) }}</span></td>
-              <td class="text-end">{{ h.shares }}</td>
+              <td class="text-end">{{ Number(h.shares).toFixed(2) }}</td>
               <td class="text-end">{{ formatCurrency(h.average_price) }}</td>
               <td class="text-end" :class="h.profit_loss >= 0 ? 'text-success' : 'text-danger'">
                 {{ formatCurrency(h.profit_loss) }}
@@ -116,7 +116,55 @@
           </tbody>
         </table>
       </div>
-      <div v-else class="text-muted py-3">No open holdings found.</div>
+      <div v-else-if="!holdingsLoading && !holdingsError" class="text-muted py-3">No open stock holdings.</div>
+    </div>
+
+    <!-- Option Holdings -->
+    <div class="dash-section">
+      <h5 class="dash-section-title">Option Holdings</h5>
+      <div v-if="holdingsLoading" class="text-center py-4">
+        <div class="spinner-border text-warning" role="status"></div>
+      </div>
+      <div v-else-if="holdingsError" class="alert alert-danger">{{ holdingsError }}</div>
+      <div v-else-if="optionHoldings.length > 0" class="table-responsive">
+        <table class="table table-sm table-hover dash-holdings-table">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th class="text-end">Contracts</th>
+              <th class="text-end">Avg Price</th>
+              <th class="text-end">Cost Basis P/L</th>
+              <th class="text-end">Live Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="h in optionHoldings" :key="h.symbol + h.trade_type">
+              <td>
+                <router-link :to="`/trades/open/${h.symbol}`" class="dash-symbol-link">{{ h.symbol }}</router-link>
+              </td>
+              <td class="text-muted small">{{ h.name }}</td>
+              <td><span class="dash-type-badge" :class="typeBadgeClass(h.trade_type)">{{ tradeTypeLabel(h.trade_type) }}</span></td>
+              <td class="text-end">{{ Number(h.shares).toFixed(2) }}</td>
+              <td class="text-end">{{ formatCurrency(h.average_price) }}</td>
+              <td class="text-end" :class="h.profit_loss >= 0 ? 'text-success' : 'text-danger'">
+                {{ formatCurrency(h.profit_loss) }}
+              </td>
+              <td class="text-end">
+                <span v-if="livePrices[h.symbol]?.loading" class="text-muted small">…</span>
+                <span v-else-if="livePrices[h.symbol]?.price != null">
+                  {{ formatCurrency(livePrices[h.symbol].price) }}
+                </span>
+                <button v-else class="btn btn-xs btn-outline-secondary" @click="loadLivePrice(h.symbol)">
+                  Get Price
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-else-if="!holdingsLoading && !holdingsError" class="text-muted py-3">No open option holdings.</div>
     </div>
 
     <!-- By Symbol Breakdown -->
@@ -347,6 +395,14 @@ const winRateOptions = {
 }
 
 // ── Computed Helpers ──────────────────────────────────────────────────
+
+const stockHoldings = computed(() =>
+  (holdings.value ?? []).filter(h => ['L', 'S'].includes(h.trade_type))
+)
+
+const optionHoldings = computed(() =>
+  (holdings.value ?? []).filter(h => ['C', 'P', 'O'].includes(h.trade_type))
+)
 
 const sortedBySymbol = computed(() => {
   if (!summary.value) return []
