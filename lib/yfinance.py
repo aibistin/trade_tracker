@@ -28,6 +28,11 @@ class YahooFinance:
         self.ticker_class = ticker_class  # Store the ticker class
         self.results = {}
 
+    @staticmethod
+    def _sanitize_cache_filename(symbol):
+        """Convert a symbol to a safe filename for caching (handles option tickers with slashes/spaces)."""
+        return symbol.replace("/", "_").replace(" ", "_")
+
     def get_stock_data(self, max_age_minutes=60):
         """
         Fetches stock data from Yahoo Finance and caches it in a JSON file.
@@ -38,7 +43,8 @@ class YahooFinance:
         """
         project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         data_dir = os.path.join(project_dir, "data", "yfinance")
-        file_path = os.path.join(data_dir, f"{self.stock_symbol}.json")
+        safe_name = self._sanitize_cache_filename(self.stock_symbol)
+        file_path = os.path.join(data_dir, f"{safe_name}.json")
 
         if not os.path.exists(data_dir):
             raise FileNotFoundError(f"The directory '{data_dir}' does not exist.")

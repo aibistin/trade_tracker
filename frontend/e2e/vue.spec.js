@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('home page loads with title and search input', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/trading/i);
-  await expect(page.locator('h1')).toContainText('Stock Trading App');
+  await expect(page.locator('h1')).toContainText('Trade Tracker');
   await expect(page.locator('input[placeholder="Type to search..."]')).toBeVisible();
 });
 

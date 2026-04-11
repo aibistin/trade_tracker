@@ -60,31 +60,27 @@ function closeDropdown() {
   position: relative;
 }
 
+.symbol-search-dropdown input {
+  width: 220px;
+  min-width: 160px;
+}
+
 .dropdown-menu {
   position: absolute;
   top: 100%;
-  left: 0;
+  right: 0;
   z-index: 1000;
-  width: 100%;
+  min-width: 260px;
   max-height: 300px;
   overflow-y: auto;
-  background-color: white;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 0.25rem;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.175);
 }
 
-.dropdown-item {
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-}
-
-.dropdown-item:hover {
-  background-color: #f8f9fa;
+.dropdown-menu.show {
+  display: block;
 }
 
 .dropdown-item.disabled {
-  color: #6c757d;
+  color: var(--color-terminal-text-dim);
   pointer-events: none;
 }
 </style>

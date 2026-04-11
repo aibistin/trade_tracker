@@ -16,16 +16,39 @@ vi.mock('vue-chartjs', () => ({
   Line: { template: '<div class="stub-line" />' },
 }));
 
-vi.mock('chart.js', () => ({
-  Chart: { register: vi.fn() },
-  CategoryScale: {},
-  LinearScale: {},
-  BarElement: {},
-  PointElement: {},
-  LineElement: {},
-  Title: {},
-  Tooltip: {},
-  Legend: {},
+vi.mock('chart.js', () => {
+  function ChartMock() { this.destroy = vi.fn(); }
+  ChartMock.register = vi.fn();
+  return {
+    Chart: ChartMock,
+    CategoryScale: {},
+    LinearScale: {},
+    BarElement: {},
+    PointElement: {},
+    LineElement: {},
+    Filler: {},
+    Title: {},
+    Tooltip: {},
+    Legend: {},
+  };
+});
+
+vi.mock('chartjs-chart-treemap', () => ({
+  TreemapController: {},
+  TreemapElement: {},
+}));
+
+// Stub canvas-based components that use new Chart() directly
+vi.mock('@/components/PortfolioHeatmap.vue', () => ({
+  default: { template: '<div class="stub-heatmap" />' },
+}));
+
+vi.mock('@/components/CumulativePnlChart.vue', () => ({
+  default: { template: '<div class="stub-cumulative" />' },
+}));
+
+vi.mock('@/components/SparklineChart.vue', () => ({
+  default: { template: '<div class="stub-sparkline" />' },
 }));
 
 const summaryResponse = {
@@ -64,17 +87,29 @@ const pnlResponse = {
   ],
 };
 
-const holdingsResponse = [
-  { symbol: 'AAPL', trade_type: 'L', shares: 50, average_price: 180.00, profit_loss: 500.00, name: 'Apple Inc.' },
-  { symbol: 'TSLA', trade_type: 'L', shares: 10, average_price: 220.00, profit_loss: -300.00, name: 'Tesla Inc.' },
-];
+const holdingsResponse = {
+  stock: {
+    positions: [
+      { symbol: 'AAPL', trade_type: 'L', quantity: 50, avg_cost: 180.00, cost_basis: 9000.00, current_price: null, market_value: null, unrealized_pnl: null, pnl_pct: null, name: 'Apple Inc.' },
+      { symbol: 'TSLA', trade_type: 'L', quantity: 10, avg_cost: 220.00, cost_basis: 2200.00, current_price: null, market_value: null, unrealized_pnl: null, pnl_pct: null, name: 'Tesla Inc.' },
+    ],
+    total_cost_basis: 11200.00,
+    total_market_value: null,
+    total_unrealized_pnl: null,
+  },
+  option: {
+    positions: [],
+    total_cost_basis: null,
+    total_market_value: null,
+    total_unrealized_pnl: null,
+  },
+};
 
 function mockAllRequests() {
   axios.get.mockImplementation((url) => {
     if (url.includes('dashboard/summary'))       return Promise.resolve({ data: summaryResponse });
     if (url.includes('dashboard/pnl_over_time')) return Promise.resolve({ data: pnlResponse });
-    if (url.includes('current_holdings_json'))   return Promise.resolve({ data: holdingsResponse });
-    if (url.includes('get_stock_data'))          return Promise.resolve({ data: { currentPrice: 190.00 } });
+    if (url.includes('/api/holdings'))           return Promise.resolve({ data: holdingsResponse });
     return Promise.reject(new Error(`Unmocked URL: ${url}`));
   });
 }
@@ -106,50 +141,63 @@ describe('Dashboard', () => {
     expect(wrapper.text()).toContain('5');            // symbols traded
   });
 
-  it('renders one holdings row per holding', async () => {
+  it('renders one holdings row per stock position', async () => {
     mockAllRequests();
     const wrapper = mountDashboard();
     await flushPromises();
-    const rows = wrapper.findAll('.dash-holdings-table tbody tr');
-    expect(rows).toHaveLength(holdingsResponse.length);
+    // Stock holdings table is the first .table in the DOM
+    const firstTable = wrapper.findAll('.table')[0];
+    const rows = firstTable.findAll('tbody tr');
+    expect(rows).toHaveLength(holdingsResponse.stock.positions.length);
   });
 
-  it('shows a Get Price button for each holding initially', async () => {
+  it('shows cost basis for each stock position', async () => {
     mockAllRequests();
     const wrapper = mountDashboard();
     await flushPromises();
-    const buttons = wrapper.findAll('button').filter((b) => b.text() === 'Get Price');
-    expect(buttons).toHaveLength(holdingsResponse.length);
+    expect(wrapper.text()).toContain('$9,000.00');
+    expect(wrapper.text()).toContain('$2,200.00');
   });
 
-  it('calls the price API when Get Price is clicked', async () => {
+  it('shows dash for current price when server provides null', async () => {
     mockAllRequests();
     const wrapper = mountDashboard();
     await flushPromises();
-    const btn = wrapper.findAll('button').find((b) => b.text() === 'Get Price');
-    await btn.trigger('click');
-    await flushPromises();
-    expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('get_stock_data/AAPL'));
+    // current_price is null in holdingsResponse — the price cell shows '--'
+    const stockTable = wrapper.findAll('.table')[0];
+    expect(stockTable.text()).toContain('--');
   });
 
-  it('replaces Get Price button with live price after fetch', async () => {
-    mockAllRequests();
+  it('shows current price and unrealized P&L when provided by server', async () => {
+    const holdingsWithPrice = {
+      stock: {
+        positions: [
+          { symbol: 'AAPL', trade_type: 'L', quantity: 50, avg_cost: 180.00, cost_basis: 9000.00, current_price: 195.00, market_value: 9750.00, unrealized_pnl: 750.00, pnl_pct: 8.33, name: 'Apple Inc.' },
+        ],
+        total_cost_basis: 9000.00, total_market_value: 9750.00, total_unrealized_pnl: 750.00,
+      },
+      option: { positions: [], total_cost_basis: null, total_market_value: null, total_unrealized_pnl: null },
+    };
+    axios.get.mockImplementation((url) => {
+      if (url.includes('dashboard/summary'))       return Promise.resolve({ data: summaryResponse });
+      if (url.includes('dashboard/pnl_over_time')) return Promise.resolve({ data: pnlResponse });
+      if (url.includes('/api/holdings'))           return Promise.resolve({ data: holdingsWithPrice });
+      return Promise.reject(new Error(`Unmocked URL: ${url}`));
+    });
     const wrapper = mountDashboard();
     await flushPromises();
-    const btn = wrapper.findAll('button').find((b) => b.text() === 'Get Price');
-    await btn.trigger('click');
-    await flushPromises();
-    expect(wrapper.text()).toContain('$190.00');
-    // Button for AAPL should be gone; one remaining for TSLA
-    const remaining = wrapper.findAll('button').filter((b) => b.text() === 'Get Price');
-    expect(remaining).toHaveLength(1);
+    expect(wrapper.text()).toContain('$195.00');  // current_price
+    expect(wrapper.text()).toContain('$750.00');  // unrealized_pnl
   });
 
   it('renders by-symbol breakdown rows', async () => {
     mockAllRequests();
     const wrapper = mountDashboard();
     await flushPromises();
-    const rows = wrapper.findAll('.dash-symbol-table tbody tr');
+    // The by-symbol breakdown table is the last .table in the DOM
+    const allTables = wrapper.findAll('.table');
+    const symbolTable = allTables[allTables.length - 1];
+    const rows = symbolTable.findAll('tbody tr');
     expect(rows).toHaveLength(summaryResponse.by_symbol.length);
     expect(wrapper.text()).toContain('Apple Inc.');
     expect(wrapper.text()).toContain('75.0%');
@@ -168,14 +216,18 @@ describe('Dashboard', () => {
   });
 
   it('shows an empty holdings message when there are no open positions', async () => {
+    const emptyHoldings = {
+      stock: { positions: [], total_cost_basis: null, total_market_value: null, total_unrealized_pnl: null },
+      option: { positions: [], total_cost_basis: null, total_market_value: null, total_unrealized_pnl: null },
+    };
     axios.get.mockImplementation((url) => {
       if (url.includes('dashboard/summary'))       return Promise.resolve({ data: summaryResponse });
       if (url.includes('dashboard/pnl_over_time')) return Promise.resolve({ data: pnlResponse });
-      if (url.includes('current_holdings_json'))   return Promise.resolve({ data: [] });
+      if (url.includes('/api/holdings'))           return Promise.resolve({ data: emptyHoldings });
       return Promise.reject(new Error(`Unmocked URL: ${url}`));
     });
     const wrapper = mountDashboard();
     await flushPromises();
-    expect(wrapper.text()).toContain('No open holdings found');
+    expect(wrapper.text()).toContain('No open stock holdings.');
   });
 });

@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code when working with this repository.
 Frontend-specific guidance lives in `frontend/CLAUDE.md` (loaded automatically when working inside `frontend/`).
+This file contains the current state of this project. 
+The proposed new functionality can be found in `docs/PLAN.md`. This is what you need to
+work on. 
 
 ## Commands
 
@@ -69,13 +72,14 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 
 ### Core Library (`lib/`)
 - `trading_analyzer.py` — Main analysis engine: converts transaction dicts → Trade objects, matches buys to sells, calculates P&L. Expects **lowercase dict keys** (`id`, `symbol`, `action`, etc.).
+- `option_utils.py` — `label_to_occ(label: str) -> str` converts a raw Schwab option label (e.g. `"UUUU 04/17/2026 23.00 C"`) to OCC format (`"UUUU260417C00023000"`) for yfinance lookups. Raises `ValueError` on malformed input.
 - `models/Trade.py` — `Trade` base class with `BuyTrade` and `SellTrade` subclasses. BuyTrade holds matched `sells` list. Supports field aliases: `id`↔`trade_id`, `label`↔`trade_label`. `BuyTrade.apply_sell_trade()` rounds `applied_qty` to 4 decimal places and rounds `sell_trade.quantity` after each subtraction to prevent floating-point drift across partial fills. `BuyTrade.closed_date` is set to `sell_trade.trade_date` when `is_done` becomes `True` (guarded with `closed_date is None` so only the closing sell's date is captured).
 - `models/Trades.py` — Collection class that groups trades by account (`sells_by_account` dict), separates stocks from options
 - `models/TradeSummary.py` — Aggregates statistics (avg price, total P&L, share counts) from trade collections. Uses `dataclasses_json`.
 - `models/ActionMapping.py` — Maps action codes (B, S, BO, SC, etc.) to descriptions and trade types. `is_buy_type_action()` / `is_sell_type_action()` for classification.
 - `csv_processing_utils.py` — Parses Schwab CSV exports. Uses `logging` module (not print).
 - `db_utils.py` — `DatabaseInserter` helper for bulk inserts with parameterized SQL
-- `yfinance.py` — Yahoo Finance integration. File-based JSON caching (60min TTL) in `data/yfinance/`. Does **not** pass a custom session to `yf.Ticker` (yfinance requires its own `curl_cffi` session internally). `ticker_class` param allows injection for testing.
+- `yfinance.py` — Yahoo Finance integration. File-based JSON caching (60min TTL) in `data/yfinance/`. Does **not** pass a custom session to `yf.Ticker` (yfinance requires its own `curl_cffi` session internally). `ticker_class` param allows injection for testing. Price field priority: `lastPrice` → `regularMarketPrice` → `currentPrice`.
 
 ### Data Flow
 1. Schwab CSV → `bin/process_schwab_transactions.py` → SQLite
@@ -87,6 +91,13 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 ### Trade Update API
 `PATCH /api/trade/update/<id>` — updates `reason`, `initial_stop_price`, `projected_sell_price` on a `TradeTransaction`.
 Server-side validation in `app/services/trade_service.py`: `reason` max 500 chars; prices must be positive floats (null clears them). Returns `422` with `fields` dict on validation failure.
+
+### Holdings API
+`GET /api/holdings` — aggregated open positions, split into `stock` and `option` sections. Each section has a `positions` list and section-level totals (`total_cost_basis`, `total_market_value`, `total_unrealized_pnl`).
+- **Stocks** — one row per ticker, aggregated across all open lots. Fields: `symbol`, `name`, `trade_type`, `quantity`, `avg_cost`, `cost_basis`, `current_price`, `market_value`, `unrealized_pnl`, `pnl_pct`.
+- **Options** — one row per option contract label, aggregated across lots. Same fields plus `occ_ticker` (OCC-format ticker used for yfinance). Live prices fetched via `label_to_occ()` before calling yfinance.
+
+`GET /api/option/price?label=<schwab_label>` — fetches the live market price for a single option contract. Converts the raw Schwab label to OCC format server-side. Returns `{ price, bid, ask, occ_ticker }`. Used by the `useOptionPrice` frontend composable.
 
 ### Dashboard API
 `GET /api/dashboard/summary` — cross-symbol aggregate (closed trades): `overall` stats + `by_symbol` list with `stock`, `option`, and `combined` keys per symbol.

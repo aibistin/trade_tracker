@@ -4,9 +4,9 @@
       <span class="wlb-wins">{{ wins }}W</span>
       <span class="wlb-sep"> / </span>
       <span class="wlb-losses">{{ losses }}L</span>
-      <span class="wlb-avg"> · {{ (battingAvg * 100).toFixed(1) }}% win rate</span>
+      <span class="wlb-avg"> &middot; {{ (battingAvg * 100).toFixed(1) }}% win rate</span>
       <span v-if="avgWin != null" class="wlb-detail">
-        · avg win <span class="wlb-wins">{{ formatCurrency(avgWin) }}</span>
+        &middot; avg win <span class="wlb-wins">{{ formatCurrency(avgWin) }}</span>
       </span>
       <span v-if="avgLoss != null" class="wlb-detail">
         / avg loss <span class="wlb-losses">{{ formatCurrency(avgLoss) }}</span>
@@ -42,32 +42,37 @@ const battingAvg = computed(() => total.value > 0 ? props.wins / total.value : 0
 }
 
 .wlb-label {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   margin-bottom: 4px;
 }
 
 .wlb-wins {
-  color: #198754;
+  color: var(--color-profit);
   font-weight: 700;
 }
 
 .wlb-losses {
-  color: #dc3545;
+  color: var(--color-loss);
   font-weight: 700;
 }
 
 .wlb-sep {
-  color: #6c757d;
+  color: var(--color-terminal-text-dim);
 }
 
 .wlb-avg {
-  color: #495057;
+  color: var(--color-terminal-text-muted);
+}
+
+.wlb-detail {
+  color: var(--color-terminal-text-muted);
+  font-size: 0.73rem;
 }
 
 .wlb-track {
-  height: 6px;
+  height: 5px;
   border-radius: 3px;
-  background: #dee2e6;
+  background: var(--color-terminal-panel);
   display: flex;
   overflow: hidden;
 }
@@ -78,10 +83,10 @@ const battingAvg = computed(() => total.value > 0 ? props.wins / total.value : 0
 }
 
 .wlb-fill-win {
-  background: #198754;
+  background: var(--color-profit);
 }
 
 .wlb-fill-loss {
-  background: #dc3545;
+  background: var(--color-loss);
 }
 </style>

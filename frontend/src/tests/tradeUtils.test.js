@@ -36,16 +36,16 @@ describe('formatCurrency', () => {
 });
 
 describe('profitLossClass', () => {
-  it('returns text-success for positive values', () => {
-    expect(profitLossClass(100)).toBe('text-success');
+  it('returns text-profit for positive values', () => {
+    expect(profitLossClass(100)).toBe('text-profit');
   });
 
-  it('returns text-success for zero', () => {
-    expect(profitLossClass(0)).toBe('text-success');
+  it('returns text-profit for zero', () => {
+    expect(profitLossClass(0)).toBe('text-profit');
   });
 
-  it('returns text-danger for negative values', () => {
-    expect(profitLossClass(-1)).toBe('text-danger');
+  it('returns text-loss for negative values', () => {
+    expect(profitLossClass(-1)).toBe('text-loss');
   });
 });
 

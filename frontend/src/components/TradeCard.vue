@@ -3,7 +3,7 @@
 
     <!-- Main Summary Row -->
     <div class="tc-row" @click="toggle">
-      <span class="tc-chevron" :class="{ 'is-open': expanded }">›</span>
+      <span class="tc-chevron" :class="{ 'is-open': expanded }">&#x203A;</span>
 
       <!-- Identity: ID + type pill -->
       <div class="tc-group tc-group-id">
@@ -23,10 +23,8 @@
         </div>
       </div>
 
-      <!-- Flexible data area: spreads proportionally to fill available space -->
+      <!-- Flexible data area -->
       <div class="tc-trade-data">
-
-        <!-- Position: Qty @ Price = Cost -->
         <div class="tc-group tc-group-position">
           <div class="tc-labeled-val">
             <span class="tc-micro-label">Qty</span>
@@ -46,7 +44,6 @@
 
         <span class="tc-divider" aria-hidden="true"></span>
 
-        <!-- Sold: Qty Sold / Proceeds -->
         <div class="tc-group tc-group-sold">
           <div class="tc-labeled-val">
             <span class="tc-micro-label">Qty Sold</span>
@@ -59,7 +56,6 @@
           </div>
         </div>
 
-        <!-- P/L amount + percentage -->
         <div class="tc-group tc-group-pl">
           <div class="tc-labeled-val">
             <span class="tc-micro-label">P/L</span>
@@ -74,16 +70,15 @@
             </span>
           </div>
         </div>
-
-      </div><!-- /tc-trade-data -->
+      </div>
 
       <!-- Status pill -->
       <span class="tc-status-pill" :class="statusPillClass">{{ statusText }}</span>
     </div>
 
-    <!-- Option Label (always visible for option trades) -->
+    <!-- Option Label -->
     <div v-if="isOption && trade.trade_label" class="tc-option-label">
-      <span class="tc-label-icon">◆</span>
+      <span class="tc-label-icon">&#x25C6;</span>
       <span class="tc-label-text">{{ trade.trade_label }}</span>
     </div>
 
@@ -94,7 +89,7 @@
       <div v-if="hasSells" class="tc-sells">
         <div class="tc-sells-title">Matched Sells ({{ trade.sells.length }})</div>
         <div class="tc-sell-row tc-sell-head">
-          <span>ID·Acct</span>
+          <span>ID-Acct</span>
           <span>Date</span>
           <span>Qty</span>
           <span>Price</span>
@@ -117,25 +112,41 @@
         </div>
       </div>
 
-      <!-- Metrics Bar -->
-      <div class="tc-metrics-bar">
-        <div v-if="!trade.is_done" class="tc-metric">
-          <span class="tc-metric-label">Live Price</span>
-          <span v-if="priceLoading" class="tc-metric-value text-muted">…</span>
+      <!-- Metrics Bar: live pricing for open trades -->
+      <div v-if="!trade.is_done" class="tc-metrics-bar">
+        <div class="tc-metric">
+          <span class="tc-metric-label">{{ isOption ? 'Option Price' : 'Live Price' }}</span>
+          <span v-if="priceLoading" class="tc-metric-value text-muted">...</span>
           <span v-else-if="livePrice != null" class="tc-metric-value">{{ formatCurrency(livePrice) }}</span>
-          <span v-else class="tc-metric-value text-muted">—</span>
+          <span v-else class="tc-metric-value text-muted">--</span>
         </div>
-        <div v-if="unrealizedPnl != null" class="tc-metric">
-          <span class="tc-metric-label">Unreal. P&amp;L{{ isOption ? ' (est.)' : '' }}</span>
-          <span class="tc-metric-value" :class="profitLossClass(unrealizedPnl)">{{ formatCurrency(unrealizedPnl) }}</span>
+        <div class="tc-metric">
+          <span class="tc-metric-label">Cost{{ isOption ? ' (×100)' : '' }}</span>
+          <span class="tc-metric-value">{{ formatCurrency(openCost) }}</span>
         </div>
+        <div v-if="marketValue != null" class="tc-metric">
+          <span class="tc-metric-label">Mkt Value</span>
+          <span class="tc-metric-value" :class="profitLossClass(priceDiff)">{{ formatCurrency(marketValue) }}</span>
+        </div>
+        <div v-if="priceDiff != null" class="tc-metric">
+          <span class="tc-metric-label">Diff</span>
+          <span class="tc-metric-value" :class="profitLossClass(priceDiff)">{{ formatCurrency(priceDiff) }}</span>
+        </div>
+        <div v-if="priceDiffPct != null" class="tc-metric">
+          <span class="tc-metric-label">Diff %</span>
+          <span class="tc-metric-value" :class="profitLossClass(priceDiffPct)">{{ formatValue(priceDiffPct) }}%</span>
+        </div>
+      </div>
+
+      <!-- Metrics Bar: stop / target / reason (always shown when set) -->
+      <div v-if="trade.initial_stop_price || trade.projected_sell_price || trade.reason" class="tc-metrics-bar">
         <div v-if="trade.initial_stop_price" class="tc-metric">
           <span class="tc-metric-label">Stop</span>
-          <span class="tc-metric-value text-danger">{{ formatCurrency(trade.initial_stop_price) }}</span>
+          <span class="tc-metric-value text-loss">{{ formatCurrency(trade.initial_stop_price) }}</span>
         </div>
         <div v-if="trade.projected_sell_price" class="tc-metric">
           <span class="tc-metric-label">Target</span>
-          <span class="tc-metric-value text-success">{{ formatCurrency(trade.projected_sell_price) }}</span>
+          <span class="tc-metric-value text-profit">{{ formatCurrency(trade.projected_sell_price) }}</span>
         </div>
         <div v-if="trade.reason" class="tc-metric tc-metric-reason">
           <span class="tc-metric-label">Reason</span>
@@ -147,24 +158,24 @@
       <div class="tc-edit-form">
         <div class="tc-edit-field">
           <label class="tc-edit-label">Reason</label>
-          <input type="text" v-model="editReason" placeholder="Enter reason…" maxlength="500"
-            class="form-control form-control-sm" @click.stop />
+          <input type="text" v-model="editReason" placeholder="Enter reason..." maxlength="500"
+            @click.stop />
         </div>
         <div class="tc-edit-field">
           <label class="tc-edit-label">Stop Price</label>
           <input type="number" step="0.01" v-model="editStopPrice" placeholder="0.00"
-            class="form-control form-control-sm" @click.stop />
+            @click.stop />
         </div>
         <div class="tc-edit-field">
           <label class="tc-edit-label">Target Sell</label>
           <input type="number" step="0.01" v-model="editTargetSell" placeholder="0.00"
-            class="form-control form-control-sm" @click.stop />
+            @click.stop />
         </div>
         <div class="tc-edit-field tc-edit-actions">
           <label class="tc-edit-label">&nbsp;</label>
-          <div class="d-flex align-items-center gap-2">
+          <div class="tc-edit-btn-row">
             <button class="btn btn-sm btn-primary tc-save-btn" @click.stop="save" :disabled="saving">
-              {{ saving ? 'Saving…' : 'Save' }}
+              {{ saving ? 'Saving...' : 'Save' }}
             </button>
             <span v-if="saveStatus" class="tc-save-status" :class="saveStatusClass">{{ saveStatus }}</span>
           </div>
@@ -181,6 +192,7 @@ import axios from 'axios';
 import { formatCurrency, formatTradeType, profitLossClass, formatValue, formatDate } from '@/utils/tradeUtils.js';
 import { API_BASE_URL } from '@/config.js';
 import { useStockPrice } from '@/composables/useStockPrice.js';
+import { useOptionPrice } from '@/composables/useOptionPrice.js';
 
 const props = defineProps({
   trade: { type: Object, required: true },
@@ -190,7 +202,8 @@ const props = defineProps({
 const emit = defineEmits(['trade-updated']);
 
 const expanded = ref(false);
-const { price: livePrice, loading: priceLoading, fetchPrice } = useStockPrice();
+const { price: stockPrice, loading: stockPriceLoading, fetchPrice: fetchStockPrice } = useStockPrice();
+const { price: optionPrice, loading: optionPriceLoading, fetchPrice: fetchOptionPrice } = useOptionPrice();
 
 const editReason = ref(props.trade.reason || '');
 const editStopPrice = ref(props.trade.initial_stop_price != null ? String(props.trade.initial_stop_price) : '');
@@ -202,12 +215,27 @@ let saveTimer = null;
 const isOption = computed(() => ['C', 'P', 'O'].includes(props.trade.trade_type));
 const hasSells = computed(() => Array.isArray(props.trade.sells) && props.trade.sells.length > 0);
 
-// Unrealized P&L based on live price. Options use 100x multiplier (estimated — live price
-// is the underlying, not the option contract value).
-const unrealizedPnl = computed(() => {
+// Unified live price: option trades use option price, stock trades use stock price
+const livePrice = computed(() => isOption.value ? optionPrice.value : stockPrice.value);
+const priceLoading = computed(() => isOption.value ? optionPriceLoading.value : stockPriceLoading.value);
+
+// Open-position metrics (meaningful only for open trades with a live price)
+const multiplier = computed(() => isOption.value ? 100 : 1);
+const remainingQty = computed(() =>
+  Math.max(0, (props.trade.quantity || 0) - (props.trade.current_sold_qty || 0))
+);
+const openCost = computed(() => props.trade.price * remainingQty.value * multiplier.value);
+const marketValue = computed(() => {
   if (livePrice.value == null || props.trade.is_done) return null;
-  const multiplier = isOption.value ? 100 : 1;
-  return (livePrice.value - props.trade.price) * props.trade.quantity * multiplier;
+  return livePrice.value * remainingQty.value * multiplier.value;
+});
+const priceDiff = computed(() => {
+  if (marketValue.value == null) return null;
+  return marketValue.value - openCost.value;
+});
+const priceDiffPct = computed(() => {
+  if (priceDiff.value == null || openCost.value === 0) return null;
+  return (priceDiff.value / openCost.value) * 100;
 });
 
 const statusText = computed(() => {
@@ -240,13 +268,16 @@ const typePillClass = computed(() => {
   return '';
 });
 
-const saveStatusClass = computed(() => saveStatus.value === 'Saved!' ? 'text-success' : 'text-danger');
+const saveStatusClass = computed(() => saveStatus.value === 'Saved!' ? 'text-profit' : 'text-loss');
 
 function toggle() {
   expanded.value = !expanded.value;
-  // Lazy-fetch live price when expanding an open trade
-  if (expanded.value && !props.trade.is_done && props.trade.symbol && livePrice.value === null) {
-    fetchPrice(props.trade.symbol);
+  if (expanded.value && !props.trade.is_done && livePrice.value === null) {
+    if (isOption.value && props.trade.trade_label) {
+      fetchOptionPrice(props.trade.trade_label);
+    } else if (!isOption.value && props.trade.symbol) {
+      fetchStockPrice(props.trade.symbol);
+    }
   }
 }
 
@@ -279,34 +310,19 @@ onBeforeUnmount(() => {
 <style scoped>
 /* ── Card Container ─────────────────────────────────────────── */
 .tc-card {
-  background: #cff4fc;
-  border: 1px solid #bacbe3;
-  border-left-width: 4px;
+  background: var(--color-terminal-surface);
+  border: 1px solid var(--color-terminal-border-subtle);
+  border-left-width: 3px;
   border-radius: 0;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   overflow: hidden;
-  color: #000;
 }
 
-.tc-accent-long {
-  border-left-color: #0d6efd;
-}
-
-.tc-accent-short {
-  border-left-color: #dc3545;
-}
-
-.tc-accent-call {
-  border-left-color: #198754;
-}
-
-.tc-accent-put {
-  border-left-color: #fd7e14;
-}
-
-.tc-accent-other {
-  border-left-color: #6c757d;
-}
+.tc-accent-long { border-left-color: var(--color-long); }
+.tc-accent-short { border-left-color: var(--color-short); }
+.tc-accent-call { border-left-color: var(--color-call); }
+.tc-accent-put { border-left-color: var(--color-put); }
+.tc-accent-other { border-left-color: var(--color-terminal-text-dim); }
 
 /* ── Main Row ───────────────────────────────────────────────── */
 .tc-row {
@@ -320,14 +336,14 @@ onBeforeUnmount(() => {
 }
 
 .tc-row:hover {
-  background: #bfdaec;
+  background: var(--color-terminal-hover);
 }
 
 /* ── Chevron ────────────────────────────────────────────────── */
 .tc-chevron {
   display: inline-block;
   font-size: 1rem;
-  color: #495057;
+  color: var(--color-terminal-text-dim);
   flex-shrink: 0;
   transition: transform 0.2s;
   line-height: 1;
@@ -335,22 +351,21 @@ onBeforeUnmount(() => {
 
 .tc-chevron.is-open {
   transform: rotate(90deg);
-  color: #212529;
+  color: var(--color-accent-cyan);
 }
 
-/* ── Labeled Value (micro-label stacked above value) ────────── */
+/* ── Labeled Value ────────────────────────────────────────────── */
 .tc-labeled-val {
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
 
-/* ── Micro Labels ───────────────────────────────────────────── */
 .tc-micro-label {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #8a9bb0;
+  color: var(--color-terminal-text-dim);
   white-space: nowrap;
 }
 
@@ -362,17 +377,9 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.tc-group-id {
-  gap: 7px;
-  flex-shrink: 0;
-}
+.tc-group-id { gap: 7px; flex-shrink: 0; }
+.tc-group-dates { gap: 12px; flex-shrink: 0; }
 
-.tc-group-dates {
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-/* Flexible middle: position + sold + P/L spread proportionally */
 .tc-trade-data {
   display: flex;
   align-items: center;
@@ -381,22 +388,13 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
-.tc-group-position {
-  gap: 6px;
-}
+.tc-group-position { gap: 6px; }
+.tc-group-sold { gap: 6px; }
+.tc-group-pl { gap: 14px; }
 
-.tc-group-sold {
-  gap: 6px;
-}
-
-.tc-group-pl {
-  gap: 14px;
-}
-
-/* Inline separators (@, =, /) sit at baseline of values */
 .tc-sep {
   font-size: 0.75rem;
-  color: #9aa3ad;
+  color: var(--color-terminal-text-dim);
   align-self: flex-end;
   margin-bottom: 1px;
 }
@@ -404,28 +402,24 @@ onBeforeUnmount(() => {
 /* ── Text Values ────────────────────────────────────────────── */
 .tc-id {
   font-size: 0.8rem;
-  color: #212529;
+  color: var(--color-terminal-text-muted);
 }
 
 .tc-date {
   font-size: 0.82rem;
-  color: #212529;
+  color: var(--color-terminal-text);
   white-space: nowrap;
 }
 
 .tc-closed-date {
   font-size: 0.82rem;
-  color: #5a6a7e;
+  color: var(--color-terminal-text-muted);
   white-space: nowrap;
 }
 
-.tc-qty,
-.tc-price,
-.tc-basis,
-.tc-sold-qty,
-.tc-sold-amt {
+.tc-qty, .tc-price, .tc-basis, .tc-sold-qty, .tc-sold-amt {
   font-size: 0.82rem;
-  color: #212529;
+  color: var(--color-terminal-text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -439,7 +433,7 @@ onBeforeUnmount(() => {
 .tc-divider {
   width: 1px;
   height: 28px;
-  background: rgba(0, 0, 0, 0.13);
+  background: var(--color-terminal-border);
   flex-shrink: 0;
 }
 
@@ -448,83 +442,68 @@ onBeforeUnmount(() => {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 99px;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  background: rgba(0, 0, 0, 0.1);
-  color: #212529;
+  background: var(--color-terminal-panel);
+  color: var(--color-terminal-text-muted);
 }
 
-.pill-long {
-  background: rgba(13, 110, 253, 0.15);
-  color: #0a58ca;
-}
-
-.pill-short {
-  background: rgba(220, 53, 69, 0.15);
-  color: #b02a37;
-}
-
-.pill-call {
-  background: rgba(25, 135, 84, 0.15);
-  color: #146c43;
-}
-
-.pill-put {
-  background: rgba(253, 126, 20, 0.15);
-  color: #ca6510;
-}
+.pill-long { background: rgba(59,130,246,0.15); color: var(--color-long); }
+.pill-short { background: rgba(239,68,68,0.15); color: var(--color-short); }
+.pill-call { background: rgba(34,197,94,0.15); color: var(--color-call); }
+.pill-put { background: rgba(249,115,22,0.15); color: var(--color-put); }
 
 /* ── Status Pills ───────────────────────────────────────────── */
 .tc-status-pill {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 99px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   flex-shrink: 0;
 }
 
 .tc-open {
-  background: #f8f9fa;
-  color: #6c757d;
-  border: 1px solid #dee2e6;
+  background: var(--color-terminal-panel);
+  color: var(--color-terminal-text-muted);
+  border: 1px solid var(--color-terminal-border);
 }
 
 .tc-win {
-  background: #198754;
-  color: #fff;
+  background: rgba(34,197,94,0.2);
+  color: var(--color-profit);
 }
 
 .tc-loss {
-  background: #dc3545;
-  color: #fff;
+  background: rgba(239,68,68,0.2);
+  color: var(--color-loss);
 }
 
 .tc-neutral {
-  background: #6c757d;
-  color: #fff;
+  background: var(--color-terminal-panel);
+  color: var(--color-terminal-text-dim);
 }
 
 /* ── Option Label Sub-row ───────────────────────────────────── */
 .tc-option-label {
   padding: 2px 14px 5px 42px;
-  font-size: 0.76rem;
-  color: #0a58ca;
+  font-size: 0.74rem;
+  color: var(--color-accent-cyan);
   letter-spacing: 0.03em;
 }
 
 .tc-label-icon {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   margin-right: 5px;
   opacity: 0.5;
 }
 
 /* ── Detail Panel ───────────────────────────────────────────── */
 .tc-detail {
-  border-top: 1px solid #bacbe3;
-  background: #bee5eb;
+  border-top: 1px solid var(--color-terminal-border);
+  background: var(--color-terminal-panel);
   padding: 12px 16px;
 }
 
@@ -543,16 +522,16 @@ onBeforeUnmount(() => {
 }
 
 .tc-metric-label {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #495057;
+  color: var(--color-terminal-text-dim);
 }
 
 .tc-metric-value {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #212529;
+  color: var(--color-terminal-text);
 }
 
 .tc-metric-reason .tc-metric-value {
@@ -568,9 +547,9 @@ onBeforeUnmount(() => {
   align-items: flex-end;
   margin-bottom: 14px;
   padding: 10px 14px;
-  background: #cff4fc;
-  border-radius: 10px;
-  border: 1px solid #bacbe3;
+  background: var(--color-terminal-bg);
+  border-radius: 6px;
+  border: 1px solid var(--color-terminal-border-subtle);
 }
 
 .tc-edit-field {
@@ -580,11 +559,17 @@ onBeforeUnmount(() => {
 }
 
 .tc-edit-label {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #495057;
+  color: var(--color-terminal-text-dim);
   margin-bottom: 3px;
+}
+
+.tc-edit-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tc-save-btn {
@@ -592,20 +577,20 @@ onBeforeUnmount(() => {
 }
 
 .tc-save-status {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
 /* ── Matched Sells ──────────────────────────────────────────── */
 .tc-sells {
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
 .tc-sells-title {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #495057;
+  color: var(--color-terminal-text-dim);
   margin-bottom: 5px;
 }
 
@@ -615,27 +600,27 @@ onBeforeUnmount(() => {
   gap: 8px;
   padding: 5px 10px;
   align-items: center;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
 }
 
 .tc-sell-head {
-  font-size: 0.67rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #495057;
-  background: rgba(0, 0, 0, 0.09);
-  border-radius: 6px 6px 0 0;
+  color: var(--color-terminal-text-dim);
+  background: var(--color-terminal-bg);
+  border-radius: 4px 4px 0 0;
   padding: 4px 10px;
 }
 
 .tc-sell-data {
-  background: #e0f4fa;
-  color: #000;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--color-terminal-surface);
+  color: var(--color-terminal-text);
+  border-top: 1px solid var(--color-terminal-border-subtle);
 }
 
 .tc-sell-data:last-child {
-  border-radius: 0 0 6px 6px;
+  border-radius: 0 0 4px 4px;
 }
 </style>

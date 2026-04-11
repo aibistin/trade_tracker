@@ -73,102 +73,93 @@ defineProps({
 </script>
 
 <style scoped>
-/* ── Rounded Outer Wrapper ──────────────────────────────────── */
-/* overflow: hidden clips all child elements to the rounded edge */
 .ts-wrapper {
-  border-radius: 10px;
+  border-radius: 6px;
   overflow: hidden;
   margin-bottom: 16px;
-  border: 1px solid #373b3e;
+  border: 1px solid var(--color-terminal-border);
 }
 
-/* ── Table Shell ────────────────────────────────────────────── */
 .ts-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 0;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
 }
 
-/* ── Title Row ─────────────────────────────────────────────── */
-/* Matches AllTrades column header: table-dark #212529          */
 .ts-title {
-  background: #212529;
-  color: #fff;
+  background: var(--color-terminal-bg);
+  color: var(--color-terminal-text);
   text-align: center;
   padding: 8px 12px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
 .ts-symbol {
-  color: #74c2e1;
+  color: var(--color-accent-cyan);
 }
 
-/* ── Column Group Headers ───────────────────────────────────── */
-/* Each group uses a distinct dark tint + colored bottom accent  */
 .ts-group {
   text-align: center;
   padding: 6px 8px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border: 1px solid #373b3e;
-  border-bottom-width: 3px;
+  border: 1px solid var(--color-terminal-border);
+  border-bottom-width: 2px;
 }
 
 .ts-group-bought {
-  background: #0c1c32;
-  color: #7ab3e8;
-  border-bottom-color: #0d6efd;
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--color-long);
+  border-bottom-color: var(--color-long);
 }
 
 .ts-group-sold {
-  background: #2a0d0d;
-  color: #e88a8a;
-  border-bottom-color: #dc3545;
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--color-loss);
+  border-bottom-color: var(--color-loss);
 }
 
 .ts-group-unsold {
-  background: #0a2116;
-  color: #7acca0;
-  border-bottom-color: #198754;
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--color-profit);
+  border-bottom-color: var(--color-profit);
 }
 
 .ts-group-result {
-  background: #1f1200;
-  color: #e8b47a;
-  border-bottom-color: #fd7e14;
+  background: rgba(249, 115, 22, 0.08);
+  color: var(--color-accent-orange);
+  border-bottom-color: var(--color-accent-orange);
 }
 
-/* ── Column Name Headers ────────────────────────────────────── */
 .ts-col {
-  background: #2c3237;
-  color: #adb5bd;
+  background: var(--color-terminal-panel);
+  color: var(--color-terminal-text-muted);
   text-align: center;
   padding: 5px 8px;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
-  border: 1px solid #373b3e;
+  border: 1px solid var(--color-terminal-border-subtle);
 }
 
-/* ── Data Row ───────────────────────────────────────────────── */
-/* Matches TradeCard: table-info #cff4fc, dark text             */
 .ts-data-row td {
-  background: #cff4fc;
-  color: #000;
+  background: var(--color-terminal-surface);
+  color: var(--color-terminal-text);
   text-align: center;
   padding: 7px 8px;
-  border: 1px solid #bacbe3;
+  border: 1px solid var(--color-terminal-border-subtle);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .ts-data-row td:hover {
-  background: #bfdaec;
+  background: var(--color-terminal-hover);
 }
 </style>

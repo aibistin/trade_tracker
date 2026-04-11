@@ -1,11 +1,14 @@
 # app/routes/api_routes.py
 import os
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, request, jsonify
 from app.utils import filter_symbols
 from lib.trading_analyzer import TradingAnalyzer
 from lib.yfinance import YahooFinance
+from lib.option_utils import label_to_occ
+import yfinance as yf_lib
 
 api_bp = Blueprint("api", __name__)
 log = logging.getLogger(__name__)
@@ -97,6 +100,46 @@ def get_current_holdings_symbols_json():
         f"[get_current_holdings_symbols_json] Current Symbols[:3]: {current_symbols[:3]}"
     )
     return jsonify(current_symbols)
+
+
+@api_bp.route("/options/prices", methods=["POST"])
+def get_options_prices():
+    """Get current prices for a list of option tickers.
+
+    Request body: {"tickers": ["AAPL250117C00150000", ...]}
+    Returns: {"prices": {"AAPL250117C00150000": {"bid": ..., "ask": ..., "last": ..., "symbol": ...}, ...}}
+    """
+    data = request.get_json(silent=True)
+    if data is None or "tickers" not in data:
+        return jsonify({"error": "Request body must contain a 'tickers' list"}), 400
+
+    tickers = data["tickers"]
+    if not isinstance(tickers, list):
+        return jsonify({"error": "'tickers' must be a list"}), 400
+
+    prices = {}
+    for ticker in tickers:
+        if not isinstance(ticker, str) or not ticker.strip():
+            continue
+        try:
+            yf = YahooFinance(ticker)
+            yf.get_stock_data()
+            info = yf.get_results()
+            if info:
+                prices[ticker] = {
+                    "bid": info.get("bid"),
+                    "ask": info.get("ask"),
+                    "last": info.get("lastPrice") or info.get("regularMarketPrice") or info.get("currentPrice"),
+                    "symbol": info.get("symbol", ticker),
+                }
+            else:
+                prices[ticker] = {"bid": None, "ask": None, "last": None, "symbol": ticker}
+        except Exception as e:
+            log.warning(f"[options/prices] Failed to fetch price for {ticker}: {e}")
+            prices[ticker] = {"bid": None, "ask": None, "last": None, "symbol": ticker}
+
+    log.info(f"[options/prices] Fetched prices for {len(prices)}/{len(tickers)} tickers")
+    return jsonify({"prices": prices})
 
 
 @api_bp.route("/trades/<string:scope>/json/<string:stock_symbol>")
@@ -273,6 +316,401 @@ def update_trade(transaction_id):
     db.session.commit()
     log.info(f"[update_trade] Updated trade {transaction_id}: {updated}")
     return jsonify({"success": True, "updated": updated}), 200
+
+
+@api_bp.route("/holdings")
+def get_holdings():
+    """Get genuinely open positions using TradingAnalyzer to match buys against sells.
+
+    Stock positions are aggregated by symbol (one row per ticker, no duplicates).
+    Option positions are aggregated by contract label (one row per unique option contract).
+    Option prices are fetched using OCC-format tickers converted from Schwab labels.
+
+    Returns separate stock and option sections, each with per-position details.
+    """
+    symbols = get_all_traded_symbols()
+    name_map = {symbol: name for symbol, name in get_all_securities()}
+
+    # symbol -> { name, trade_type, total_qty, total_cost }
+    stock_agg = {}
+    # label -> { occ_ticker, symbol, name, trade_type, total_qty, total_cost }
+    option_agg = {}
+
+    for symbol in symbols:
+        try:
+            transactions = get_trade_data_for_analysis(symbol)
+            if not transactions:
+                continue
+            analyzer = TradingAnalyzer(symbol, transactions)
+            analyzer.analyze_trades(status="open")
+            data = analyzer.get_profit_loss_data_json()
+        except Exception as e:
+            log.warning(f"[holdings] Skipping {symbol}: {e}")
+            continue
+
+        # Aggregate stock positions by symbol
+        sec = data.get("stock", {})
+        if sec.get("has_trades"):
+            for trade in sec.get("all_trades", []):
+                if not trade.get("is_buy_trade"):
+                    continue
+                remaining_qty = trade["quantity"] - trade.get("current_sold_qty", 0)
+                if remaining_qty <= 0:
+                    continue
+                if symbol not in stock_agg:
+                    stock_agg[symbol] = {
+                        "name": name_map.get(symbol, ""),
+                        "trade_type": trade.get("trade_type", "L"),
+                        "total_qty": 0.0,
+                        "total_cost": 0.0,
+                    }
+                stock_agg[symbol]["total_qty"] += remaining_qty
+                stock_agg[symbol]["total_cost"] += trade["price"] * remaining_qty
+
+        # Aggregate option positions by contract label
+        sec = data.get("option", {})
+        if sec.get("has_trades"):
+            for trade in sec.get("all_trades", []):
+                if not trade.get("is_buy_trade"):
+                    continue
+                remaining_qty = trade["quantity"] - trade.get("current_sold_qty", 0)
+                if remaining_qty <= 0:
+                    continue
+                label = trade.get("trade_label", "")
+                if not label:
+                    continue
+                try:
+                    occ_ticker = label_to_occ(label)
+                except ValueError as e:
+                    log.warning(f"[holdings] Cannot convert option label {label!r}: {e}")
+                    continue
+                if label not in option_agg:
+                    option_agg[label] = {
+                        "occ_ticker": occ_ticker,
+                        "symbol": symbol,
+                        "name": name_map.get(symbol, ""),
+                        "trade_type": trade.get("trade_type", ""),
+                        "total_qty": 0.0,
+                        "total_cost": 0.0,
+                    }
+                option_agg[label]["total_qty"] += remaining_qty
+                option_agg[label]["total_cost"] += trade["price"] * remaining_qty * 100
+
+    # Build flat position lists
+    stock_positions = []
+    for symbol, agg in stock_agg.items():
+        qty = round(agg["total_qty"], 4)
+        cost_basis = round(agg["total_cost"], 2)
+        avg_cost = round(cost_basis / qty, 4) if qty > 0 else 0.0
+        stock_positions.append({
+            "symbol": symbol,
+            "name": agg["name"],
+            "trade_type": agg["trade_type"],
+            "label": "",
+            "quantity": qty,
+            "avg_cost": avg_cost,
+            "cost_basis": cost_basis,
+            "current_price": None,
+            "market_value": None,
+            "unrealized_pnl": None,
+            "pnl_pct": None,
+        })
+
+    option_positions = []
+    for label, agg in option_agg.items():
+        qty = round(agg["total_qty"], 4)
+        cost_basis = round(agg["total_cost"], 2)
+        # avg_cost is per-contract price (cost_basis already includes ×100 multiplier)
+        avg_cost = round(cost_basis / (qty * 100), 4) if qty > 0 else 0.0
+        option_positions.append({
+            "symbol": agg["symbol"],
+            "name": agg["name"],
+            "trade_type": agg["trade_type"],
+            "label": label,
+            "occ_ticker": agg["occ_ticker"],
+            "quantity": qty,
+            "avg_cost": avg_cost,
+            "cost_basis": cost_basis,
+            "current_price": None,
+            "market_value": None,
+            "unrealized_pnl": None,
+            "pnl_pct": None,
+        })
+
+    # Fetch current prices in parallel — stocks by symbol, options by OCC ticker
+    def _fetch_yf_price(ticker_key, is_option):
+        try:
+            yf = YahooFinance(ticker_key)
+            yf.get_stock_data()
+            info = yf.get_results()
+            if not info:
+                return ticker_key, None
+            if is_option:
+                price = info.get("lastPrice") or info.get("regularMarketPrice") or info.get("currentPrice")
+            else:
+                price = info.get("currentPrice") or info.get("regularMarketPrice")
+            return ticker_key, price
+        except Exception as e:
+            log.warning(f"[holdings] Failed to fetch price for {ticker_key}: {e}")
+            return ticker_key, None
+
+    fetch_tasks = {}
+    for pos in stock_positions:
+        fetch_tasks[pos["symbol"]] = False  # stock
+    for pos in option_positions:
+        fetch_tasks[pos["occ_ticker"]] = True  # option (OCC format)
+
+    price_map = {}
+    if fetch_tasks:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = {pool.submit(_fetch_yf_price, k, v): k for k, v in fetch_tasks.items()}
+            for fut in as_completed(futures):
+                key, price = fut.result()
+                price_map[key] = price
+
+    for pos in stock_positions:
+        price = price_map.get(pos["symbol"])
+        if price is not None:
+            pos["current_price"] = price
+            pos["market_value"] = round(price * pos["quantity"], 2)
+            pos["unrealized_pnl"] = round(pos["market_value"] - pos["cost_basis"], 2)
+            pos["pnl_pct"] = (
+                round((pos["unrealized_pnl"] / pos["cost_basis"]) * 100, 2)
+                if pos["cost_basis"] != 0 else 0.0
+            )
+
+    for pos in option_positions:
+        price = price_map.get(pos["occ_ticker"])
+        if price is not None:
+            pos["current_price"] = price
+            pos["market_value"] = round(price * pos["quantity"] * 100, 2)
+            pos["unrealized_pnl"] = round(pos["market_value"] - pos["cost_basis"], 2)
+            pos["pnl_pct"] = (
+                round((pos["unrealized_pnl"] / pos["cost_basis"]) * 100, 2)
+                if pos["cost_basis"] != 0 else 0.0
+            )
+
+    stock_total_cost = sum(p["cost_basis"] for p in stock_positions)
+    stock_total_value = sum(p["market_value"] for p in stock_positions if p["market_value"] is not None)
+    option_total_cost = sum(p["cost_basis"] for p in option_positions)
+    option_total_value = sum(p["market_value"] for p in option_positions if p["market_value"] is not None)
+
+    log.info(f"[holdings] {len(stock_positions)} stock positions, {len(option_positions)} option positions")
+    return jsonify({
+        "stock": {
+            "positions": stock_positions,
+            "total_cost_basis": round(stock_total_cost, 2),
+            "total_market_value": round(stock_total_value, 2),
+            "total_unrealized_pnl": round(stock_total_value - stock_total_cost, 2),
+        },
+        "option": {
+            "positions": option_positions,
+            "total_cost_basis": round(option_total_cost, 2),
+            "total_market_value": round(option_total_value, 2),
+            "total_unrealized_pnl": round(option_total_value - option_total_cost, 2),
+        },
+    })
+
+
+@api_bp.route("/option/price")
+def get_option_price():
+    """Fetch current price for a single option by its Schwab label string.
+
+    Query params:
+        label: Schwab option label, e.g. "UUUU 04/17/2026 23.00 C"
+
+    Returns:
+        { "price": float|null, "bid": float|null, "ask": float|null, "occ_ticker": str }
+    """
+    label = request.args.get("label", "").strip()
+    if not label:
+        return jsonify({"error": "label query parameter is required"}), 400
+
+    try:
+        occ_ticker = label_to_occ(label)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    price = bid = ask = None
+    try:
+        yf = YahooFinance(occ_ticker)
+        yf.get_stock_data()
+        info = yf.get_results()
+        if info:
+            price = info.get("lastPrice") or info.get("regularMarketPrice") or info.get("currentPrice")
+            bid = info.get("bid")
+            ask = info.get("ask")
+    except Exception as e:
+        log.warning(f"[option/price] Failed to fetch price for {occ_ticker}: {e}")
+
+    return jsonify({"price": price, "bid": bid, "ask": ask, "occ_ticker": occ_ticker})
+
+
+@api_bp.route("/ticker/history/<string:symbol>")
+def get_ticker_history(symbol):
+    """Return OHLCV price history and trade annotations for sparkline charts.
+
+    Query params:
+        period: yfinance period string (default '3mo'). Valid: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
+        interval: yfinance interval string (default '1d'). Valid: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
+    """
+    period = request.args.get("period", "3mo")
+    interval = request.args.get("interval", "1d")
+
+    valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
+    valid_intervals = ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"]
+
+    if period not in valid_periods:
+        return jsonify({"error": f"period must be one of {valid_periods}"}), 400
+    if interval not in valid_intervals:
+        return jsonify({"error": f"interval must be one of {valid_intervals}"}), 400
+
+    # Fetch price history from yfinance
+    prices = []
+    try:
+        ticker = yf_lib.Ticker(symbol)
+        hist = ticker.history(period=period, interval=interval)
+        for date, row in hist.iterrows():
+            prices.append({
+                "date": date.strftime("%Y-%m-%d"),
+                "open": round(row["Open"], 2),
+                "high": round(row["High"], 2),
+                "low": round(row["Low"], 2),
+                "close": round(row["Close"], 2),
+                "volume": int(row["Volume"]),
+            })
+    except Exception as e:
+        log.warning(f"[ticker/history] Failed to fetch history for {symbol}: {e}")
+
+    # Fetch trade annotations from DB
+    trades = []
+    try:
+        transactions = get_trade_data_for_analysis(symbol)
+        for t in transactions:
+            trade_date = t.get("trade_date")
+            if hasattr(trade_date, "strftime"):
+                trade_date = trade_date.strftime("%Y-%m-%d")
+            elif isinstance(trade_date, str) and "T" in trade_date:
+                trade_date = trade_date.split("T")[0]
+            trades.append({
+                "date": trade_date,
+                "action": t.get("action"),
+                "price": t.get("price"),
+                "quantity": t.get("quantity"),
+                "trade_type": t.get("trade_type", ""),
+                "label": t.get("label", ""),
+            })
+    except Exception as e:
+        log.warning(f"[ticker/history] Failed to fetch trades for {symbol}: {e}")
+
+    log.info(f"[ticker/history] {symbol}: {len(prices)} price points, {len(trades)} trades")
+    return jsonify({"symbol": symbol, "prices": prices, "trades": trades})
+
+
+@api_bp.route("/portfolio/heatmap")
+def get_portfolio_heatmap():
+    """Return open positions formatted for a treemap visualization.
+
+    Each position includes market_value, cost_basis, unrealized_pnl, pnl_pct,
+    and weight (fraction of total portfolio market value).
+    """
+    symbols = get_all_traded_symbols()
+    name_map = {symbol: name for symbol, name in get_all_securities()}
+
+    positions = []
+
+    for symbol in symbols:
+        try:
+            transactions = get_trade_data_for_analysis(symbol)
+            if not transactions:
+                continue
+            analyzer = TradingAnalyzer(symbol, transactions)
+            analyzer.analyze_trades(status="open")
+            data = analyzer.get_profit_loss_data_json()
+        except Exception as e:
+            log.warning(f"[heatmap] Skipping {symbol}: {e}")
+            continue
+
+        for asset_type in ("stock", "option"):
+            sec = data.get(asset_type, {})
+            if not sec.get("has_trades"):
+                continue
+            for trade in sec.get("all_trades", []):
+                if not trade.get("is_buy_trade"):
+                    continue
+                remaining_qty = trade["quantity"] - trade.get("current_sold_qty", 0)
+                if remaining_qty <= 0:
+                    continue
+
+                avg_cost = trade["price"]
+                multiplier = 100 if asset_type == "option" else 1
+                cost_basis = round(avg_cost * remaining_qty * multiplier, 2)
+
+                position = {
+                    "symbol": symbol,
+                    "name": name_map.get(symbol, ""),
+                    "trade_type": asset_type,
+                    "label": trade.get("trade_label", ""),
+                    "quantity": remaining_qty,
+                    "cost_basis": cost_basis,
+                    "market_value": None,
+                    "unrealized_pnl": None,
+                    "pnl_pct": None,
+                    "weight": 0.0,
+                }
+                positions.append(position)
+
+    # Fetch current prices — options use OCC-format tickers
+    price_cache = {}
+    for pos in positions:
+        if pos["trade_type"] == "option" and pos["label"]:
+            try:
+                cache_key = label_to_occ(pos["label"])
+            except ValueError:
+                log.warning(f"[heatmap] Cannot convert label: {pos['label']!r}")
+                continue
+        else:
+            cache_key = pos["symbol"]
+
+        if cache_key in price_cache:
+            price = price_cache[cache_key]
+        else:
+            price = None
+            try:
+                yf = YahooFinance(cache_key)
+                yf.get_stock_data()
+                info = yf.get_results()
+                if info:
+                    price = (
+                        info.get("lastPrice")
+                        or info.get("regularMarketPrice")
+                        or info.get("currentPrice")
+                    )
+            except Exception as e:
+                log.warning(f"[heatmap] Failed to fetch price for {cache_key}: {e}")
+            price_cache[cache_key] = price
+
+        if price is not None:
+            multiplier = 100 if pos["trade_type"] == "option" else 1
+            pos["market_value"] = round(price * pos["quantity"] * multiplier, 2)
+            pos["unrealized_pnl"] = round(pos["market_value"] - pos["cost_basis"], 2)
+            pos["pnl_pct"] = (
+                round((pos["unrealized_pnl"] / pos["cost_basis"]) * 100, 2)
+                if pos["cost_basis"] != 0 else 0.0
+            )
+
+    # Compute weights based on market value (or cost_basis as fallback)
+    total_value = sum(
+        p["market_value"] if p["market_value"] is not None else p["cost_basis"]
+        for p in positions
+    )
+    if total_value > 0:
+        for pos in positions:
+            val = pos["market_value"] if pos["market_value"] is not None else pos["cost_basis"]
+            pos["weight"] = round(val / total_value, 4)
+
+    log.info(f"[portfolio/heatmap] {len(positions)} positions, total_value={total_value}")
+    return jsonify({"positions": positions, "total_market_value": round(total_value, 2)})
 
 
 def _build_symbol_stats(symbol, scope="closed"):

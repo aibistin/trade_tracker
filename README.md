@@ -10,10 +10,13 @@ Track stock and options trades made on the Schwab brokerage platform.
 
 ## Features
 
-- **Home page:** Current stock and option holdings tables with All/Stocks/Options filter toggle; symbol search dropdown
+- **Dashboard:** Summary cards, P&L bar chart, cumulative P&L line, win-rate trend, portfolio heatmap, and aggregated holdings — all in one view
+- **Stock holdings:** One aggregated row per ticker; shows current price, market value, and unrealized P&L fetched from Yahoo Finance
+- **Option holdings:** Grouped by underlying symbol with expand/collapse; live option prices fetched via OCC-format tickers from Yahoo Finance
 - **Trade view:** All, open, or closed positions for any symbol, with per-trade P&L
+- **Live pricing per trade:** Expand any open trade card to see live price, cost, market value, diff, and diff% (options use ×100 multiplier)
 - **Filtering:** Filter by date, account, and asset type (stock vs option)
-- **Transaction detail:** Price, quantity, profit/loss, and percent P&L per trade
+- **Home page:** Current holdings tables with All/Stocks/Options toggle; symbol search dropdown
 - **Schwab CSV import:** Process brokerage exports directly into the database
 
 ## Setup

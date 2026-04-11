@@ -19,6 +19,23 @@ vi.mock('@/composables/useStockPrice.js', () => ({
   }),
 }));
 
+// Shared refs for useOptionPrice
+const mockOptionPrice = ref(null);
+const mockOptionLoading = ref(false);
+const mockFetchOptionPrice = vi.fn();
+
+vi.mock('@/composables/useOptionPrice.js', () => ({
+  useOptionPrice: () => ({
+    price: mockOptionPrice,
+    bid: ref(null),
+    ask: ref(null),
+    occTicker: ref(null),
+    loading: mockOptionLoading,
+    error: ref(null),
+    fetchPrice: mockFetchOptionPrice,
+  }),
+}));
+
 const makeTrade = (overrides = {}) => ({
   trade_id: 1,
   account: 'C',
@@ -50,6 +67,9 @@ describe('TradeCard', () => {
     mockFetchPrice.mockReset();
     mockPrice.value = null;
     mockLoading.value = false;
+    mockFetchOptionPrice.mockReset();
+    mockOptionPrice.value = null;
+    mockOptionLoading.value = false;
   });
 
   it('renders trade ID and account in collapsed state', () => {
@@ -86,14 +106,14 @@ describe('TradeCard', () => {
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
     await wrapper.find('.tc-row').trigger('click');
     const metricsText = wrapper.find('.tc-metrics-bar').text();
-    expect(metricsText).toContain('—');
+    expect(metricsText).toContain('--');
   });
 
   it('shows loading indicator while fetching price', async () => {
     mockLoading.value = true;
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
     await wrapper.find('.tc-row').trigger('click');
-    expect(wrapper.find('.tc-metrics-bar').text()).toContain('…');
+    expect(wrapper.find('.tc-metrics-bar').text()).toContain('...');
   });
 
   it('shows live price once fetched', async () => {
@@ -157,14 +177,15 @@ describe('TradeCard', () => {
     expect(wrapper.text()).toContain('$150.00');
   });
 
-  it('shows unrealized P&L with est. label for an option', async () => {
-    // option: qty 1 contract bought at $2.50 premium; live underlying $3.00 → (3-2.5)*1*100 = $50
-    mockPrice.value = 3.00;
+  it('shows unrealized P&L diff for an option after price is loaded', async () => {
+    // option: qty 1 contract bought at $2.50 premium; live option price $3.00
+    // openCost = 2.50 * 1 * 100 = $250; marketValue = 3.00 * 100 = $300; diff = $50
+    mockOptionPrice.value = 3.00;
     const trade = makeTrade({ trade_type: 'C', quantity: 1, price: 2.50 });
     const wrapper = mount(TradeCard, { props: { trade } });
     await wrapper.find('.tc-row').trigger('click');
-    expect(wrapper.text()).toContain('est.');
-    expect(wrapper.text()).toContain('$50.00');
+    expect(wrapper.text()).toContain('$50.00');   // Diff
+    expect(wrapper.text()).toContain('$250.00');  // Cost (×100)
   });
 
   it('does not show unrealized P&L before live price is fetched', async () => {

@@ -7,7 +7,7 @@ function formatCurrency(value) {
 }
 
 function profitLossClass(value) {
-  return value >= 0 ? "text-success" : "text-danger";
+  return value >= 0 ? "text-profit" : "text-loss";
 }
 
 function formatValue(value) {

@@ -182,7 +182,7 @@ class TestAppRoutes(unittest.TestCase):
                 "projected_sell_price": None,
                 "account": "C",
             },
-            # Option trades for FAKE1
+            # Option trades for FAKE1 (closed)
             {
                 "symbol": "FAKE1",
                 "action": "BO",
@@ -211,6 +211,23 @@ class TestAppRoutes(unittest.TestCase):
                 "price": 8.00,
                 "amount": 800.0,
                 "target_price": 50.0,
+                "initial_stop_price": None,
+                "projected_sell_price": None,
+                "account": "C",
+            },
+            # Open option position for FAKE3 (no sell)
+            {
+                "symbol": "FAKE3",
+                "action": "BO",
+                "label": "FAKE3 06/20/2025 220.00 C",
+                "trade_type": "C",
+                "trade_date": "2025-03-15 11:00",
+                "expiration_date": "2025-06-20",
+                "reason": "Test Buy Option FAKE3 Open",
+                "quantity": 2,
+                "price": 3.50,
+                "amount": -700.0,
+                "target_price": 220.0,
                 "initial_stop_price": None,
                 "projected_sell_price": None,
                 "account": "C",
@@ -471,11 +488,13 @@ class TestAppRoutes(unittest.TestCase):
             self.assertIn("profit_loss", holding, "Holding missing 'profit_loss' field")
             self.assertIn("name", holding, "Holding missing 'name' field")
 
-        # Verify FAKE3 open position is in holdings
+        # Verify FAKE3 open positions are in holdings (stock + option)
         fake3_holdings = [h for h in holdings if h["symbol"] == "FAKE3"]
-        self.assertEqual(len(fake3_holdings), 1, "FAKE3 should have 1 open holding")
-        self.assertEqual(fake3_holdings[0]["shares"], 25)
-        self.assertEqual(fake3_holdings[0]["trade_type"], "L")
+        self.assertEqual(len(fake3_holdings), 2, "FAKE3 should have 2 open holdings (stock + option)")
+        fake3_stock = [h for h in fake3_holdings if h["trade_type"] == "L"]
+        self.assertEqual(len(fake3_stock), 1, "FAKE3 should have 1 open stock holding")
+        self.assertEqual(fake3_stock[0]["shares"], 25)
+        self.assertEqual(fake3_stock[0]["trade_type"], "L")
 
     # @unittest.skip("Skip test_api_symbols")
     def test_api_symbols(self):
@@ -1096,6 +1115,362 @@ class TestAppRoutes(unittest.TestCase):
         """Invalid asset_type returns 400."""
         response = self.client.get("/api/dashboard/pnl_over_time?asset_type=bad")
         self.assertEqual(response.status_code, 400)
+
+    # --- Holdings endpoint tests (GET /api/holdings) ---
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_holdings_structure(self, MockYF):
+        """GET /api/holdings returns stock and option sections with correct structure."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
+
+        response = self.client.get("/api/holdings")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json
+        self.assertIn("stock", data)
+        self.assertIn("option", data)
+        for section_key in ("stock", "option"):
+            section = data[section_key]
+            self.assertIn("positions", section)
+            self.assertIn("total_cost_basis", section)
+            self.assertIn("total_market_value", section)
+            self.assertIn("total_unrealized_pnl", section)
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_holdings_shows_only_open_positions(self, MockYF):
+        """Holdings endpoint only returns genuinely open positions (FAKE3 stock, not FAKE1/FAKE2)."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
+
+        response = self.client.get("/api/holdings")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json
+        stock_positions = data["stock"]["positions"]
+        stock_symbols = [p["symbol"] for p in stock_positions]
+
+        # FAKE3 has an open stock position (buy, no sell)
+        self.assertIn("FAKE3", stock_symbols, "FAKE3 should be in open stock holdings")
+        # FAKE1 stock is fully closed (buy 100, sell 100)
+        self.assertNotIn("FAKE1", stock_symbols, "FAKE1 stock should not be in open holdings")
+        # FAKE2 stock is fully closed
+        self.assertNotIn("FAKE2", stock_symbols, "FAKE2 stock should not be in open holdings")
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_holdings_stock_position_fields(self, MockYF):
+        """Each stock position has all required fields with correct values."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
+
+        response = self.client.get("/api/holdings")
+        data = response.json
+
+        stock_positions = data["stock"]["positions"]
+        fake3 = next((p for p in stock_positions if p["symbol"] == "FAKE3"), None)
+        self.assertIsNotNone(fake3, "FAKE3 should be in stock positions")
+
+        required_fields = [
+            "symbol", "name", "trade_type", "quantity", "avg_cost",
+            "cost_basis", "current_price", "market_value", "unrealized_pnl", "pnl_pct",
+        ]
+        for field in required_fields:
+            self.assertIn(field, fake3, f"Missing field: {field}")
+
+        self.assertEqual(fake3["quantity"], 25)
+        self.assertEqual(fake3["avg_cost"], 200.0)
+        self.assertEqual(fake3["cost_basis"], 5000.0)
+        self.assertEqual(fake3["current_price"], 210.0)
+        self.assertEqual(fake3["market_value"], 5250.0)
+        self.assertEqual(fake3["unrealized_pnl"], 250.0)
+        self.assertEqual(fake3["pnl_pct"], 5.0)
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_holdings_option_open_positions(self, MockYF):
+        """FAKE3 open option position appears in option section, FAKE1 closed option does not."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"lastPrice": 4.50, "quoteType": "OPTION"}
+
+        response = self.client.get("/api/holdings")
+        data = response.json
+
+        option_positions = data["option"]["positions"]
+        option_symbols = [p["symbol"] for p in option_positions]
+
+        # FAKE3 has an open option (BO, no SC)
+        self.assertIn("FAKE3", option_symbols, "FAKE3 should have an open option position")
+        # FAKE1 option is fully closed (BO + SC)
+        fake1_options = [p for p in option_positions if p["symbol"] == "FAKE1"]
+        self.assertEqual(len(fake1_options), 0, "FAKE1 option should be closed")
+
+        fake3_opt = next(p for p in option_positions if p["symbol"] == "FAKE3")
+        self.assertEqual(fake3_opt["quantity"], 2)
+        self.assertEqual(fake3_opt["avg_cost"], 3.50)
+        self.assertEqual(fake3_opt["cost_basis"], 700.0)  # 3.50 * 2 * 100
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_holdings_totals(self, MockYF):
+        """Holdings totals include values from open positions and are consistent."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
+
+        response = self.client.get("/api/holdings")
+        data = response.json
+
+        stock = data["stock"]
+        # total_cost_basis should include FAKE3's 5000.0 (plus any real DB data)
+        self.assertGreaterEqual(stock["total_cost_basis"], 5000.0)
+        # Totals should be internally consistent
+        self.assertAlmostEqual(
+            stock["total_unrealized_pnl"],
+            stock["total_market_value"] - stock["total_cost_basis"],
+            places=2,
+        )
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_holdings_price_fetch_failure(self, MockYF):
+        """Holdings still returns positions when price fetch fails (prices are None)."""
+        instance = MockYF.return_value
+        instance.get_stock_data.side_effect = Exception("API down")
+
+        response = self.client.get("/api/holdings")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json
+        stock_positions = data["stock"]["positions"]
+        fake3 = next((p for p in stock_positions if p["symbol"] == "FAKE3"), None)
+        self.assertIsNotNone(fake3)
+        self.assertIsNone(fake3["current_price"])
+        self.assertIsNone(fake3["market_value"])
+
+    # --- Options prices endpoint tests (POST /api/options/prices) ---
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_options_prices_success(self, MockYF):
+        """POST /api/options/prices returns bid/ask/last for each ticker."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {
+            "bid": 3.40, "ask": 3.60, "lastPrice": 3.50, "symbol": "FAKE3250620C00220000",
+        }
+
+        response = self.client.post(
+            "/api/options/prices",
+            json={"tickers": ["FAKE3250620C00220000"]},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json
+        self.assertIn("prices", data)
+        self.assertIn("FAKE3250620C00220000", data["prices"])
+        price_info = data["prices"]["FAKE3250620C00220000"]
+        self.assertEqual(price_info["bid"], 3.40)
+        self.assertEqual(price_info["ask"], 3.60)
+        self.assertEqual(price_info["last"], 3.50)
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_options_prices_multiple_tickers(self, MockYF):
+        """POST /api/options/prices handles multiple tickers."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"lastPrice": 5.0, "symbol": "TEST"}
+
+        response = self.client.post(
+            "/api/options/prices",
+            json={"tickers": ["TICKER1", "TICKER2", "TICKER3"]},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json
+        self.assertEqual(len(data["prices"]), 3)
+
+    def test_api_options_prices_missing_tickers(self):
+        """POST /api/options/prices without tickers returns 400."""
+        response = self.client.post("/api/options/prices", json={})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.json)
+
+    def test_api_options_prices_no_json(self):
+        """POST /api/options/prices with non-JSON body returns 400."""
+        response = self.client.post(
+            "/api/options/prices", data="not json", content_type="text/plain",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_options_prices_fetch_failure(self, MockYF):
+        """Tickers that fail to fetch return null values instead of erroring."""
+        instance = MockYF.return_value
+        instance.get_stock_data.side_effect = Exception("API down")
+
+        response = self.client.post(
+            "/api/options/prices",
+            json={"tickers": ["BROKEN_TICKER"]},
+        )
+        self.assertEqual(response.status_code, 200)
+        price_info = response.json["prices"]["BROKEN_TICKER"]
+        self.assertIsNone(price_info["bid"])
+        self.assertIsNone(price_info["ask"])
+        self.assertIsNone(price_info["last"])
+
+    # --- Heatmap endpoint tests (GET /api/portfolio/heatmap) ---
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_heatmap_structure(self, MockYF):
+        """GET /api/portfolio/heatmap returns positions list with correct structure."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
+
+        response = self.client.get("/api/portfolio/heatmap")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json
+        self.assertIn("positions", data)
+        self.assertIn("total_market_value", data)
+        self.assertIsInstance(data["positions"], list)
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_heatmap_position_fields(self, MockYF):
+        """Each heatmap position has required fields."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
+
+        response = self.client.get("/api/portfolio/heatmap")
+        data = response.json
+
+        # Find FAKE3 stock position
+        fake3 = next(
+            (p for p in data["positions"] if p["symbol"] == "FAKE3" and p["trade_type"] == "stock"),
+            None,
+        )
+        self.assertIsNotNone(fake3, "FAKE3 stock should be in heatmap")
+
+        required_fields = [
+            "symbol", "name", "trade_type", "quantity", "cost_basis",
+            "market_value", "unrealized_pnl", "pnl_pct", "weight",
+        ]
+        for field in required_fields:
+            self.assertIn(field, fake3, f"Missing field: {field}")
+
+        self.assertEqual(fake3["quantity"], 25)
+        self.assertEqual(fake3["cost_basis"], 5000.0)
+        self.assertIsNotNone(fake3["market_value"])
+        self.assertIsNotNone(fake3["weight"])
+        self.assertGreater(fake3["weight"], 0)
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_heatmap_weights_sum_to_one(self, MockYF):
+        """Position weights should sum to approximately 1.0."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
+
+        response = self.client.get("/api/portfolio/heatmap")
+        data = response.json
+
+        total_weight = sum(p["weight"] for p in data["positions"])
+        self.assertAlmostEqual(total_weight, 1.0, places=2)
+
+    @patch("app.routes.api_routes.YahooFinance")
+    def test_api_heatmap_only_open_positions(self, MockYF):
+        """Heatmap only includes open positions, not closed ones."""
+        instance = MockYF.return_value
+        instance.get_stock_data.return_value = None
+        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
+
+        response = self.client.get("/api/portfolio/heatmap")
+        data = response.json
+
+        symbols = [p["symbol"] for p in data["positions"] if p["trade_type"] == "stock"]
+        # FAKE3 has open stock, FAKE1/FAKE2 are fully closed
+        self.assertIn("FAKE3", symbols)
+        self.assertNotIn("FAKE1", symbols)
+        self.assertNotIn("FAKE2", symbols)
+
+    # --- Sparkline / ticker history endpoint tests ---
+
+    @patch("app.routes.api_routes.yf_lib")
+    def test_api_ticker_history_structure(self, mock_yf):
+        """GET /api/ticker/history/<symbol> returns prices and trades arrays."""
+        import pandas as pd
+        mock_ticker = MagicMock()
+        mock_yf.Ticker.return_value = mock_ticker
+        mock_ticker.history.return_value = pd.DataFrame({
+            "Open": [100.0, 101.0],
+            "High": [102.0, 103.0],
+            "Low": [99.0, 100.0],
+            "Close": [101.0, 102.0],
+            "Volume": [1000, 2000],
+        }, index=pd.to_datetime(["2025-03-01", "2025-03-02"]))
+
+        response = self.client.get("/api/ticker/history/FAKE3")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json
+        self.assertIn("symbol", data)
+        self.assertIn("prices", data)
+        self.assertIn("trades", data)
+        self.assertEqual(data["symbol"], "FAKE3")
+        self.assertEqual(len(data["prices"]), 2)
+
+        # Verify price point structure
+        price = data["prices"][0]
+        for field in ("date", "open", "high", "low", "close", "volume"):
+            self.assertIn(field, price, f"Missing price field: {field}")
+
+    @patch("app.routes.api_routes.yf_lib")
+    def test_api_ticker_history_trades_included(self, mock_yf):
+        """Trade annotations are included in the response."""
+        import pandas as pd
+        mock_ticker = MagicMock()
+        mock_yf.Ticker.return_value = mock_ticker
+        mock_ticker.history.return_value = pd.DataFrame(
+            columns=["Open", "High", "Low", "Close", "Volume"],
+            index=pd.DatetimeIndex([]),
+        )
+
+        response = self.client.get("/api/ticker/history/FAKE3")
+        data = response.json
+
+        # FAKE3 has a buy stock + buy option in test data
+        self.assertGreaterEqual(len(data["trades"]), 1)
+        trade = data["trades"][0]
+        for field in ("date", "action", "price", "quantity"):
+            self.assertIn(field, trade, f"Missing trade field: {field}")
+
+    @patch("app.routes.api_routes.yf_lib")
+    def test_api_ticker_history_invalid_period(self, mock_yf):
+        """Invalid period returns 400."""
+        response = self.client.get("/api/ticker/history/FAKE3?period=invalid")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("period", response.json["error"])
+
+    @patch("app.routes.api_routes.yf_lib")
+    def test_api_ticker_history_invalid_interval(self, mock_yf):
+        """Invalid interval returns 400."""
+        response = self.client.get("/api/ticker/history/FAKE3?interval=invalid")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("interval", response.json["error"])
+
+    @patch("app.routes.api_routes.yf_lib")
+    def test_api_ticker_history_custom_params(self, mock_yf):
+        """Custom period and interval params are accepted."""
+        import pandas as pd
+        mock_ticker = MagicMock()
+        mock_yf.Ticker.return_value = mock_ticker
+        mock_ticker.history.return_value = pd.DataFrame(
+            columns=["Open", "High", "Low", "Close", "Volume"],
+            index=pd.DatetimeIndex([]),
+        )
+
+        response = self.client.get("/api/ticker/history/FAKE3?period=1y&interval=1wk")
+        self.assertEqual(response.status_code, 200)
+        mock_ticker.history.assert_called_once_with(period="1y", interval="1wk")
 
 
 class TestAPIAuth(unittest.TestCase):

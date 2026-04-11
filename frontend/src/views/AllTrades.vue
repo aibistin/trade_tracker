@@ -2,10 +2,8 @@
   <div class="all-trades">
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-4">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <p class="mt-2">Loading {{ titleCase(scope) }} trades...</p>
+      <div class="spinner-border" role="status"></div>
+      <p class="mt-2 text-muted">Loading {{ titleCase(scope) }} trades...</p>
     </div>
 
     <!-- Error State -->
@@ -14,14 +12,47 @@
     </div>
 
     <div v-if="data">
-      <h4 class="mt-4 mb-3">
-        {{ titleCase(scope) }} Trades for
-        <span class="text-primary-emphasis">{{ data.stock_symbol }}</span>
-      </h4>
+      <div class="trades-header">
+        <h4 class="trades-title">
+          {{ titleCase(scope) }} Trades —
+          <span class="trades-symbol">{{ data.stock_symbol }}</span>
+        </h4>
 
-      <div class="d-flex align-items-center gap-2 mb-3">
-        <label for="afterDateFilter" class="form-label mb-0 text-nowrap">Show trades after:</label>
-        <input id="afterDateFilter" type="date" class="form-control form-control-sm" style="max-width: 200px;"
+        <!-- Cost vs Market Value summary -->
+        <div v-if="holdingSummary" class="holding-summary">
+          <div class="hs-item">
+            <span class="hs-label">Avg Cost</span>
+            <span class="hs-value">{{ formatCurrency(holdingSummary.avg_cost) }}</span>
+          </div>
+          <div class="hs-item">
+            <span class="hs-label">Current Price</span>
+            <span class="hs-value" :class="holdingSummary.current_price >= holdingSummary.avg_cost ? 'text-profit' : 'text-loss'">
+              {{ formatCurrency(holdingSummary.current_price) }}
+            </span>
+          </div>
+          <div class="hs-item">
+            <span class="hs-label">Cost Basis</span>
+            <span class="hs-value">{{ formatCurrency(holdingSummary.cost_basis) }}</span>
+          </div>
+          <div class="hs-item">
+            <span class="hs-label">Market Value</span>
+            <span class="hs-value" :class="holdingSummary.unrealized_pnl >= 0 ? 'text-profit' : 'text-loss'">
+              {{ formatCurrency(holdingSummary.market_value) }}
+            </span>
+          </div>
+          <div class="hs-item">
+            <span class="hs-label">Unrealized P&amp;L</span>
+            <span class="hs-value" :class="holdingSummary.unrealized_pnl >= 0 ? 'text-profit' : 'text-loss'">
+              {{ formatCurrency(holdingSummary.unrealized_pnl) }}
+              ({{ holdingSummary.pnl_pct?.toFixed(2) }}%)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="date-filter">
+        <label for="afterDateFilter" class="filter-label">Show trades after:</label>
+        <input id="afterDateFilter" type="date"
           :value="afterDate" @change="applyDateFilter($event.target.value)" />
         <button v-if="afterDate" class="btn btn-sm btn-outline-secondary" @click="clearDateFilter">Clear</button>
       </div>
@@ -62,8 +93,10 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import axios from 'axios';
 import { API_BASE_URL } from '@/config.js';
 import { useFetchTrades } from '@/composables/useFetchTrades.js';
+import { formatCurrency } from '@/utils/tradeUtils.js';
 import TransactionSummary from '@/components/TransactionSummary.vue';
 import TradeCard from '@/components/TradeCard.vue';
 import WinLossBar from '@/components/WinLossBar.vue';
@@ -85,6 +118,23 @@ const route = useRoute();
 const router = useRouter();
 const afterDate = ref(route.query.after_date || '');
 const { data, loading, error, fetchData } = useFetchTrades();
+
+// Current holding summary for this symbol (from /api/holdings)
+const holdingSummary = ref(null);
+
+async function fetchHoldingSummary(symbol) {
+  try {
+    const { data: h } = await axios.get(`${API_BASE_URL}/holdings`);
+    const allPositions = [
+      ...(h.stock?.positions ?? []),
+      ...(h.option?.positions ?? []),
+    ];
+    const match = allPositions.find(p => p.symbol === symbol);
+    holdingSummary.value = match ?? null;
+  } catch {
+    holdingSummary.value = null;
+  }
+}
 
 const WANTED_KEYS = [
   'trade_id', 'account', 'trade_type', 'action', 'trade_label', 'is_option',
@@ -117,7 +167,6 @@ const allBuyTrades = computed(() => {
   };
 });
 
-// Returns avg P&L of winning (isWin=true) or losing closed buy trades, or null if none exist.
 function avgClosedPnl(trades, isWin) {
   const closed = (trades ?? []).filter(t => t.is_buy_trade && t.is_done);
   const filtered = isWin
@@ -159,7 +208,6 @@ function clearDateFilter() {
   router.replace({ params: route.params, query });
 }
 
-// Update source data when TradeCard saves changes (data-down/events-up)
 function updateTrade(tradeId, fields) {
   for (const section of ['stock', 'option']) {
     const trades = data.value?.transaction_stats?.[section]?.all_trades;
@@ -174,6 +222,7 @@ function updateTrade(tradeId, fields) {
 
 onMounted(() => {
   fetchData(createApiUrl(props.scope, props.stockSymbol, route.query));
+  fetchHoldingSummary(props.stockSymbol);
 });
 
 watch(
@@ -187,15 +236,84 @@ watch(
 
 <style scoped>
 .all-trades {
-  margin: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.trades-header {
+  margin-bottom: 16px;
+}
+
+.trades-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-terminal-text);
+  margin-bottom: 10px;
+}
+
+/* Cost vs Market Value summary bar */
+.holding-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  background: var(--color-terminal-surface);
+  border: 1px solid var(--color-terminal-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.hs-item {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 18px;
+  border-right: 1px solid var(--color-terminal-border);
+  min-width: 120px;
+}
+.hs-item:last-child { border-right: none; }
+
+.hs-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-terminal-text-muted);
+  margin-bottom: 2px;
+}
+
+.hs-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-terminal-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.trades-symbol {
+  color: var(--color-accent-cyan);
+}
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  color: var(--color-terminal-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 /* ── Trade Card Section ─────────────────────────────────────── */
-/* Rounded container clips header + cards to give soft corners   */
 .tc-section {
   margin-bottom: 24px;
-  border-radius: 10px;
+  border-radius: 6px;
   overflow: hidden;
-  border: 1px solid #373b3e;
+  border: 1px solid var(--color-terminal-border-subtle);
 }
+
+.text-center { text-align: center; }
+.py-4 { padding: 1rem 0; }
+.mt-2 { margin-top: 0.5rem; }
 </style>

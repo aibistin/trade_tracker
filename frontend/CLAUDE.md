@@ -19,7 +19,7 @@ pnpm test:e2e             # Playwright end-to-end tests
 
 ## Architecture
 
-**Vue 3 + Vite + Bootstrap 5 + Axios + chart.js (via vue-chartjs). No Vuex/Pinia — state is router-based or component-local.**
+**Vue 3 + Vite + Tailwind CSS v4 + Axios + chart.js (via vue-chartjs + chartjs-chart-treemap). No Vuex/Pinia — state is router-based or component-local.**
 
 ### API Config
 `src/config.js` exports `API_BASE_URL` read from `VITE_API_BASE_URL` env var (default: `http://localhost:5000/api`).
@@ -29,29 +29,40 @@ Set via `frontend/.env` (gitignored). Production uses `frontend/.env.production`
 ```
 src/
   components/         # Reusable components (not page-level views)
-    AppContainer.vue          — Bootstrap .container wrapper
-    BSNavBarTop.vue           — Top navbar: symbol dropdown, scope/asset-type toggles, search
+    NavBar.vue                — Top navbar: symbol dropdown, scope/asset-type toggles, search (no Bootstrap JS)
     SymbolSearchDropdown.vue  — Self-contained search input + filtered dropdown; emits @select
-    TradeCard.vue             — Expandable buy-trade card; lazy-fetches live price on expand (open trades only)
+    TradeCard.vue             — Expandable buy-trade card; lazy-fetches live price on expand (open trades only).
+                                Stock trades use useStockPrice; option trades use useOptionPrice (×100 multiplier).
+                                Metrics bar shows: Live/Option Price | Cost | Mkt Value | Diff | Diff%.
     TransactionSummary.vue    — Trade stats summary table
     WinLossBar.vue            — Horizontal W/L bar: accepts wins/losses props, shows win rate %
+    PortfolioHeatmap.vue      — Treemap visualization of portfolio positions, sized by weight, colored by P&L
+    CumulativePnlChart.vue    — Cumulative P&L line chart computed from monthly/quarterly buckets
+    SparklineChart.vue        — Canvas-based sparkline with buy/sell annotation markers
   composables/
     useFetchTrades.js   — Generic GET fetch: fetchData(url: string) → { data, loading, error }
     useSymbolSearch.js  — Navigation helper: selectSymbol(symbol, scope) → router.push
-    useStockPrice.js    — Live price fetch: fetchPrice(symbol) → { price, loading, error }. Module-level
+    useStockPrice.js    — Live stock price: fetchPrice(symbol) → { price, loading, error }. Module-level
                           Map cache (5-min TTL) so repeated calls within a tab skip the API.
+    useOptionPrice.js   — Live option price: fetchPrice(label) → { price, bid, ask, occTicker, loading, error }.
+                          Passes the raw Schwab label to GET /api/option/price; OCC conversion happens server-side.
+                          Module-level Map cache (5-min TTL) keyed by label.
+    usePriceHistory.js  — Fetches sparkline price history: fetchHistory(symbol, period) → { prices, annotations }.
+                          Module-level Map cache. Silently skips on error (endpoint may not exist yet).
   utils/
     tradeUtils.js       — Pure formatting functions (no Vue deps): formatCurrency, formatDate,
                           profitLossClass, formatValue, formatTradeType, formatAction, rowClass
   views/              # Page-level components registered in the router
     AllTrades.vue   — Trade detail view for a symbol+scope; shows WinLossBar below each TransactionSummary
-    Dashboard.vue   — Performance dashboard: summary cards, P&L bar chart, win-rate line chart,
-                      holdings table with on-demand live prices, by-symbol breakdown
+    Dashboard.vue   — Performance dashboard: summary cards, P&L/cumulative/win-rate charts (hidden by
+                      default, toggle to show), stock holdings table (one aggregated row per ticker),
+                      options holdings table (grouped by underlying with expand/collapse per contract),
+                      portfolio heatmap, by-symbol breakdown. Holdings data from GET /api/holdings.
     TradeHome.vue   — Home page: symbol search + current holdings tables
     NotFound.vue    — 404 page
   router/index.js   — Route definitions (lazy-loaded)
   config.js         — API base URL
-  main.js           — App bootstrap (Bootstrap injection)
+  main.js           — App bootstrap (Tailwind CSS via @tailwindcss/vite plugin)
   tests/            — Vitest unit tests
 ```
 
