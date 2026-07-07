@@ -15,7 +15,8 @@ source python_setup.sh            # Create pyenv venv + install requirements (gi
 
 ### Running the App
 ```bash
-./run_flask.sh                    # Flask dev server on localhost:5000
+./run_dev.sh                      # One command: sync Schwab API → Flask (:5000) + Vite (:5173) → opens browser at /dashboard
+./run_flask.sh                    # Flask dev server only, on localhost:5000
 ```
 
 ### Tests (unittest, no pytest)
@@ -27,7 +28,9 @@ python -m unittest tests.test_app_routes.TestAppRoutes.test_index_route # Single
 
 ### Data Processing
 ```bash
-./bin/run_process_schwab_data.sh  # Process Schwab transaction CSV exports
+./bin/run_process_schwab_data.sh  # Process Schwab transaction CSV exports (historical data > 60 days old)
+python bin/schwab_login.py        # One-time OAuth login — run once before the first API sync
+python bin/sync_schwab_api.py     # Pull latest transactions from the Schwab API (also runs automatically via run_dev.sh)
 ```
 
 ### Docker
@@ -80,13 +83,27 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 - `csv_processing_utils.py` — Parses Schwab CSV exports. Uses `logging` module (not print).
 - `db_utils.py` — `DatabaseInserter` helper for bulk inserts with parameterized SQL
 - `yfinance.py` — Yahoo Finance integration. File-based JSON caching (60min TTL) in `data/yfinance/`. Does **not** pass a custom session to `yf.Ticker` (yfinance requires its own `curl_cffi` session internally). `ticker_class` param allows injection for testing. Price field priority: `lastPrice` → `regularMarketPrice` → `currentPrice`.
+- `schwab_client.py` — schwab-py auth factory. `get_client()` loads the saved token (`data/schwab_token.json`); `login(interactive=False)` runs the one-time OAuth browser flow.
 
 ### Data Flow
-1. Schwab CSV → `bin/process_schwab_transactions.py` → SQLite
-2. API request → `get_trade_data_for_analysis(symbol)` → raw transaction dicts (lowercase keys, includes `reason`, `initial_stop_price`, `projected_sell_price`)
-3. `TradingAnalyzer.analyze_trades(status, account, after_date)` → converts to Trade objects, matches buys/sells, computes P&L
-4. `get_profit_loss_data_json()` → JSON-serializable dict with `stock` and `option` sections
-5. JSON response → Vue frontend renders with TradeCard components
+Two ingestion paths feed the same schema — both non-breaking, same `DatabaseInserter`, same `trade_transaction` table:
+1. **CSV (historical):** Schwab CSV export → `bin/process_schwab_transactions.py` → SQLite. Required for any history older than 60 days.
+2. **API (recent, automatic):** `bin/sync_schwab_api.py` → schwab-py `get_transactions()` → SQLite. Runs automatically at the start of `run_dev.sh`. See "Schwab API Sync" below.
+
+Then, for both paths:
+3. API request → `get_trade_data_for_analysis(symbol)` → raw transaction dicts (lowercase keys, includes `reason`, `initial_stop_price`, `projected_sell_price`)
+4. `TradingAnalyzer.analyze_trades(status, account, after_date)` → converts to Trade objects, matches buys/sells, computes P&L
+5. `get_profit_loss_data_json()` → JSON-serializable dict with `stock` and `option` sections
+6. JSON response → Vue frontend renders with TradeCard components
+
+### Schwab API Sync
+`bin/sync_schwab_api.py` pulls transactions from the live Schwab API (unofficial `schwab-py` wrapper) into the same SQLite schema used by the CSV pipeline — no schema changes, fully idempotent.
+- **Auth:** `lib/schwab_client.py`. Token at `data/schwab_token.json` (gitignored, auto-refreshed). One-time setup: `python bin/schwab_login.py` (opens a browser; ~90-day token expiry — re-run after deleting the token file if the sync starts failing auth).
+- **Account mapping:** `data/schwab_account_map.json` (gitignored) maps Schwab account hashes → single-letter account codes (C/R/I). Get hashes via `python bin/sync_schwab_api.py --list-accounts`.
+- **API limitation:** Schwab only returns 60 days of transaction history — the CSV pipeline remains the source of truth for anything older.
+- **Watermark tracking:** last successful sync end-date is stored in the `config` table (key `schwab_api_last_sync`). Each run starts from `watermark - 2 days` (safe overlap; dedupe is exact). The very first sync instead starts the day after the newest existing `trade_date` in the DB, since the API reports each fill separately while CSV rows aggregate partial fills into one row — re-fetching CSV-covered days would double-count positions.
+- **Payload mapping quirks:** the API has no `instruction` field — buy/sell is derived from the leg's signed `amount` plus `positionEffect` (OPENING/CLOSING). Option `label` (e.g. `"QBTS 07/17/2026 25.00 C"`) is built from `underlyingSymbol` + `expirationDate` + `strikePrice` + `putCall` (the API's own `description` field is prose, not this format). ETFs report as `assetType: COLLECTIVE_INVESTMENT`. Expirations arrive as `RECEIVE_AND_DELIVER` transactions.
+- **Flags:** `--dry-run` (preview only), `--list-accounts`, `--start-date`/`--end-date` (manual override).
 
 ### Trade Update API
 `PATCH /api/trade/update/<id>` — updates `reason`, `initial_stop_price`, `projected_sell_price` on a `TradeTransaction`.
@@ -131,3 +148,6 @@ Server-side validation in `app/services/trade_service.py`: `reason` max 500 char
 | `LOG_LEVEL` | Backend | Python logging level (default: INFO) |
 | `JSON_LOGGING` | Backend | Set to `Y` for JSON-formatted log output |
 | `VITE_API_BASE_URL` | Frontend | API base URL (default: `http://localhost:5000/api`) — see `frontend/CLAUDE.md` |
+| `SCHWAB_API_KEY` | Backend | App key from developer.schwab.com — required for API sync |
+| `SCHWAB_APP_SECRET` | Backend | App secret from developer.schwab.com — required for API sync |
+| `SCHWAB_CALLBACK_URL` | Backend | OAuth callback URL registered with the app (default: `https://127.0.0.1:8182`) |

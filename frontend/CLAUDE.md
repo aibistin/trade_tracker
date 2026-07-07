@@ -21,6 +21,13 @@ pnpm test:e2e             # Playwright end-to-end tests
 
 **Vue 3 + Vite + Tailwind CSS v4 + Axios + chart.js (via vue-chartjs + chartjs-chart-treemap). No Vuex/Pinia — state is router-based or component-local.**
 
+### Design System — Dark Terminal Theme
+CSS custom properties in `src/assets/base.css` define a Bloomberg/trading-terminal dark theme. Use these exact values for any new chart, canvas, or hardcoded color (Chart.js options can't consume CSS variables directly):
+- Profit/positive: `#00c896` — Loss/negative: `#ff4060` — Highlight: `#ffd700`
+- Accent blue: `#4d9fff` — Accent cyan: `#00d4e8`
+- Chart tooltip bg: `#1a1e27`, title/body text: `#dce4f0`, border: `#262b38`
+- Chart grid lines: `rgba(255,255,255,0.04)` — tick color: `#6b7a96`
+
 ### API Config
 `src/config.js` exports `API_BASE_URL` read from `VITE_API_BASE_URL` env var (default: `http://localhost:5000/api`).
 Set via `frontend/.env` (gitignored). Production uses `frontend/.env.production` → `http://localhost:3000/api`.

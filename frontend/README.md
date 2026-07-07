@@ -1,6 +1,6 @@
 # Trade Tracker — Frontend
 
-Vue 3 + Vite + Bootstrap 5 frontend for the Trade Tracker application.
+Vue 3 + Vite + Tailwind CSS v4 frontend for the Trade Tracker application.
 
 ## Setup
 
