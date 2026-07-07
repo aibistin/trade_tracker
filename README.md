@@ -6,7 +6,7 @@ Track stock and options trades made on the Schwab brokerage platform.
 
 - **Backend:** Python, Flask, SQLAlchemy, SQLite
 - **Frontend:** Vue 3, Vite, Tailwind CSS v4, Axios
-- **Data sources:** Live Schwab API sync (last 60 days) + Schwab transaction CSV exports (historical)
+- **Data sources:** Live Schwab API sync (last year) + Schwab transaction CSV exports (older history)
 
 ## Features
 
@@ -17,8 +17,8 @@ Track stock and options trades made on the Schwab brokerage platform.
 - **Live pricing per trade:** Expand any open trade card to see live price, cost, market value, diff, and diff% (options use ×100 multiplier)
 - **Filtering:** Filter by date, account, and asset type (stock vs option)
 - **Home page:** Current holdings tables with All/Stocks/Options toggle; symbol search dropdown
-- **Live Schwab API sync:** Pulls the latest transactions directly from your Schwab account (last 60 days); runs automatically on startup
-- **Schwab CSV import:** Process brokerage exports directly into the database for history older than 60 days
+- **Live Schwab API sync:** Pulls the latest transactions directly from your Schwab account (up to 1 year per request); runs automatically on startup
+- **Schwab CSV import:** Process brokerage exports directly into the database for history older than 1 year
 
 ## Setup
 
@@ -67,7 +67,7 @@ docker-compose up           # gunicorn on port 5002
 
 Two complementary sources feed the same database — use both:
 
-### Live API sync (last 60 days, automatic)
+### Live API sync (last 1 year, automatic)
 
 ```bash
 python bin/schwab_login.py       # one-time OAuth login (needs SCHWAB_API_KEY / SCHWAB_APP_SECRET in .env)
@@ -75,7 +75,9 @@ python bin/sync_schwab_api.py --list-accounts   # get account hashes, then fill 
 python bin/sync_schwab_api.py                   # sync latest transactions (also runs automatically via run_dev.sh)
 ```
 
-### CSV import (historical, > 60 days old)
+Schwab caps each API request at a 1-year `startDate`↔`endDate` span. The sync script tracks its own progress (a watermark in the database) and only re-runs from where it left off, so this rarely matters day to day — it's only a limit if you pass a manual `--start-date`/`--end-date` range wider than a year.
+
+### CSV import (historical, > 1 year old)
 
 ```bash
 ./bin/run_process_schwab_data.sh   # process a Schwab transaction CSV export

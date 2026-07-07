@@ -4,13 +4,18 @@ Sync transactions from the Schwab API into the local SQLite database.
 
 Usage:
     # One-time login (opens browser):
-    python -c "from lib.schwab_client import login; login()"
+    python bin/schwab_login.py
 
-    # Sync last 60 days (API maximum window):
+    # Sync since the last watermark (or since the newest DB trade on first run):
     python bin/sync_schwab_api.py
 
-    # Sync a specific date range (must be within 60-day API window):
+    # Sync a specific date range (start/end must be no more than 1 year apart):
     python bin/sync_schwab_api.py --start-date 2026-01-01 --end-date 2026-03-31
+
+    # Sync just one stock (and its options) — defaults to the full ~1-year
+    # lookback window regardless of the watermark; combine with --start-date/
+    # --end-date for a narrower range. Does not advance the sync watermark.
+    python bin/sync_schwab_api.py --symbol AAPL
 
     # Preview without inserting:
     python bin/sync_schwab_api.py --dry-run
@@ -29,8 +34,12 @@ Account mapping:
     If no mapping exists, accounts are labeled U1, U2, ... in insertion order.
 
 Note on history:
-    The Schwab API only returns transactions within the last 60 days.
-    For older history, continue using the CSV export pipeline.
+    Verified directly against the live API (2026-07-07): Schwab's actual limit
+    is a maximum 1-year span between startDate and endDate per request — not the
+    60 days suggested by schwab-py's default-argument docstring. Requesting a
+    range over 1 year returns HTTP 400 ("difference between the dates must not
+    be more than a year"). For history older than 1 year, use the CSV export
+    pipeline.
 """
 
 import argparse
@@ -234,6 +243,11 @@ def build_transaction_record(txn, leg, account_code):
 
 SYNC_WATERMARK_KEY = 'schwab_api_last_sync'
 
+# Schwab's actual limit (verified against the live API): startDate/endDate must
+# be no more than 1 year apart, or the request returns HTTP 400. Use 364 rather
+# than 365 to leave a one-day margin for timezone/rounding.
+MAX_API_WINDOW_DAYS = 364
+
 
 def _resolve_start_date(db, end_date):
     """
@@ -243,10 +257,10 @@ def _resolve_start_date(db, end_date):
     2. Else the day after the newest DB trade — CSV rows aggregate partial
        fills into one row while the API reports each fill, so re-fetching
        CSV-covered days would double-count positions.
-    3. Else the full 59-day API window.
-    Always capped to the API's 60-day history limit.
+    3. Else the full API window.
+    Always capped to MAX_API_WINDOW_DAYS.
     """
-    earliest = end_date - timedelta(days=59)
+    earliest = end_date - timedelta(days=MAX_API_WINDOW_DAYS)
     db.cursor.execute('SELECT value FROM config WHERE key = ?', (SYNC_WATERMARK_KEY,))
     row = db.cursor.fetchone()
     if row:
@@ -282,9 +296,33 @@ def list_accounts(client):
     print()
 
 
-def sync(start_date=None, end_date=None, dry_run=False):
+def sync(start_date=None, end_date=None, dry_run=False, symbol=None):
+    """
+    symbol: if given, only sync transactions for this stock (and any options on
+    it). Schwab's own `symbol` query param matches the literal instrument
+    string, which for options is a padded OCC-ish code (e.g. "QBTS  260717C00
+    025000") rather than the underlying ticker — so it can't be used to filter
+    server-side without missing option legs. Instead we fetch normally and
+    filter locally against the symbol our own mapping resolves to (underlying
+    ticker for options, ticker for stocks).
+
+    A symbol-filtered run does not cover all symbols, so it never advances the
+    sync watermark and defaults to the full lookback window rather than
+    resuming from it (an explicit --start-date/--end-date still narrows it).
+    """
     from lib.schwab_client import get_client
     from lib.db_utils import DatabaseInserter
+
+    if end_date is None:
+        end_date = datetime.now(timezone.utc)
+
+    if start_date is not None and (end_date - start_date).days > MAX_API_WINDOW_DAYS:
+        raise ValueError(
+            f'Date range too wide: {(end_date - start_date).days} days requested, '
+            f'Schwab caps requests at ~1 year ({MAX_API_WINDOW_DAYS} days). '
+            'Split the range into multiple syncs, or use the CSV export pipeline '
+            'for history beyond 1 year.'
+        )
 
     client = get_client()
     account_map = load_account_map()
@@ -305,23 +343,26 @@ def sync(start_date=None, end_date=None, dry_run=False):
         log.warning('No mapping for account hash %s — assigning code %s', hash_val, code)
         return code
 
-    if end_date is None:
-        end_date = datetime.now(timezone.utc)
-
     inserted = 0
     skipped_existing = 0
     skipped_invalid = 0
 
+    symbol = symbol.upper() if symbol else None
+
     with DatabaseInserter(db_path=DB_PATH) as db:
         if start_date is None:
-            start_date = _resolve_start_date(db, end_date)
+            start_date = (
+                end_date - timedelta(days=MAX_API_WINDOW_DAYS) if symbol
+                else _resolve_start_date(db, end_date)
+            )
 
         for acct in accounts:
             hash_val = acct.get('hashValue')
             code = account_code(hash_val)
-            log.info('Fetching transactions for account %s (code=%s) from %s to %s',
+            log.info('Fetching transactions for account %s (code=%s) from %s to %s%s',
                      hash_val[:8] + '...', code,
-                     start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+                     start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'),
+                     f' (filtering to {symbol})' if symbol else '')
 
             resp = client.get_transactions(
                 account_hash=hash_val,
@@ -349,6 +390,8 @@ def sync(start_date=None, end_date=None, dry_run=False):
                     record = build_transaction_record(txn, leg, code)
                     if record is None:
                         skipped_invalid += 1
+                    elif symbol and record['symbol'] != symbol:
+                        continue
                     else:
                         records.append(record)
 
@@ -378,7 +421,7 @@ def sync(start_date=None, end_date=None, dry_run=False):
                          record['trade_date'], record['action'],
                          record['symbol'], record['quantity'])
 
-        if not dry_run:
+        if not dry_run and not symbol:
             _save_watermark(db, end_date)
 
     log.info('Sync complete. Inserted: %d, Already existed: %d, Skipped invalid: %d',
@@ -387,11 +430,14 @@ def sync(start_date=None, end_date=None, dry_run=False):
 
 def main():
     parser = argparse.ArgumentParser(description='Sync Schwab API transactions to local DB')
-    parser.add_argument('--start-date', help='Start date YYYY-MM-DD (default: 59 days ago)')
+    parser.add_argument('--start-date', help='Start date YYYY-MM-DD (default: since last sync watermark)')
     parser.add_argument('--end-date', help='End date YYYY-MM-DD (default: today)')
     parser.add_argument('--dry-run', action='store_true', help='Preview without inserting')
     parser.add_argument('--list-accounts', action='store_true',
                         help='Print account hashes for account map setup')
+    parser.add_argument('--symbol',
+                        help='Only sync this stock and its options (default date range: full '
+                             '~1-year lookback, ignoring the watermark; does not advance it)')
     args = parser.parse_args()
 
     if args.list_accounts:
@@ -406,7 +452,7 @@ def main():
     if args.end_date:
         end = datetime.strptime(args.end_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
 
-    sync(start_date=start, end_date=end, dry_run=args.dry_run)
+    sync(start_date=start, end_date=end, dry_run=args.dry_run, symbol=args.symbol)
 
 
 if __name__ == '__main__':
