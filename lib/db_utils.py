@@ -87,14 +87,12 @@ class DatabaseInserter(DatabaseConnection):
             sqlite3.Error: On database operation failure
         """
         query = """
-            INSERT INTO security (symbol, name)
+            INSERT OR IGNORE INTO security (symbol, name)
             VALUES (:symbol, :name)
         """
         try:
             with self.transaction():
                 self.cursor.execute(query, security)
-        except sqlite3.IntegrityError:
-            logger.info("Security %s already exists", security.get("symbol"))
         except sqlite3.Error as e:
             logger.error("Error inserting security: %s", e)
             raise RuntimeError(f"Failed to insert security {security['symbol']}: {e}")
@@ -114,7 +112,7 @@ class DatabaseInserter(DatabaseConnection):
             WHERE
                 symbol = :symbol AND
                 action = :action AND
-                label = :label AND
+                label IS :label AND
                 trade_type = :trade_type AND
                 trade_date = :trade_date AND
                 quantity = :quantity AND

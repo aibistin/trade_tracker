@@ -44,8 +44,8 @@ function buildChart() {
 
   const { labels, values } = cumulativeData.value
   const lastVal = values[values.length - 1] ?? 0
-  const lineColor = lastVal >= 0 ? '#22c55e' : '#ef4444'
-  const fillColor = lastVal >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)'
+  const lineColor = lastVal >= 0 ? '#00c896' : '#ff4060'
+  const fillColor = lastVal >= 0 ? 'rgba(0,200,150,0.08)' : 'rgba(255,64,96,0.08)'
 
   chartInstance = new Chart(canvas, {
     type: 'line',
@@ -56,8 +56,8 @@ function buildChart() {
         data: values,
         borderColor: lineColor,
         backgroundColor: fillColor,
-        pointBackgroundColor: values.map(v => v >= 0 ? '#22c55e' : '#ef4444'),
-        pointBorderColor: values.map(v => v >= 0 ? '#22c55e' : '#ef4444'),
+        pointBackgroundColor: values.map(v => v >= 0 ? '#00c896' : '#ff4060'),
+        pointBorderColor: values.map(v => v >= 0 ? '#00c896' : '#ff4060'),
         pointRadius: 3,
         pointHoverRadius: 5,
         borderWidth: 2,
@@ -71,13 +71,13 @@ function buildChart() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1a2332',
-          titleColor: '#e2e8f0',
-          bodyColor: '#e2e8f0',
-          borderColor: '#1e3a5f',
+          backgroundColor: '#1a1e27',
+          titleColor: '#dce4f0',
+          bodyColor: '#dce4f0',
+          borderColor: '#262b38',
           borderWidth: 1,
-          titleFont: { family: 'JetBrains Mono, monospace', size: 11 },
-          bodyFont: { family: 'JetBrains Mono, monospace', size: 11 },
+          titleFont: { family: 'Inter, sans-serif', size: 11 },
+          bodyFont: { family: 'Inter, sans-serif', size: 11 },
           callbacks: {
             label: (ctx) => {
               const val = ctx.parsed.y
@@ -88,14 +88,14 @@ function buildChart() {
       },
       scales: {
         x: {
-          grid: { color: 'rgba(30, 58, 95, 0.3)' },
-          ticks: { color: '#64748b', font: { family: 'JetBrains Mono, monospace', size: 10 } },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#6b7a96', font: { family: 'Inter, sans-serif', size: 10 } },
         },
         y: {
-          grid: { color: 'rgba(30, 58, 95, 0.3)' },
+          grid: { color: 'rgba(255,255,255,0.04)' },
           ticks: {
-            color: '#64748b',
-            font: { family: 'JetBrains Mono, monospace', size: 10 },
+            color: '#6b7a96',
+            font: { family: 'Inter, sans-serif', size: 10 },
             callback: (v) => `$${v.toFixed(0)}`,
           },
         },

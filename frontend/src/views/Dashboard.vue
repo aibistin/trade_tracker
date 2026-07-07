@@ -490,8 +490,8 @@ const chartData = computed(() => {
       {
         label: 'Realized P&L ($)',
         data: pnlValues,
-        backgroundColor: pnlValues.map(v => v >= 0 ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)'),
-        borderColor: pnlValues.map(v => v >= 0 ? '#22c55e' : '#ef4444'),
+        backgroundColor: pnlValues.map(v => v >= 0 ? 'rgba(0,200,150,0.55)' : 'rgba(255,64,96,0.55)'),
+        borderColor: pnlValues.map(v => v >= 0 ? '#00c896' : '#ff4060'),
         borderWidth: 1,
         borderRadius: 3,
       },
@@ -505,10 +505,10 @@ const chartOptions = {
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: '#fff',
-      titleColor: '#212529',
-      bodyColor: '#212529',
-      borderColor: '#dee2e6',
+      backgroundColor: '#1a1e27',
+      titleColor: '#dce4f0',
+      bodyColor: '#dce4f0',
+      borderColor: '#262b38',
       borderWidth: 1,
       titleFont: { family: 'Inter, sans-serif', size: 11 },
       bodyFont: { family: 'Inter, sans-serif', size: 11 },
@@ -522,13 +522,13 @@ const chartOptions = {
   },
   scales: {
     x: {
-      grid: { color: 'rgba(0,0,0,0.07)' },
-      ticks: { color: '#6c757d', font: { family: 'Inter, sans-serif', size: 10 } },
+      grid: { color: 'rgba(255,255,255,0.04)' },
+      ticks: { color: '#6b7a96', font: { family: 'Inter, sans-serif', size: 10 } },
     },
     y: {
-      grid: { color: 'rgba(0,0,0,0.07)' },
+      grid: { color: 'rgba(255,255,255,0.04)' },
       ticks: {
-        color: '#6c757d',
+        color: '#6b7a96',
         font: { family: 'Inter, sans-serif', size: 10 },
         callback: (v) => `$${v.toFixed(0)}`,
       },
@@ -545,12 +545,12 @@ const winRateData = computed(() => {
       {
         label: 'Win Rate (%)',
         data: buckets.map(b => +(b.batting_average * 100).toFixed(1)),
-        borderColor: '#22d3ee',
-        backgroundColor: 'rgba(34,211,238,0.08)',
+        borderColor: '#00d4e8',
+        backgroundColor: 'rgba(0,212,232,0.08)',
         tension: 0.3,
         fill: true,
         pointRadius: 4,
-        pointBackgroundColor: '#22d3ee',
+        pointBackgroundColor: '#00d4e8',
       },
     ],
   }
@@ -562,10 +562,10 @@ const winRateOptions = {
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: '#fff',
-      titleColor: '#212529',
-      bodyColor: '#212529',
-      borderColor: '#dee2e6',
+      backgroundColor: '#1a1e27',
+      titleColor: '#dce4f0',
+      bodyColor: '#dce4f0',
+      borderColor: '#262b38',
       borderWidth: 1,
       titleFont: { family: 'Inter, sans-serif', size: 11 },
       bodyFont: { family: 'Inter, sans-serif', size: 11 },
@@ -574,15 +574,15 @@ const winRateOptions = {
   },
   scales: {
     x: {
-      grid: { color: 'rgba(0,0,0,0.07)' },
-      ticks: { color: '#6c757d', font: { family: 'Inter, sans-serif', size: 10 } },
+      grid: { color: 'rgba(255,255,255,0.04)' },
+      ticks: { color: '#6b7a96', font: { family: 'Inter, sans-serif', size: 10 } },
     },
     y: {
       min: 0,
       max: 100,
-      grid: { color: 'rgba(0,0,0,0.07)' },
+      grid: { color: 'rgba(255,255,255,0.04)' },
       ticks: {
-        color: '#6c757d',
+        color: '#6b7a96',
         font: { family: 'Inter, sans-serif', size: 10 },
         callback: (v) => `${v}%`,
       },

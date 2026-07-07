@@ -52,16 +52,16 @@ function pnlColor(pnlPct) {
   const clamped = Math.max(-20, Math.min(20, pnlPct))
   const intensity = Math.abs(clamped) / 20
   if (clamped >= 0) {
-    // Green: from dark (#0f3520) to bright (#22c55e)
-    const r = Math.round(15 + (34 - 15) * intensity * 0.5)
-    const g = Math.round(53 + (197 - 53) * intensity)
-    const b = Math.round(32 + (94 - 32) * intensity * 0.5)
+    // Green: from near-black to #00c896
+    const r = Math.round(5 + 0 * intensity)
+    const g = Math.round(30 + (200 - 30) * intensity)
+    const b = Math.round(20 + (150 - 20) * intensity)
     return `rgb(${r}, ${g}, ${b})`
   } else {
-    // Red: from dark (#3a1010) to bright (#ef4444)
-    const r = Math.round(58 + (239 - 58) * intensity)
-    const g = Math.round(16 + (68 - 16) * intensity * 0.3)
-    const b = Math.round(16 + (68 - 16) * intensity * 0.3)
+    // Red: from near-black to #ff4060
+    const r = Math.round(40 + (255 - 40) * intensity)
+    const g = Math.round(10 + (64 - 10) * intensity * 0.3)
+    const b = Math.round(15 + (96 - 15) * intensity * 0.4)
     return `rgb(${r}, ${g}, ${b})`
   }
 }
@@ -89,18 +89,18 @@ function buildChart() {
             if (!d) return ''
             return [d.symbol, `${d.pnlPct >= 0 ? '+' : ''}${d.pnlPct.toFixed(1)}%`]
           },
-          color: '#e2e8f0',
+          color: '#dce4f0',
           font: [
-            { family: 'JetBrains Mono, monospace', size: 13, weight: 'bold' },
-            { family: 'JetBrains Mono, monospace', size: 10 },
+            { family: 'Inter, sans-serif', size: 13, weight: 'bold' },
+            { family: 'Inter, sans-serif', size: 10 },
           ],
         },
         backgroundColor: (ctx) => {
           const d = ctx.raw?._data
-          if (!d) return '#1a2332'
+          if (!d) return '#1a1e27'
           return pnlColor(d.pnlPct)
         },
-        borderColor: '#0a0e17',
+        borderColor: '#0d0f13',
         borderWidth: 2,
         spacing: 1,
       }],
@@ -111,13 +111,13 @@ function buildChart() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1a2332',
-          titleColor: '#e2e8f0',
-          bodyColor: '#e2e8f0',
-          borderColor: '#1e3a5f',
+          backgroundColor: '#1a1e27',
+          titleColor: '#dce4f0',
+          bodyColor: '#dce4f0',
+          borderColor: '#262b38',
           borderWidth: 1,
-          titleFont: { family: 'JetBrains Mono, monospace', size: 12 },
-          bodyFont: { family: 'JetBrains Mono, monospace', size: 11 },
+          titleFont: { family: 'Inter, sans-serif', size: 12 },
+          bodyFont: { family: 'Inter, sans-serif', size: 11 },
           callbacks: {
             title: (items) => {
               const d = items[0]?.raw?._data

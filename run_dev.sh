@@ -19,6 +19,17 @@ trap cleanup INT TERM EXIT
 
 export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}"
 
+# Pull the latest transactions from the Schwab API before starting the servers.
+# Startup continues even if the sync fails (e.g. offline, token expired).
+if [ -f "${SCRIPT_DIR}/data/schwab_token.json" ]; then
+    printf "\033[1m[dev]\033[0m Syncing latest Schwab transactions...\n"
+    python "${SCRIPT_DIR}/bin/sync_schwab_api.py" 2>&1 \
+        | awk '{ print "\033[0;35m[schwab]  \033[0m" $0; fflush() }' \
+        || printf "\033[1m[dev]\033[0m Schwab sync failed — continuing with existing data.\n"
+else
+    printf "\033[1m[dev]\033[0m No Schwab token — run \033[1mpython bin/schwab_login.py\033[0m once to enable API sync.\n"
+fi
+
 printf "\033[1m[dev]\033[0m Backend  → %s\n" "$BACKEND_URL"
 flask --app "${SCRIPT_DIR}/trading.py" --debug run -h localhost -p 5000 2>&1 \
     | awk '{ print "\033[0;33m[backend] \033[0m" $0; fflush() }' &
@@ -30,7 +41,7 @@ printf "\033[1m[dev]\033[0m Frontend → %s\n" "$FRONTEND_URL"
 printf "\n  \033[1mApp:\033[0m %s\n" "$FRONTEND_URL"
 printf "  Press \033[1mCtrl+C\033[0m to stop.\n\n"
 
-# Open browser after servers have had time to start
-(sleep 2 && xdg-open "${FRONTEND_URL}" >/dev/null 2>&1) &
+# Open browser at the dashboard after servers have had time to start
+(sleep 2 && xdg-open "${FRONTEND_URL}/dashboard" >/dev/null 2>&1) &
 
 wait

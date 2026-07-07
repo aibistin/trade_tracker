@@ -27,7 +27,7 @@ const effectiveLineColor = computed(() => {
   if (props.priceData.length < 2) return '#64748b'
   const first = props.priceData[0]?.close ?? props.priceData[0]?.price ?? 0
   const last = props.priceData[props.priceData.length - 1]?.close ?? props.priceData[props.priceData.length - 1]?.price ?? 0
-  return last >= first ? '#22c55e' : '#ef4444'
+  return last >= first ? '#00c896' : '#ff4060'
 })
 
 function draw() {
@@ -111,9 +111,9 @@ function draw() {
       ctx.lineTo(x + 3.5, y - 2)
     }
     ctx.closePath()
-    ctx.fillStyle = isBuy ? '#22c55e' : '#ef4444'
+    ctx.fillStyle = isBuy ? '#00c896' : '#ff4060'
     ctx.fill()
-    ctx.strokeStyle = '#0a0e17'
+    ctx.strokeStyle = '#0d0f13'
     ctx.lineWidth = 0.5
     ctx.stroke()
   }

@@ -1,0 +1,413 @@
+#!/usr/bin/env python3
+"""
+Sync transactions from the Schwab API into the local SQLite database.
+
+Usage:
+    # One-time login (opens browser):
+    python -c "from lib.schwab_client import login; login()"
+
+    # Sync last 60 days (API maximum window):
+    python bin/sync_schwab_api.py
+
+    # Sync a specific date range (must be within 60-day API window):
+    python bin/sync_schwab_api.py --start-date 2026-01-01 --end-date 2026-03-31
+
+    # Preview without inserting:
+    python bin/sync_schwab_api.py --dry-run
+
+    # List account hashes to build data/schwab_account_map.json:
+    python bin/sync_schwab_api.py --list-accounts
+
+Environment variables:
+    SCHWAB_API_KEY      — App key from developer.schwab.com
+    SCHWAB_APP_SECRET   — App secret from developer.schwab.com
+    SCHWAB_CALLBACK_URL — Callback URL registered with your app (default: https://127.0.0.1:8182)
+
+Account mapping:
+    Copy data/schwab_account_map.json.example to data/schwab_account_map.json
+    and fill in your account hashes with single-letter codes (C, R, I, O).
+    If no mapping exists, accounts are labeled U1, U2, ... in insertion order.
+
+Note on history:
+    The Schwab API only returns transactions within the last 60 days.
+    For older history, continue using the CSV export pipeline.
+"""
+
+import argparse
+import json
+import logging
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+
+# Allow running from project root
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from dotenv import load_dotenv
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+)
+log = logging.getLogger(__name__)
+
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'stock_trades.db')
+DB_PATH = os.path.normpath(DB_PATH)
+
+ACCOUNT_MAP_PATH = os.path.join(
+    os.path.dirname(__file__), '..', 'data', 'schwab_account_map.json'
+)
+ACCOUNT_MAP_PATH = os.path.normpath(ACCOUNT_MAP_PATH)
+
+# Only process these Schwab transaction types.
+# TRADE = buys/sells; RECEIVE_AND_DELIVER = option expirations/assignments.
+_TRADE_TYPES = {'TRADE', 'RECEIVE_AND_DELIVER'}
+
+# Asset types we care about (COLLECTIVE_INVESTMENT = ETFs, traded like stocks)
+_EQUITY_TYPES = {'EQUITY', 'OPTION', 'COLLECTIVE_INVESTMENT'}
+
+
+def load_account_map():
+    if not os.path.exists(ACCOUNT_MAP_PATH):
+        log.warning(
+            'No account map found at %s — using auto-assigned codes. '
+            'Copy data/schwab_account_map.json.example to set up your mapping.',
+            ACCOUNT_MAP_PATH,
+        )
+        return {}
+    with open(ACCOUNT_MAP_PATH) as f:
+        data = json.load(f)
+    return {k: v for k, v in data.items() if not k.startswith('_comment')}
+
+
+def parse_date(date_str):
+    """Parse ISO date string from Schwab API to YYYY-MM-DD."""
+    if not date_str:
+        return None
+    # Handle both '2024-01-15T00:00:00+0000' and '2024-01-15' formats
+    try:
+        dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        return dt.strftime('%Y-%m-%d')
+    except ValueError:
+        return date_str[:10]
+
+
+def determine_trade_type(instrument):
+    """Map Schwab instrument to our trade_type code."""
+    asset_type = instrument.get('assetType', '')
+    if asset_type == 'OPTION':
+        put_call = instrument.get('putCall', '').upper()
+        return 'C' if put_call in ('CALL', 'C') else 'P'
+    # EQUITY
+    return 'L'
+
+
+def build_option_label(instrument):
+    """
+    Build the Schwab CSV-style option label stored in our DB,
+    e.g. "QBTS 07/17/2026 25.00 C". Returns None if fields are missing.
+    """
+    underlying = instrument.get('underlyingSymbol') or ''
+    exp = parse_date(instrument.get('expirationDate'))
+    strike = instrument.get('strikePrice')
+    put_call = (instrument.get('putCall') or '').upper()
+    if not (underlying and exp and strike is not None and put_call):
+        return None
+    year, month, day = exp.split('-')
+    pc = 'C' if put_call == 'CALL' else 'P'
+    return f'{underlying} {month}/{day}/{year} {float(strike):.2f} {pc}'
+
+
+def determine_action(txn, leg, asset_type):
+    """
+    Map a Schwab transaction + instrument leg to an ActionMapping full name.
+
+    The API does not provide an explicit instruction field: the leg's signed
+    `amount` (shares/contracts received vs delivered) plus `positionEffect`
+    determine the action. Expirations/assignments arrive as RECEIVE_AND_DELIVER
+    transactions identified by their description text.
+    """
+    if txn.get('type') == 'RECEIVE_AND_DELIVER':
+        desc = (txn.get('description') or '').lower()
+        if 'expiration' in desc:
+            return 'Expired'
+        if 'assignment' in desc or 'exercise' in desc:
+            return 'Exchange or Exercise'
+        return None
+
+    signed_qty = float(leg.get('amount') or 0)
+    if signed_qty == 0:
+        return None
+    if asset_type == 'OPTION':
+        effect = (leg.get('positionEffect') or '').upper()
+        if effect == 'OPENING':
+            return 'Buy to Open' if signed_qty > 0 else 'Sell to Open'
+        if effect == 'CLOSING':
+            return 'Sell to Close' if signed_qty < 0 else 'Buy to Close'
+        return 'Buy to Open' if signed_qty > 0 else 'Sell to Close'
+    return 'Buy' if signed_qty > 0 else 'Sell'
+
+
+def extract_trade_legs(transfer_items):
+    """
+    Return all equity/option legs from transferItems, ignoring cash/currency
+    fee legs. Multi-leg option orders (spreads) produce multiple legs.
+    """
+    return [
+        item for item in transfer_items
+        if item.get('instrument', {}).get('assetType') in _EQUITY_TYPES
+    ]
+
+
+def build_transaction_record(txn, leg, account_code):
+    """
+    Convert one instrument leg of a Schwab API transaction to our
+    DatabaseInserter format. Returns None if the leg should be skipped.
+    """
+    instrument = leg.get('instrument', {})
+    asset_type = instrument.get('assetType', '')
+
+    action_name = determine_action(txn, leg, asset_type)
+    if not action_name:
+        log.warning('Skipping transaction %s — could not determine action (%s)',
+                    txn.get('activityId'), txn.get('description', ''))
+        return None
+
+    trade_type = determine_trade_type(instrument)
+    expiration_date = parse_date(instrument.get('expirationDate'))
+
+    # Symbol: use underlyingSymbol for options, symbol for stocks.
+    # Stock labels stay None to match the CSV pipeline's NULL labels.
+    if asset_type == 'OPTION':
+        symbol = instrument.get('underlyingSymbol', '')
+        label = build_option_label(instrument)
+        target_price = instrument.get('strikePrice')
+        security_name = symbol
+    else:
+        symbol = instrument.get('symbol', '')
+        label = None
+        target_price = None
+        security_name = instrument.get('description') or symbol
+
+    if not symbol:
+        log.warning('Skipping transaction with no symbol: %s', txn.get('activityId'))
+        return None
+
+    if action_name in ('Expired', 'Exchange or Exercise'):
+        # CSV pipeline records these on the option's expiration date with zero
+        # price/amount — mirror that so the dedupe check matches.
+        trade_date = expiration_date
+        price = 0.0
+        amount = 0.0
+    else:
+        trade_date = parse_date(txn.get('tradeDate') or txn.get('time'))
+        price = float(leg.get('price') or 0)
+        # Leg cost is the signed gross amount: negative for buys, positive for
+        # sells — same convention as the CSV pipeline's amount column.
+        amount = float(leg.get('cost') or 0)
+
+    if not trade_date:
+        log.warning('Skipping transaction with no trade date: %s', txn.get('activityId'))
+        return None
+
+    quantity = abs(float(leg.get('amount') or 0))
+
+    return {
+        'symbol': symbol.upper(),
+        'action': action_name,
+        'label': label,
+        'trade_type': trade_type,
+        'trade_date': trade_date,
+        'expiration_date': expiration_date,
+        'quantity': quantity,
+        'price': price,
+        'amount': amount,
+        'target_price': target_price,
+        'initial_stop_price': None,
+        'projected_sell_price': None,
+        'reason': '',
+        'account': account_code,
+        'security_name': security_name,
+    }
+
+
+SYNC_WATERMARK_KEY = 'schwab_api_last_sync'
+
+
+def _resolve_start_date(db, end_date):
+    """
+    Pick the sync start date:
+    1. Config watermark minus a 2-day overlap for late-arriving fills
+       (API-to-API dedupe is exact, so overlap is safe).
+    2. Else the day after the newest DB trade — CSV rows aggregate partial
+       fills into one row while the API reports each fill, so re-fetching
+       CSV-covered days would double-count positions.
+    3. Else the full 59-day API window.
+    Always capped to the API's 60-day history limit.
+    """
+    earliest = end_date - timedelta(days=59)
+    db.cursor.execute('SELECT value FROM config WHERE key = ?', (SYNC_WATERMARK_KEY,))
+    row = db.cursor.fetchone()
+    if row:
+        start = datetime.fromisoformat(row[0]) - timedelta(days=2)
+    else:
+        db.cursor.execute('SELECT MAX(substr(trade_date, 1, 10)) FROM trade_transaction')
+        row = db.cursor.fetchone()
+        if row and row[0]:
+            start = datetime.strptime(row[0], '%Y-%m-%d').replace(tzinfo=timezone.utc) + timedelta(days=1)
+            log.info('First API sync — starting after newest DB trade date %s', row[0])
+        else:
+            start = earliest
+    return max(start, earliest)
+
+
+def _save_watermark(db, end_date):
+    with db.transaction():
+        db.cursor.execute(
+            'INSERT INTO config (key, value, description) VALUES (?, ?, ?) '
+            'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP',
+            (SYNC_WATERMARK_KEY, end_date.isoformat(), 'Last successful Schwab API sync (UTC)'),
+        )
+
+
+def list_accounts(client):
+    """Print account hashes and numbers to help build the account map."""
+    resp = client.get_account_numbers()
+    resp.raise_for_status()
+    accounts = resp.json()
+    print('\nAccount hashes (use these in data/schwab_account_map.json):')
+    for acct in accounts:
+        print(f"  Hash: {acct.get('hashValue')}  →  Account: {acct.get('accountNumber')}")
+    print()
+
+
+def sync(start_date=None, end_date=None, dry_run=False):
+    from lib.schwab_client import get_client
+    from lib.db_utils import DatabaseInserter
+
+    client = get_client()
+    account_map = load_account_map()
+
+    # Fetch account hashes
+    resp = client.get_account_numbers()
+    resp.raise_for_status()
+    accounts = resp.json()
+
+    # Assign codes for unmapped accounts
+    auto_code_counter = [0]
+    def account_code(hash_val):
+        if hash_val in account_map:
+            return account_map[hash_val]
+        # Auto-assign: U, V, W, X, Y, Z
+        code = chr(ord('U') + auto_code_counter[0])
+        auto_code_counter[0] += 1
+        log.warning('No mapping for account hash %s — assigning code %s', hash_val, code)
+        return code
+
+    if end_date is None:
+        end_date = datetime.now(timezone.utc)
+
+    inserted = 0
+    skipped_existing = 0
+    skipped_invalid = 0
+
+    with DatabaseInserter(db_path=DB_PATH) as db:
+        if start_date is None:
+            start_date = _resolve_start_date(db, end_date)
+
+        for acct in accounts:
+            hash_val = acct.get('hashValue')
+            code = account_code(hash_val)
+            log.info('Fetching transactions for account %s (code=%s) from %s to %s',
+                     hash_val[:8] + '...', code,
+                     start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+
+            resp = client.get_transactions(
+                account_hash=hash_val,
+                start_date=start_date,
+                end_date=end_date,
+                transaction_types=[
+                    client.Transactions.TransactionType.TRADE,
+                    client.Transactions.TransactionType.RECEIVE_AND_DELIVER,
+                ],
+            )
+            resp.raise_for_status()
+            transactions = resp.json()
+            log.info('  Retrieved %d transactions', len(transactions))
+
+            records = []
+            for txn in transactions:
+                if txn.get('type', '') not in _TRADE_TYPES:
+                    skipped_invalid += 1
+                    continue
+                legs = extract_trade_legs(txn.get('transferItems', []))
+                if not legs:
+                    skipped_invalid += 1
+                    continue
+                for leg in legs:
+                    record = build_transaction_record(txn, leg, code)
+                    if record is None:
+                        skipped_invalid += 1
+                    else:
+                        records.append(record)
+
+            for record in records:
+                if dry_run:
+                    log.info('[DRY RUN] Would insert: %s %s %s qty=%s price=%s',
+                             record['trade_date'], record['action'],
+                             record['symbol'], record['quantity'], record['price'])
+                    inserted += 1
+                    continue
+
+                # Ensure security exists
+                db.insert_security({
+                    'symbol': record['symbol'],
+                    'name': record.get('security_name') or record['symbol'],
+                })
+
+                if db.transaction_exists(record):
+                    skipped_existing += 1
+                    log.debug('Already exists: %s %s %s', record['trade_date'],
+                              record['symbol'], record['action'])
+                    continue
+
+                db.insert_transaction(record)
+                inserted += 1
+                log.info('Inserted: %s %s %s qty=%s',
+                         record['trade_date'], record['action'],
+                         record['symbol'], record['quantity'])
+
+        if not dry_run:
+            _save_watermark(db, end_date)
+
+    log.info('Sync complete. Inserted: %d, Already existed: %d, Skipped invalid: %d',
+             inserted, skipped_existing, skipped_invalid)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Sync Schwab API transactions to local DB')
+    parser.add_argument('--start-date', help='Start date YYYY-MM-DD (default: 59 days ago)')
+    parser.add_argument('--end-date', help='End date YYYY-MM-DD (default: today)')
+    parser.add_argument('--dry-run', action='store_true', help='Preview without inserting')
+    parser.add_argument('--list-accounts', action='store_true',
+                        help='Print account hashes for account map setup')
+    args = parser.parse_args()
+
+    if args.list_accounts:
+        from lib.schwab_client import get_client
+        list_accounts(get_client())
+        return
+
+    start = None
+    end = None
+    if args.start_date:
+        start = datetime.strptime(args.start_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+    if args.end_date:
+        end = datetime.strptime(args.end_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+
+    sync(start_date=start, end_date=end, dry_run=args.dry_run)
+
+
+if __name__ == '__main__':
+    main()
