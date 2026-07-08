@@ -54,14 +54,16 @@ pnpm dev          # Vite dev server with hot reload
 ### 5. Run the app
 
 ```bash
-./run_dev.sh                 # one command: syncs Schwab API, starts backend + frontend, opens the browser
+./run_dev.sh                 # syncs Schwab API, starts backend + frontend in the background, opens the browser
+./run_dev.sh status          # check whether backend/frontend are running
+./run_dev.sh stop            # stop backend + frontend
 # or
 ./run_flask.sh              # Flask dev server only, on localhost:5000
 # or
 docker-compose up           # gunicorn on port 5002
 ```
 
-`run_dev.sh` opens <http://localhost:5173/dashboard> automatically.
+`run_dev.sh start` detaches immediately — the servers keep running after the terminal closes. It opens <http://localhost:5173/dashboard> automatically and logs to `.run/backend.log` / `.run/frontend.log`.
 
 ## Importing Schwab Data
 

@@ -118,6 +118,7 @@ node_modules/
 # My Stuff
 ######################
 logs/
+.run/
 clear_cache.sh
 #old_python_setup.sh
 old_*
