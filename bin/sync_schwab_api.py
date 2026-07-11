@@ -169,6 +169,36 @@ def extract_trade_legs(transfer_items):
     ]
 
 
+def _log_skipped_leg(txn, leg):
+    """
+    Log a leg that couldn't be mapped to an action, with enough detail to see
+    why. Zero-value RECEIVE_AND_DELIVER legs are sub-account journals (e.g.
+    Schwab moving a position between CASH and MARGIN) or corporate actions —
+    not trades, so skipping them is correct and logged at INFO. Anything else
+    unmapped is unexpected and stays a WARNING.
+    """
+    instrument = leg.get('instrument', {})
+    detail = (
+        f"type={txn.get('type')} desc=\"{txn.get('description', '')}\" "
+        f"date={parse_date(txn.get('tradeDate') or txn.get('time'))} "
+        f"subAccount={txn.get('subAccount')} netAmount={txn.get('netAmount')} | "
+        f"leg: {instrument.get('symbol')} {instrument.get('assetType')} "
+        f"amount={leg.get('amount')} cost={leg.get('cost')} "
+        f"price={leg.get('price')} positionEffect={leg.get('positionEffect')}"
+    )
+    is_journal = (
+        txn.get('type') == 'RECEIVE_AND_DELIVER'
+        and not float(txn.get('netAmount') or 0)
+        and not float(leg.get('cost') or 0)
+    )
+    if is_journal:
+        log.info('Skipping transaction %s — sub-account journal/corporate action, '
+                 'not a trade (%s)', txn.get('activityId'), detail)
+    else:
+        log.warning('Skipping transaction %s — could not determine action (%s)',
+                    txn.get('activityId'), detail)
+
+
 def build_transaction_record(txn, leg, account_code):
     """
     Convert one instrument leg of a Schwab API transaction to our
@@ -179,8 +209,7 @@ def build_transaction_record(txn, leg, account_code):
 
     action_name = determine_action(txn, leg, asset_type)
     if not action_name:
-        log.warning('Skipping transaction %s — could not determine action (%s)',
-                    txn.get('activityId'), txn.get('description', ''))
+        _log_skipped_leg(txn, leg)
         return None
 
     trade_type = determine_trade_type(instrument)

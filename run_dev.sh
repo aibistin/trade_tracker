@@ -7,7 +7,9 @@
 #   ./run_dev.sh status    Show whether the backend and frontend are running
 #
 # start detaches immediately — the servers keep running after the terminal closes.
-# Logs are written to .run/backend.log and .run/frontend.log.
+# Logs are written to .run/backend.log, .run/frontend.log and .run/schwab_sync.log.
+# On each start, empty log files and gzipped logs older than 90 days are pruned
+# from logs/ and .run/.
 
 set -u
 
@@ -17,12 +19,28 @@ BACKEND_PID_FILE="${RUN_DIR}/backend.pid"
 FRONTEND_PID_FILE="${RUN_DIR}/frontend.pid"
 BACKEND_LOG="${RUN_DIR}/backend.log"
 FRONTEND_LOG="${RUN_DIR}/frontend.log"
+SYNC_LOG="${RUN_DIR}/schwab_sync.log"
+APP_LOG_DIR="${SCRIPT_DIR}/logs"
 BACKEND_PORT=5000
 FRONTEND_PORT=5173
 BACKEND_URL="http://localhost:${BACKEND_PORT}"
 FRONTEND_URL="http://localhost:${FRONTEND_PORT}"
 
 mkdir -p "$RUN_DIR"
+
+cleanup_logs() {
+    # Prune old log artifacts: empty files and gzipped rotations older than
+    # 90 days. Scoped to the log directories only — running these finds from
+    # the project root would delete the (legitimately empty) __init__.py files.
+    local dir
+    for dir in "$APP_LOG_DIR" "$RUN_DIR"; do
+        [ -d "$dir" ] || continue
+        find "$dir" -type f -size 0 -print -delete 2>/dev/null \
+            | sed 's/^/  removed empty: /'
+        find "$dir" -type f -name "*.gz" -mtime +90 -print -delete 2>/dev/null \
+            | sed 's/^/  removed old archive: /'
+    done
+}
 
 is_running() {
     # $1 = pid file. Cleans up the pid file if the process is gone.
@@ -103,13 +121,21 @@ cmd_start() {
 
     export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}"
 
+    printf "\033[1m[dev]\033[0m Cleaning up old logs...\n"
+    cleanup_logs
+
     # Pull the latest transactions from the Schwab API before starting the servers.
     # Startup continues even if the sync fails (e.g. offline, token expired).
     if [ -f "${SCRIPT_DIR}/data/schwab_token.json" ]; then
-        printf "\033[1m[dev]\033[0m Syncing latest Schwab transactions...\n"
+        printf "\033[1m[dev]\033[0m Syncing latest Schwab transactions... (log: .run/schwab_sync.log)\n"
+        printf '===== sync started %s =====\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "$SYNC_LOG"
         python "${SCRIPT_DIR}/bin/sync_schwab_api.py" 2>&1 \
-            | awk '{ print "\033[0;35m[schwab]  \033[0m" $0; fflush() }' \
-            || printf "\033[1m[dev]\033[0m Schwab sync failed — continuing with existing data.\n"
+            | tee -a "$SYNC_LOG" \
+            | awk '{ print "\033[0;35m[schwab]  \033[0m" $0; fflush() }'
+        # Pipeline exit status is awk's, so check the python stage explicitly.
+        if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+            printf "\033[1m[dev]\033[0m Schwab sync failed — continuing with existing data.\n"
+        fi
     else
         printf "\033[1m[dev]\033[0m No Schwab token — run \033[1mpython bin/schwab_login.py\033[0m once to enable API sync.\n"
     fi

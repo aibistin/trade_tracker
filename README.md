@@ -63,7 +63,7 @@ pnpm dev          # Vite dev server with hot reload
 docker-compose up           # gunicorn on port 5002
 ```
 
-`run_dev.sh start` detaches immediately — the servers keep running after the terminal closes. It opens <http://localhost:5173/dashboard> automatically and logs to `.run/backend.log` / `.run/frontend.log`.
+`run_dev.sh start` detaches immediately — the servers keep running after the terminal closes. It opens <http://localhost:5173/dashboard> automatically and logs to `.run/backend.log` / `.run/frontend.log`; the startup Schwab sync output is also appended to `.run/schwab_sync.log`. Each start prunes empty log files and gzipped logs older than 90 days from `logs/` and `.run/`.
 
 ## Importing Schwab Data
 
