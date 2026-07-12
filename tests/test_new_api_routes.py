@@ -170,7 +170,7 @@ class TestHoldingsEndpoint(unittest.TestCase):
         Option prices are keyed by OCC-format ticker (label_to_occ converts the label
         before calling yfinance). "HOLD1 03/21/2025 60.00 C" → "HOLD1250321C00060000".
         """
-        patcher = patch("app.routes.api_routes.YahooFinance")
+        patcher = patch("lib.yfinance.YahooFinance")
         mock_yf_class = patcher.start()
 
         def side_effect(symbol):
@@ -452,7 +452,7 @@ class TestHoldingsEndpoint(unittest.TestCase):
 
     def test_holdings_yfinance_failure_graceful(self):
         """If yfinance throws, positions still appear but with null price fields."""
-        with patch("app.routes.api_routes.YahooFinance") as MockYF:
+        with patch("lib.yfinance.YahooFinance") as MockYF:
             instance = MagicMock()
             instance.get_stock_data.side_effect = Exception("API down")
             MockYF.return_value = instance
@@ -563,7 +563,7 @@ class TestHoldingsAuth(unittest.TestCase):
 
     def test_holdings_with_correct_api_key_returns_200(self):
         """GET /api/holdings with correct X-API-KEY returns 200."""
-        with patch("app.routes.api_routes.YahooFinance") as MockYF:
+        with patch("lib.yfinance.YahooFinance") as MockYF:
             instance = MagicMock()
             instance.get_stock_data.return_value = None
             instance.get_results.return_value = {}

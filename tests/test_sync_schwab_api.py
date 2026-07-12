@@ -1,0 +1,272 @@
+import unittest
+from datetime import datetime, timedelta, timezone
+
+from bin.sync_schwab_api import (
+    MAX_API_WINDOW_DAYS,
+    SYNC_WATERMARK_KEY,
+    build_option_label,
+    build_transaction_record,
+    determine_action,
+    determine_trade_type,
+    extract_trade_legs,
+    parse_date,
+    sync,
+    _resolve_start_date,
+    _save_watermark,
+)
+from lib.db_utils import DatabaseInserter
+
+SCHEMA = """
+CREATE TABLE config (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    description TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE trade_transaction (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    action TEXT NOT NULL,
+    label TEXT,
+    trade_type TEXT,
+    trade_date DATETIME NOT NULL,
+    expiration_date DATETIME,
+    reason TEXT,
+    quantity REAL NOT NULL,
+    price REAL NOT NULL,
+    amount REAL NOT NULL,
+    target_price REAL,
+    initial_stop_price REAL,
+    projected_sell_price REAL,
+    account TEXT NOT NULL
+);
+"""
+
+
+def option_instrument(**overrides):
+    instrument = {
+        "assetType": "OPTION",
+        "underlyingSymbol": "QBTS",
+        "expirationDate": "2026-07-17T00:00:00+0000",
+        "strikePrice": 25.0,
+        "putCall": "CALL",
+    }
+    instrument.update(overrides)
+    return instrument
+
+
+def trade_txn(amount, position_effect=None, asset_type="EQUITY", **txn_overrides):
+    leg = {
+        "instrument": {"assetType": asset_type, "symbol": "FAKE"},
+        "amount": amount,
+        "cost": -abs(amount) * 10.0 if amount > 0 else abs(amount) * 10.0,
+        "price": 10.0,
+    }
+    if position_effect:
+        leg["positionEffect"] = position_effect
+    if asset_type == "OPTION":
+        leg["instrument"] = option_instrument()
+    txn = {
+        "activityId": 1,
+        "type": "TRADE",
+        "tradeDate": "2026-07-10T04:00:00+0000",
+        "description": "test",
+        "transferItems": [leg],
+    }
+    txn.update(txn_overrides)
+    return txn, leg
+
+
+class TestParseDate(unittest.TestCase):
+    def test_iso_with_offset(self):
+        self.assertEqual(parse_date("2026-07-10T04:00:00+00:00"), "2026-07-10")
+
+    def test_zulu_suffix(self):
+        self.assertEqual(parse_date("2026-07-10T04:00:00Z"), "2026-07-10")
+
+    def test_plain_date(self):
+        self.assertEqual(parse_date("2026-07-10"), "2026-07-10")
+
+    def test_none_returns_none(self):
+        self.assertIsNone(parse_date(None))
+
+    def test_unparseable_falls_back_to_prefix(self):
+        self.assertEqual(parse_date("2026-07-10Xjunk"), "2026-07-10")
+
+
+class TestDetermineTradeType(unittest.TestCase):
+    def test_call(self):
+        self.assertEqual(determine_trade_type(option_instrument()), "C")
+
+    def test_put(self):
+        self.assertEqual(determine_trade_type(option_instrument(putCall="PUT")), "P")
+
+    def test_equity_is_long(self):
+        self.assertEqual(determine_trade_type({"assetType": "EQUITY"}), "L")
+
+
+class TestBuildOptionLabel(unittest.TestCase):
+    def test_call_label(self):
+        self.assertEqual(
+            build_option_label(option_instrument()), "QBTS 07/17/2026 25.00 C"
+        )
+
+    def test_put_label(self):
+        self.assertEqual(
+            build_option_label(option_instrument(putCall="PUT")),
+            "QBTS 07/17/2026 25.00 P",
+        )
+
+    def test_missing_field_returns_none(self):
+        self.assertIsNone(build_option_label(option_instrument(underlyingSymbol=None)))
+
+
+class TestDetermineAction(unittest.TestCase):
+    def test_equity_buy(self):
+        txn, leg = trade_txn(amount=100)
+        self.assertEqual(determine_action(txn, leg, "EQUITY"), "Buy")
+
+    def test_equity_sell(self):
+        txn, leg = trade_txn(amount=-100)
+        self.assertEqual(determine_action(txn, leg, "EQUITY"), "Sell")
+
+    def test_option_buy_to_open(self):
+        txn, leg = trade_txn(amount=2, position_effect="OPENING", asset_type="OPTION")
+        self.assertEqual(determine_action(txn, leg, "OPTION"), "Buy to Open")
+
+    def test_option_sell_to_close(self):
+        txn, leg = trade_txn(amount=-2, position_effect="CLOSING", asset_type="OPTION")
+        self.assertEqual(determine_action(txn, leg, "OPTION"), "Sell to Close")
+
+    def test_option_without_effect_falls_back_on_sign(self):
+        txn, leg = trade_txn(amount=-2, asset_type="OPTION")
+        self.assertEqual(determine_action(txn, leg, "OPTION"), "Sell to Close")
+
+    def test_zero_amount_returns_none(self):
+        txn, leg = trade_txn(amount=0)
+        self.assertIsNone(determine_action(txn, leg, "EQUITY"))
+
+    def test_receive_and_deliver_expiration(self):
+        txn, leg = trade_txn(amount=-1, type="RECEIVE_AND_DELIVER",
+                             description="Expiration of option contract")
+        self.assertEqual(determine_action(txn, leg, "OPTION"), "Expired")
+
+    def test_receive_and_deliver_assignment(self):
+        txn, leg = trade_txn(amount=-1, type="RECEIVE_AND_DELIVER",
+                             description="Assignment of option")
+        self.assertEqual(determine_action(txn, leg, "OPTION"), "Exchange or Exercise")
+
+    def test_receive_and_deliver_journal_returns_none(self):
+        # Sub-account journals (e.g. CASH -> MARGIN moves) are not trades
+        txn, leg = trade_txn(amount=-1900, type="RECEIVE_AND_DELIVER",
+                             description="CAPSTONE ENERGY+ INC")
+        self.assertIsNone(determine_action(txn, leg, "EQUITY"))
+
+
+class TestExtractTradeLegs(unittest.TestCase):
+    def test_filters_currency_legs(self):
+        items = [
+            {"instrument": {"assetType": "CURRENCY"}, "amount": -1000.0},
+            {"instrument": {"assetType": "EQUITY", "symbol": "FAKE"}, "amount": 100},
+            {"instrument": {"assetType": "COLLECTIVE_INVESTMENT", "symbol": "SPY"}, "amount": 5},
+        ]
+        legs = extract_trade_legs(items)
+        self.assertEqual(len(legs), 2)
+        self.assertEqual(legs[0]["instrument"]["symbol"], "FAKE")
+
+    def test_empty_items(self):
+        self.assertEqual(extract_trade_legs([]), [])
+
+
+class TestBuildTransactionRecord(unittest.TestCase):
+    def test_equity_buy_record(self):
+        txn, leg = trade_txn(amount=100)
+        leg["cost"] = -1000.0
+        record = build_transaction_record(txn, leg, "C")
+        self.assertEqual(record["symbol"], "FAKE")
+        self.assertEqual(record["action"], "Buy")
+        self.assertEqual(record["trade_type"], "L")
+        self.assertIsNone(record["label"])
+        self.assertEqual(record["trade_date"], "2026-07-10")
+        self.assertEqual(record["quantity"], 100.0)
+        self.assertEqual(record["amount"], -1000.0)
+        self.assertEqual(record["account"], "C")
+
+    def test_option_record_uses_underlying_and_label(self):
+        txn, leg = trade_txn(amount=2, position_effect="OPENING", asset_type="OPTION")
+        record = build_transaction_record(txn, leg, "R")
+        self.assertEqual(record["symbol"], "QBTS")
+        self.assertEqual(record["label"], "QBTS 07/17/2026 25.00 C")
+        self.assertEqual(record["trade_type"], "C")
+        self.assertEqual(record["target_price"], 25.0)
+
+    def test_journal_leg_returns_none(self):
+        txn, leg = trade_txn(amount=-1900, type="RECEIVE_AND_DELIVER",
+                             description="CAPSTONE ENERGY+ INC", netAmount=0.0)
+        leg["cost"] = 0.0
+        self.assertIsNone(build_transaction_record(txn, leg, "R"))
+
+    def test_expiration_recorded_on_expiration_date_with_zero_value(self):
+        txn, leg = trade_txn(amount=-1, type="RECEIVE_AND_DELIVER",
+                             description="Expiration of option", asset_type="OPTION")
+        record = build_transaction_record(txn, leg, "C")
+        self.assertEqual(record["action"], "Expired")
+        self.assertEqual(record["trade_date"], "2026-07-17")  # expiration, not trade date
+        self.assertEqual(record["price"], 0.0)
+        self.assertEqual(record["amount"], 0.0)
+
+
+class TestWatermark(unittest.TestCase):
+    def setUp(self):
+        self.db = DatabaseInserter(db_path=":memory:")
+        self.db.cursor.executescript(SCHEMA)
+        self.end_date = datetime(2026, 7, 11, tzinfo=timezone.utc)
+
+    def tearDown(self):
+        self.db.close()
+
+    def test_resolves_from_watermark_minus_overlap(self):
+        _save_watermark(self.db, datetime(2026, 7, 9, tzinfo=timezone.utc))
+        start = _resolve_start_date(self.db, self.end_date)
+        self.assertEqual(start, datetime(2026, 7, 7, tzinfo=timezone.utc))
+
+    def test_first_sync_starts_after_newest_db_trade(self):
+        self.db.cursor.execute(
+            "INSERT INTO trade_transaction (symbol, action, trade_type, trade_date, "
+            "quantity, price, amount, account) "
+            "VALUES ('FAKE', 'B', 'L', '2026-07-01', 1, 1, -1, 'C')"
+        )
+        start = _resolve_start_date(self.db, self.end_date)
+        self.assertEqual(start, datetime(2026, 7, 2, tzinfo=timezone.utc))
+
+    def test_empty_db_uses_full_window(self):
+        start = _resolve_start_date(self.db, self.end_date)
+        self.assertEqual(start, self.end_date - timedelta(days=MAX_API_WINDOW_DAYS))
+
+    def test_save_watermark_upserts(self):
+        _save_watermark(self.db, datetime(2026, 7, 9, tzinfo=timezone.utc))
+        _save_watermark(self.db, datetime(2026, 7, 11, tzinfo=timezone.utc))
+        self.db.cursor.execute(
+            "SELECT value FROM config WHERE key = ?", (SYNC_WATERMARK_KEY,)
+        )
+        self.assertEqual(
+            self.db.cursor.fetchone()[0], "2026-07-11T00:00:00+00:00"
+        )
+
+    def test_watermark_capped_to_max_window(self):
+        _save_watermark(self.db, datetime(2020, 1, 1, tzinfo=timezone.utc))
+        start = _resolve_start_date(self.db, self.end_date)
+        self.assertEqual(start, self.end_date - timedelta(days=MAX_API_WINDOW_DAYS))
+
+
+class TestSyncDateValidation(unittest.TestCase):
+    def test_range_over_one_year_raises_before_any_network_call(self):
+        start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        with self.assertRaises(ValueError) as ctx:
+            sync(start_date=start, end_date=end)
+        self.assertIn("Date range too wide", str(ctx.exception))
+
+
+if __name__ == "__main__":
+    unittest.main()

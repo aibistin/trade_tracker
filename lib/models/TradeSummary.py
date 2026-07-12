@@ -258,9 +258,7 @@ class TradeSummary:
             f"[{symbol}] {security_type} Buy  trade count: {len(self.buy_trades)}"
         )
 
-        while self.buy_trades:
-            current_buy_record = self.buy_trades.pop(0)
-
+        for current_buy_record in self.buy_trades:
             running_bought_quantity += current_buy_record.quantity
 
             logging.debug(
@@ -293,6 +291,10 @@ class TradeSummary:
             )
 
             all_buy_trades.append(current_buy_record)
+
+        # The caller keeps the returned list; clear our copy so the summary
+        # serializes without embedding every trade (matches prior behavior).
+        self.buy_trades = []
 
         self.calculate_final_totals(running_sold_quantity, running_sold_amount)
 

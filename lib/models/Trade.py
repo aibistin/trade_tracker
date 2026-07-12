@@ -340,15 +340,7 @@ class BuyTrade(Trade):
         # Applied sell will track the sell trades status.
         applied_sell.is_done = sell_trade.quantity == 0
 
-        # applied_sell.calculate_profit_loss()
-        price_diff = abs(applied_sell.price) - applied_sell.basis_price
-        amount_diff = price_diff * applied_sell.quantity * applied_sell.multiplier
-        applied_sell.profit_loss = round(amount_diff, 2)
-        applied_sell.percent_profit_loss = (
-            round((amount_diff / applied_sell.basis_amt) * 100, 2)
-            if applied_sell.basis_amt != 0
-            else 0
-        )
+        applied_sell.calculate_profit_loss()
 
         self.sells.append(applied_sell)  # This portion of sell is included with buy
 
@@ -413,8 +405,10 @@ class SellTrade(Trade):
         return super().to_dict()
 
     def calculate_profit_loss(self) -> None:
-        """Calculate profit/loss against a buy trade"""
+        """Calculate profit/loss against this sell's basis (set when applied to a buy)."""
         price_diff = abs(self.price) - self.basis_price
         amount_diff = price_diff * self.quantity * self.multiplier
         self.profit_loss = round(amount_diff, 2)
-        self.percent_profit_loss = round((amount_diff / self.basis_amt) * 100, 2)
+        self.percent_profit_loss = (
+            round((amount_diff / self.basis_amt) * 100, 2) if self.basis_amt != 0 else 0
+        )

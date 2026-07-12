@@ -10,12 +10,6 @@ from lib.models.Trade import Trade, BuyTrade, SellTrade
 TradeType = TypeVar("TradeType", bound=Trade)
 
 
-
-
-# Type variable for covariant trade types
-TradeType = TypeVar("TradeType", bound=Trade)
-
-
 @dataclass
 class TradeCollection:
     """Base class for trade collections with serialization support"""
@@ -104,10 +98,6 @@ class BuyTrades(TradeCollection):
     account: Optional[str] = None  # New: account filter
     after_date_str: Optional[str] = None
     after_date: Optional[datetime] = field(default=None, init=False)
-    sells_by_account: Dict[str, List[SellTrade]] = field(default_factory=dict)  # type: ignore
-
-    
-
 
     def __post_init__(self):
         """Parse after_date_str into datetime and validate status"""

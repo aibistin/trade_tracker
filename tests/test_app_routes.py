@@ -516,155 +516,6 @@ class TestAppRoutes(unittest.TestCase):
                 symbol, symbol_names, f"Test symbol {symbol} missing from response"
             )
 
-    # Testp POST filtered_trades
-    def test_api_filtered_trades_route(self):
-        """Test filtered trades endpoint with account and date filters"""
-
-        response = self.client.post(
-            f"/api/trades/all/json/{filter_symbol}/filtered", json={"account": "O"}
-        )
-        self.assertEqual(
-            response.status_code,
-            200,
-            f"Expected status 200, got {response.status_code}",
-        )
-
-        trades_data = response.json
-        self.assertEqual(
-            trades_data["filters"]["account"],
-            "O",
-            f"Expected account filter: O, got {trades_data['filters']['account']}",
-        )
-
-        # Verify only O trades are returned
-        stock_trades = trades_data["transaction_stats"]["stock"]["all_trades"]
-        self.assertEqual(
-            len(stock_trades),
-            2,
-            f"Expected 2 trades for account O, got {len(stock_trades)}",
-        )
-        for trade in stock_trades:
-            self.assertEqual(
-                trade["account"], "O", f"Expected account O, got {trade['account']}"
-            )
-
-    def test_api_filtered_trades_date_account(self):
-        """Test filtered trades with date and account filters"""
-        # Test with both filters
-        response = self.client.post(
-            f"/api/trades/all/json/{filter_symbol}/filtered",
-            json={"after_date": "2025-01-01", "account": "O"},
-        )
-        self.assertEqual(
-            response.status_code,
-            200,
-            f"Expected status 200, got {response.status_code}",
-        )
-
-        trades_data = response.json
-        self.assertEqual(
-            trades_data["filters"]["after_date"],
-            "2025-01-01",
-            f"Expected after_date filter: 2025-01-01, got {trades_data['filters']['after_date']}",
-        )
-        self.assertEqual(
-            trades_data["filters"]["account"],
-            "O",
-            f"Expected account filter: O, got {trades_data['filters']['account']}",
-        )
-
-        # Verify only matching trades are returned
-        stock_trades = trades_data["transaction_stats"]["stock"]["all_trades"]
-
-        test_logger.debug(f"stock_trades: {trades_data}")
-
-        self.assertEqual(
-            len(stock_trades),
-            2,
-            f"Expected 2 trades after 2025-01-01 for account O, got {len(stock_trades)}",
-        )
-
-        for trade in stock_trades:
-            self.assertEqual(
-                trade["account"], "O", f"Expected account O, got {trade['account']}"
-            )
-            self.assertGreaterEqual(
-                trade["trade_date"],
-                "2025-01-01",
-                f"Trade date {trade['trade_date']} is before filter date",
-            )
-
-    def test_api_filtered_trades_invalid_scope(self):
-        """Test filtered trades with invalid scope parameter"""
-        response = self.client.post(
-            f"/api/trades/invalid/json/{filter_symbol}/filtered",
-            json={"account": "O"},
-        )
-        self.assertEqual(
-            response.status_code,
-            400,
-            f"Expected status 400 for invalid scope, got {response.status_code}",
-        )
-        error_data = response.json
-        self.assertIn("error", error_data, "Response should contain 'error' field")
-        self.assertIn(
-            "Invalid scope",
-            error_data["error"],
-            f"Expected 'Invalid scope' error, got {error_data['error']}",
-        )
-
-    def test_api_filtered_trades_no_filters(self):
-        """Test filtered trades endpoint with no filters applied"""
-        response = self.client.post(
-            f"/api/trades/all/json/{filter_symbol}/filtered", json={}
-        )
-        self.assertEqual(
-            response.status_code,
-            200,
-            f"Expected status 200, got {response.status_code}",
-        )
-
-        trades_data = response.json
-        # Should return all trades for FILT1
-        stock_trades = trades_data["transaction_stats"]["stock"]["all_trades"]
-        self.assertEqual(
-            len(stock_trades),
-            2,
-            f"Expected 2 trades without filters, got {len(stock_trades)}",
-        )
-
-    def test_api_filtered_trades_account_no_matches(self):
-        """Test filtered trades with valid account that has no matching trades"""
-        response = self.client.post(
-            f"/api/trades/all/json/{filter_symbol}/filtered",
-            json={"account": "I"},
-        )
-        self.assertEqual(
-            response.status_code,
-            200,
-            f"Expected status 200, got {response.status_code}",
-        )
-
-        trades_data = response.json
-        stock_trades = trades_data["transaction_stats"]["stock"]["all_trades"]
-        self.assertEqual(
-            len(stock_trades),
-            0,
-            f"Expected 0 trades for account with no matches, got {len(stock_trades)}",
-        )
-
-    def test_api_filtered_trades_invalid_account(self):
-        """Test filtered trades with invalid account returns 400"""
-        response = self.client.post(
-            f"/api/trades/all/json/{filter_symbol}/filtered",
-            json={"account": "NONEXISTENT"},
-        )
-        self.assertEqual(
-            response.status_code,
-            400,
-            f"Expected status 400, got {response.status_code}",
-        )
-
     # Tests for GET query parameter filtering on /api/trades/<scope>/json/<symbol>
 
     def test_api_positions_with_after_date(self):
@@ -995,10 +846,33 @@ class TestAppRoutes(unittest.TestCase):
         response = self.client.get("/trade_stats_summary")
         self.assertEqual(response.status_code, 200)
 
-    def test_web_open_trades(self):
-        """GET /open_trades/<symbol> returns 200 (route handles missing method gracefully)."""
-        response = self.client.get("/open_trades/FAKE3")
+    def test_web_trade_detail_by_symbol(self):
+        """GET /trade/detail/<symbol> renders the stock summary and trades."""
+        response = self.client.get("/trade/detail/FAKE1")
         self.assertEqual(response.status_code, 200)
+        self.assertIn(b"FAKE1", response.data)
+
+    def test_web_trade_detail_no_stock_trades_returns_404(self):
+        """GET /trade/detail/<symbol> returns 404 for a symbol with no stock trades."""
+        response = self.client.get("/trade/detail/NOSUCH")
+        self.assertEqual(response.status_code, 404)
+
+    def test_web_update_transaction_not_found(self):
+        """POST /update_transaction/<id> returns 404 for a non-existent ID."""
+        response = self.client.post("/update_transaction/999999", data={"reason": "x"})
+        self.assertEqual(response.status_code, 404)
+
+    def test_web_update_transaction_validation_error_redirects(self):
+        """POST /update_transaction/<id> with an invalid price redirects back."""
+        transaction_id = db.session.execute(
+            select(TradeTransaction.id).limit(1)
+        ).scalar()
+        response = self.client.post(
+            f"/update_transaction/{transaction_id}",
+            data={"initial_stop_price": "-5"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f"transaction/{transaction_id}", response.headers["Location"])
 
     def test_dashboard_summary_structure(self):
         """Dashboard summary returns correct top-level structure."""
@@ -1118,7 +992,7 @@ class TestAppRoutes(unittest.TestCase):
 
     # --- Holdings endpoint tests (GET /api/holdings) ---
 
-    @patch("app.routes.api_routes.YahooFinance")
+    @patch("lib.yfinance.YahooFinance")
     def test_api_holdings_structure(self, MockYF):
         """GET /api/holdings returns stock and option sections with correct structure."""
         instance = MockYF.return_value
@@ -1138,7 +1012,7 @@ class TestAppRoutes(unittest.TestCase):
             self.assertIn("total_market_value", section)
             self.assertIn("total_unrealized_pnl", section)
 
-    @patch("app.routes.api_routes.YahooFinance")
+    @patch("lib.yfinance.YahooFinance")
     def test_api_holdings_shows_only_open_positions(self, MockYF):
         """Holdings endpoint only returns genuinely open positions (FAKE3 stock, not FAKE1/FAKE2)."""
         instance = MockYF.return_value
@@ -1159,7 +1033,7 @@ class TestAppRoutes(unittest.TestCase):
         # FAKE2 stock is fully closed
         self.assertNotIn("FAKE2", stock_symbols, "FAKE2 stock should not be in open holdings")
 
-    @patch("app.routes.api_routes.YahooFinance")
+    @patch("lib.yfinance.YahooFinance")
     def test_api_holdings_stock_position_fields(self, MockYF):
         """Each stock position has all required fields with correct values."""
         instance = MockYF.return_value
@@ -1188,7 +1062,7 @@ class TestAppRoutes(unittest.TestCase):
         self.assertEqual(fake3["unrealized_pnl"], 250.0)
         self.assertEqual(fake3["pnl_pct"], 5.0)
 
-    @patch("app.routes.api_routes.YahooFinance")
+    @patch("lib.yfinance.YahooFinance")
     def test_api_holdings_option_open_positions(self, MockYF):
         """FAKE3 open option position appears in option section, FAKE1 closed option does not."""
         instance = MockYF.return_value
@@ -1212,7 +1086,7 @@ class TestAppRoutes(unittest.TestCase):
         self.assertEqual(fake3_opt["avg_cost"], 3.50)
         self.assertEqual(fake3_opt["cost_basis"], 700.0)  # 3.50 * 2 * 100
 
-    @patch("app.routes.api_routes.YahooFinance")
+    @patch("lib.yfinance.YahooFinance")
     def test_api_holdings_totals(self, MockYF):
         """Holdings totals include values from open positions and are consistent."""
         instance = MockYF.return_value
@@ -1232,7 +1106,7 @@ class TestAppRoutes(unittest.TestCase):
             places=2,
         )
 
-    @patch("app.routes.api_routes.YahooFinance")
+    @patch("lib.yfinance.YahooFinance")
     def test_api_holdings_price_fetch_failure(self, MockYF):
         """Holdings still returns positions when price fetch fails (prices are None)."""
         instance = MockYF.return_value
@@ -1247,150 +1121,6 @@ class TestAppRoutes(unittest.TestCase):
         self.assertIsNotNone(fake3)
         self.assertIsNone(fake3["current_price"])
         self.assertIsNone(fake3["market_value"])
-
-    # --- Options prices endpoint tests (POST /api/options/prices) ---
-
-    @patch("app.routes.api_routes.YahooFinance")
-    def test_api_options_prices_success(self, MockYF):
-        """POST /api/options/prices returns bid/ask/last for each ticker."""
-        instance = MockYF.return_value
-        instance.get_stock_data.return_value = None
-        instance.get_results.return_value = {
-            "bid": 3.40, "ask": 3.60, "lastPrice": 3.50, "symbol": "FAKE3250620C00220000",
-        }
-
-        response = self.client.post(
-            "/api/options/prices",
-            json={"tickers": ["FAKE3250620C00220000"]},
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json
-        self.assertIn("prices", data)
-        self.assertIn("FAKE3250620C00220000", data["prices"])
-        price_info = data["prices"]["FAKE3250620C00220000"]
-        self.assertEqual(price_info["bid"], 3.40)
-        self.assertEqual(price_info["ask"], 3.60)
-        self.assertEqual(price_info["last"], 3.50)
-
-    @patch("app.routes.api_routes.YahooFinance")
-    def test_api_options_prices_multiple_tickers(self, MockYF):
-        """POST /api/options/prices handles multiple tickers."""
-        instance = MockYF.return_value
-        instance.get_stock_data.return_value = None
-        instance.get_results.return_value = {"lastPrice": 5.0, "symbol": "TEST"}
-
-        response = self.client.post(
-            "/api/options/prices",
-            json={"tickers": ["TICKER1", "TICKER2", "TICKER3"]},
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json
-        self.assertEqual(len(data["prices"]), 3)
-
-    def test_api_options_prices_missing_tickers(self):
-        """POST /api/options/prices without tickers returns 400."""
-        response = self.client.post("/api/options/prices", json={})
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("error", response.json)
-
-    def test_api_options_prices_no_json(self):
-        """POST /api/options/prices with non-JSON body returns 400."""
-        response = self.client.post(
-            "/api/options/prices", data="not json", content_type="text/plain",
-        )
-        self.assertEqual(response.status_code, 400)
-
-    @patch("app.routes.api_routes.YahooFinance")
-    def test_api_options_prices_fetch_failure(self, MockYF):
-        """Tickers that fail to fetch return null values instead of erroring."""
-        instance = MockYF.return_value
-        instance.get_stock_data.side_effect = Exception("API down")
-
-        response = self.client.post(
-            "/api/options/prices",
-            json={"tickers": ["BROKEN_TICKER"]},
-        )
-        self.assertEqual(response.status_code, 200)
-        price_info = response.json["prices"]["BROKEN_TICKER"]
-        self.assertIsNone(price_info["bid"])
-        self.assertIsNone(price_info["ask"])
-        self.assertIsNone(price_info["last"])
-
-    # --- Heatmap endpoint tests (GET /api/portfolio/heatmap) ---
-
-    @patch("app.routes.api_routes.YahooFinance")
-    def test_api_heatmap_structure(self, MockYF):
-        """GET /api/portfolio/heatmap returns positions list with correct structure."""
-        instance = MockYF.return_value
-        instance.get_stock_data.return_value = None
-        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
-
-        response = self.client.get("/api/portfolio/heatmap")
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json
-        self.assertIn("positions", data)
-        self.assertIn("total_market_value", data)
-        self.assertIsInstance(data["positions"], list)
-
-    @patch("app.routes.api_routes.YahooFinance")
-    def test_api_heatmap_position_fields(self, MockYF):
-        """Each heatmap position has required fields."""
-        instance = MockYF.return_value
-        instance.get_stock_data.return_value = None
-        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
-
-        response = self.client.get("/api/portfolio/heatmap")
-        data = response.json
-
-        # Find FAKE3 stock position
-        fake3 = next(
-            (p for p in data["positions"] if p["symbol"] == "FAKE3" and p["trade_type"] == "stock"),
-            None,
-        )
-        self.assertIsNotNone(fake3, "FAKE3 stock should be in heatmap")
-
-        required_fields = [
-            "symbol", "name", "trade_type", "quantity", "cost_basis",
-            "market_value", "unrealized_pnl", "pnl_pct", "weight",
-        ]
-        for field in required_fields:
-            self.assertIn(field, fake3, f"Missing field: {field}")
-
-        self.assertEqual(fake3["quantity"], 25)
-        self.assertEqual(fake3["cost_basis"], 5000.0)
-        self.assertIsNotNone(fake3["market_value"])
-        self.assertIsNotNone(fake3["weight"])
-        self.assertGreater(fake3["weight"], 0)
-
-    @patch("app.routes.api_routes.YahooFinance")
-    def test_api_heatmap_weights_sum_to_one(self, MockYF):
-        """Position weights should sum to approximately 1.0."""
-        instance = MockYF.return_value
-        instance.get_stock_data.return_value = None
-        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
-
-        response = self.client.get("/api/portfolio/heatmap")
-        data = response.json
-
-        total_weight = sum(p["weight"] for p in data["positions"])
-        self.assertAlmostEqual(total_weight, 1.0, places=2)
-
-    @patch("app.routes.api_routes.YahooFinance")
-    def test_api_heatmap_only_open_positions(self, MockYF):
-        """Heatmap only includes open positions, not closed ones."""
-        instance = MockYF.return_value
-        instance.get_stock_data.return_value = None
-        instance.get_results.return_value = {"currentPrice": 210.0, "quoteType": "EQUITY"}
-
-        response = self.client.get("/api/portfolio/heatmap")
-        data = response.json
-
-        symbols = [p["symbol"] for p in data["positions"] if p["trade_type"] == "stock"]
-        # FAKE3 has open stock, FAKE1/FAKE2 are fully closed
-        self.assertIn("FAKE3", symbols)
-        self.assertNotIn("FAKE1", symbols)
-        self.assertNotIn("FAKE2", symbols)
 
     # --- Sparkline / ticker history endpoint tests ---
 

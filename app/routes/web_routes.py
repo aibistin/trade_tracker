@@ -1,18 +1,15 @@
 # app/routes/web_routes.py
-import re
-from flask import Blueprint, flash, redirect, url_for
+import logging
 from datetime import datetime, timedelta
 import pytz
-import logging
-from flask import render_template, redirect, request, url_for, flash
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 from sqlalchemy import select
 from ..extensions import db
-from app.utils import SYMBOLS_TO_EXCLUDE
+from app.utils import SYMBOLS_TO_EXCLUDE, is_option_symbol
 from lib.trading_analyzer import TradingAnalyzer
+
 web_bp = Blueprint("web", __name__)
 log = logging.getLogger(__name__)
-# web_logger = logging.getLogger('web_routes')
-
 
 from ..models.models import Security, TradeTransaction
 from ..repositories.trade_repository import get_trade_data_for_analysis, get_trade_stats_summary
@@ -31,12 +28,8 @@ def index():
     )
     all_securities = db.session.execute(stmt).scalars().all()
 
-    # Filter out option symbols using regular expressions
-    securities = [
-        sec
-        for sec in all_securities
-        if not re.search(r"\s+\d{2}/\d{2}/\d{4}\s+\d+\.\d+\s+[A-Z]", sec.symbol)
-    ]
+    # Filter out option symbols
+    securities = [sec for sec in all_securities if not is_option_symbol(sec.symbol)]
     log.debug(f"[index] Securities[:3]: {securities[:3]}")
     return render_template("index.html", securities=securities)
 
@@ -138,19 +131,23 @@ def trades_by_symbol(symbol):
 
 @web_bp.route("/trade/detail/<string:symbol>")
 def trade_detail_by_symbol(symbol):
-    """Detailed buy, sell, profit and loss transactions for the given symbol."""
+    """Detailed buy, sell, profit and loss stock transactions for the given symbol."""
 
     trade_transactions = get_trade_data_for_analysis(symbol)
-    all_trade_stats = {}
     analyzer = TradingAnalyzer(symbol, trade_transactions)
     analyzer.analyze_trades()
-    # Store results with symbol as key
-    all_trade_stats = analyzer.get_profit_loss_data()[symbol]
+    stock_data = analyzer.get_profit_loss_data()["stock"]
 
-    log.info(f"[Routes] Trade Detail for {symbol}: {all_trade_stats}")
+    if not stock_data["has_trades"]:
+        return f"No stock trades found for {symbol}", 404
+
+    log.info(f"[Routes] Trade Detail for {symbol}")
     return render_template(
         "trade_detail_by_symbol.html",
-        trade_stats=all_trade_stats,
+        trade_stats={
+            "summary": stock_data["summary"],
+            "all_trades": stock_data["all_buy_trades"],
+        },
         symbol=symbol,
     )
 
@@ -162,26 +159,3 @@ def trade_stats_summary():
     return render_template("trade_stats_summary.html", trade_stats=trade_stats)
 
 
-@web_bp.route("/open_positions/<string:stock_symbol>")
-@web_bp.route("/open_trades/<string:stock_symbol>")
-def open_positions(stock_symbol):
-    """Fetches open positions for a given stock symbol."""
-    log.info(f"[{stock_symbol}] Getting Open Positions")
-
-    # Fetch trade data from the database
-    trade_transactions = get_trade_data_for_analysis(stock_symbol)
-    open_position_data = {}
-    analyzer = TradingAnalyzer(stock_symbol, trade_transactions)
-    analyzer.analyze_trades()
-    try:
-        open_position_data = analyzer.get_open_trades()
-        log.info(f"[Routes][{stock_symbol}] Open position Data: {open_position_data}")
-    except Exception as e:
-        log.info(f"[Routes - open_trades] Error: [{stock_symbol}] {e}")
-        open_position_data[stock_symbol] = {}
-
-    return render_template(
-        "open_trade_detail_by_symbol.html",
-        open_position_data=open_position_data,
-        stock_symbol=stock_symbol,
-    )

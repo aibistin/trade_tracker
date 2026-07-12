@@ -2,7 +2,7 @@
 
 {% block js %}
 
-    {% if request.endpoint in ['view_transaction', 'open_positions_symbol' ]%}
+    {% if request.endpoint in ['view_transaction'] %}
     <script>
       $(document).ready(function() {
         // Fetch live stock data

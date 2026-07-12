@@ -1,7 +1,10 @@
 # tests/test_yfinance.py
+import json
+import os
+import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
-from lib.yfinance import YahooFinance
+from lib.yfinance import YahooFinance, extract_price, get_market_price, get_quote
 
 test_symbol = "AAPL"
 mock_test_symbol = "FAKE1"
@@ -105,6 +108,86 @@ class TestYahooFinance(unittest.TestCase):
                 value,
                 msg=f"Value for key {key} does not match: {got_data[key]} != {value}",
             )
+
+    def test_sanitize_cache_filename(self):
+        self.assertEqual(
+            YahooFinance._sanitize_cache_filename("BRK/A 01/17/2025"),
+            "BRK_A_01_17_2025",
+        )
+
+    def test_load_cached_data_valid_file(self):
+        yf_instance = YahooFinance("CACHED")
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"currentPrice": 42.0}, f)
+        try:
+            yf_instance.load_cached_data(f.name)
+            self.assertEqual(yf_instance.get_results(), {"currentPrice": 42.0})
+        finally:
+            os.unlink(f.name)
+
+    def test_load_cached_data_corrupt_file_returns_empty(self):
+        yf_instance = YahooFinance("CORRUPT")
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            f.write("{not valid json")
+        try:
+            yf_instance.load_cached_data(f.name)
+            self.assertEqual(yf_instance.get_results(), {})
+        finally:
+            os.unlink(f.name)
+
+    def test_is_cache_valid(self):
+        yf_instance = YahooFinance("ANY")
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            f.write("{}")
+        try:
+            self.assertTrue(yf_instance.is_cache_valid(f.name, max_age_minutes=60))
+            self.assertFalse(yf_instance.is_cache_valid(f.name, max_age_minutes=0))
+            self.assertFalse(yf_instance.is_cache_valid("/nonexistent.json", 60))
+        finally:
+            os.unlink(f.name)
+
+    @patch("yfinance.Ticker")
+    def test_fetch_error_returns_empty_results(self, mock_ticker):
+        mock_ticker.side_effect = Exception("network down")
+        yf_instance = YahooFinance("BROKEN", ticker_class=mock_ticker)
+        yf_instance.get_stock_data(max_age_minutes=0)
+        self.assertEqual(yf_instance.get_results(), {})
+
+
+class TestPriceHelpers(unittest.TestCase):
+    """Tests for the module-level quote/price helper functions."""
+
+    def test_extract_price_stock_prefers_current_price(self):
+        info = {"currentPrice": 10.0, "regularMarketPrice": 9.0, "lastPrice": 8.0}
+        self.assertEqual(extract_price(info), 10.0)
+
+    def test_extract_price_stock_falls_back_to_regular_market(self):
+        self.assertEqual(extract_price({"regularMarketPrice": 9.0}), 9.0)
+
+    def test_extract_price_option_prefers_last_price(self):
+        info = {"currentPrice": 10.0, "regularMarketPrice": 9.0, "lastPrice": 8.0}
+        self.assertEqual(extract_price(info, is_option=True), 8.0)
+
+    def test_extract_price_empty_info(self):
+        self.assertIsNone(extract_price({}))
+        self.assertIsNone(extract_price(None))
+
+    @patch("lib.yfinance.YahooFinance")
+    def test_get_quote_returns_info(self, MockYF):
+        MockYF.return_value.get_results.return_value = {"currentPrice": 5.0}
+        self.assertEqual(get_quote("FAKE"), {"currentPrice": 5.0})
+
+    @patch("lib.yfinance.YahooFinance")
+    def test_get_quote_swallows_errors(self, MockYF):
+        MockYF.return_value.get_stock_data.side_effect = Exception("API down")
+        self.assertEqual(get_quote("FAKE"), {})
+
+    @patch("lib.yfinance.YahooFinance")
+    def test_get_market_price(self, MockYF):
+        MockYF.return_value.get_results.return_value = {"lastPrice": 3.5}
+        self.assertEqual(get_market_price("FAKE250117C00150000", is_option=True), 3.5)
+        MockYF.return_value.get_results.return_value = {}
+        self.assertIsNone(get_market_price("FAKE"))
 
 
 if __name__ == "__main__":

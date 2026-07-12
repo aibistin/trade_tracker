@@ -236,20 +236,6 @@ class TradingAnalyzer:
 
         return FilteredBuyTrades
 
-    def _initialize_profit_loss_data_structure(
-        self, stock_summary: TradeSummary, option_summary: TradeSummary
-    ) -> Dict[str, Any]:
-        """Initialize the profit/loss data structure."""
-
-        for i, security_type in enumerate(["stock", "option"]):
-            self.profit_loss_data[security_type]["has_trades"] = False
-            self.profit_loss_data[security_type]["summary"] = (
-                stock_summary if i == 0 else option_summary
-            )
-            self.profit_loss_data[security_type]["all_buy_trades"] = []
-
-        return self.profit_loss_data
-
     def analyze_trades(
         self,
         account: Optional[str] = None,

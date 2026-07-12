@@ -70,7 +70,10 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
   - `app/routes/api_routes.py` — JSON API endpoints under `/api` prefix
 - **ORM models:** `app/models/models.py` — `Security` and `TradeTransaction` tables only. No query logic.
 - **Repository layer:** `app/repositories/trade_repository.py` — all query functions (`get_current_holdings()`, `get_trade_data_for_analysis()`, etc.). `get_current_holdings()` returns `(symbol, trade_type, quantity, avg_price, cost_basis, name)` tuples, joining on both `symbol` and `trade_type` to correctly handle symbols with both stock and option positions.
-- **Service layer:** `app/services/trade_service.py` — `validate_trade_update()` shared by both route blueprints.
+- **Service layer** (routes stay thin — business logic lives here):
+  - `app/services/trade_service.py` — `validate_trade_update()` and `validate_positions_params()` (scope/after_date/account/asset_type request validation) shared by both route blueprints.
+  - `app/services/analysis_service.py` — `analyze_symbol()` (the repository → TradingAnalyzer → JSON pipeline), `analyze_symbol_safe()` (returns None instead of raising, for cross-symbol loops), `iter_open_buy_trades()` (walks open positions in an analysis result).
+  - `app/services/holdings_service.py` — `build_holdings()`: full open-positions aggregation for `GET /api/holdings`, with parallel yfinance price fetching.
 - **Database:** SQLite at `data/stock_trades.db`
 - **API authentication:** `X-API-KEY` header checked against `API_SECRET_KEY` env var; bypassed when `FLASK_ENV=dev`
 - **Logging:** Rotating file handler, 2MB, 5 backups. Filename is env-specific: `logs/trading_app_dev.log` (dev) or `logs/trading_app_production.log` (production). Level controlled by `LOG_LEVEL` env var. JSON logging optional via `JSON_LOGGING=Y`.
@@ -84,7 +87,7 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 - `models/ActionMapping.py` — Maps action codes (B, S, BO, SC, etc.) to descriptions and trade types. `is_buy_type_action()` / `is_sell_type_action()` for classification.
 - `csv_processing_utils.py` — Parses Schwab CSV exports. Uses `logging` module (not print).
 - `db_utils.py` — `DatabaseInserter` helper for bulk inserts with parameterized SQL
-- `yfinance.py` — Yahoo Finance integration. File-based JSON caching (60min TTL) in `data/yfinance/`. Does **not** pass a custom session to `yf.Ticker` (yfinance requires its own `curl_cffi` session internally). `ticker_class` param allows injection for testing. Price field priority: `lastPrice` → `regularMarketPrice` → `currentPrice`.
+- `yfinance.py` — Yahoo Finance integration. File-based JSON caching (60min TTL) in `data/yfinance/`. Does **not** pass a custom session to `yf.Ticker` (yfinance requires its own `curl_cffi` session internally). `ticker_class` param allows injection for testing. Module-level helpers: `get_quote(ticker)` (info dict, `{}` on error), `extract_price(info, is_option)` (options: `lastPrice` → `regularMarketPrice` → `currentPrice`; stocks: `currentPrice` → `regularMarketPrice`), `get_market_price(ticker, is_option)`.
 - `schwab_client.py` — schwab-py auth factory. `get_client()` loads the saved token (`data/schwab_token.json`); `login(interactive=False)` runs the one-time OAuth browser flow.
 
 ### Data Flow

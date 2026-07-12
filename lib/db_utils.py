@@ -61,10 +61,6 @@ class DatabaseConnection:
 class DatabaseInserter(DatabaseConnection):
     """Handles database insert operations with transaction support."""
 
-    def __init__(self, db_path: Optional[str] = None, db: Optional[Any] = None):
-        super().__init__(db_path, db)
-        self.action_mapping = ActionMapping()
-
     @contextmanager
     def transaction(self):
         """Context manager for transaction handling."""

@@ -113,87 +113,37 @@ class YahooFinance:
         return self.results
 
 
-"""
-## Some More Examples
-stock_results = yf.Ticker(self.stock_symbol)
-# get all stock info
-self.results = stock_results.info
-print(f"[{self.stock_symbol}] Info - {stock_results}")
+def get_quote(ticker):
+    """Fetch the cached Yahoo Finance info dict for a ticker.
 
-# get historical market data
-hist = stock_results.history(period="1mo")
-# Date  Open  High  Low  Close  Volume  Dividends  Stock Splits
-print(f"[{self.stock_symbol}] History - {hist}")
+    Returns {} on any fetch error so callers can degrade gracefully.
+    """
+    try:
+        yf_client = YahooFinance(ticker)
+        yf_client.get_stock_data()
+        return yf_client.get_results() or {}
+    except Exception as e:
+        log.warning(f"Failed to fetch quote for {ticker}: {e}")
+        return {}
 
-# show meta information about the history (requires history() to be called first)
-stock_results.history_metadata
-print(f"[{self.stock_symbol}] History Metadata - {stock_results.history_metadata}")
 
-# show actions (dividends, splits, capital gains)
-stock_results.actions
-stock_results.dividends
-stock_results.splits
-stock_results.capital_gains  # only for mutual funds & etfs
+def extract_price(info, is_option=False):
+    """Pick the best available price field from a Yahoo info dict.
 
-# show share count
-stock_results.get_shares_full(start="2022-01-01", end=None)
+    Options report lastPrice; stocks report currentPrice. Each falls back to
+    regularMarketPrice (and options to currentPrice) when missing.
+    """
+    if not info:
+        return None
+    if is_option:
+        return (
+            info.get("lastPrice")
+            or info.get("regularMarketPrice")
+            or info.get("currentPrice")
+        )
+    return info.get("currentPrice") or info.get("regularMarketPrice")
 
-# show financials:
-stock_results.calendar
-stock_results.sec_filings
-# - income statement
-stock_results.income_stmt
-stock_results.quarterly_income_stmt
-# - balance sheet
-stock_results.balance_sheet
-stock_results.quarterly_balance_sheet
-# - cash flow statement
-stock_results.cashflow
-stock_results.quarterly_cashflow
-# see `Ticker.get_income_stmt()` for more options
 
-# show holders
-stock_results.major_holders
-stock_results.institutional_holders
-stock_results.mutualfund_holders
-stock_results.insider_transactions
-stock_results.insider_purchases
-stock_results.insider_roster_holders
-
-stock_results.sustainability
-
-# show recommendations
-stock_results.recommendations
-stock_results.recommendations_summary
-stock_results.upgrades_downgrades
-
-# show analysts data
-stock_results.analyst_price_targets
-stock_results.earnings_estimate
-stock_results.revenue_estimate
-stock_results.earnings_history
-print(f"[{self.stock_symbol}] Earnings History - {stock_results.earnings_history}")
-stock_results.eps_trend
-
-print(f"[{self.stock_symbol}] EPS Trend - {stock_results.eps_trend}")
-stock_results.eps_revisions
-stock_results.growth_estimates
-
-# Show future and historic earnings dates, returns at most next 4 quarters and last 8 quarters by default.
-# Note: If more are needed use stock_results.get_earnings_dates(limit=XX) with increased limit argument.
-stock_results.earnings_dates
-
-# show ISIN code - *experimental*
-ISIN = International Securities Identification Number
-stock_results.isin
-
-# show options expirations
-stock_results.options
-
-# show news
-stock_results.news
-
-# get option chain for specific expiration
-opt = stock_results.option_chain('YYYY-MM-DD')
-data available via: opt.calls, opt.puts
-"""
+def get_market_price(ticker, is_option=False):
+    """Fetch the current market price for a ticker, or None if unavailable."""
+    return extract_price(get_quote(ticker), is_option=is_option)
