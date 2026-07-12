@@ -22,7 +22,11 @@ from ..repositories.trade_repository import (
 )
 from ..extensions import db
 from ..services.trade_service import validate_trade_update, validate_positions_params
-from ..services.analysis_service import analyze_symbol, analyze_symbol_safe
+from ..services.analysis_service import (
+    analyze_symbol,
+    analyze_symbol_safe,
+    clear_analysis_cache,
+)
 from ..services.holdings_service import build_holdings
 
 
@@ -182,6 +186,8 @@ def update_trade(transaction_id):
         return jsonify({"error": "No valid fields to update"}), 400
 
     db.session.commit()
+    # Field edits don't change the cache's data-version token — clear explicitly
+    clear_analysis_cache()
     log.info(f"[update_trade] Updated trade {transaction_id}: {updated}")
     return jsonify({"success": True, "updated": updated}), 200
 

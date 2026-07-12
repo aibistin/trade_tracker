@@ -11,7 +11,14 @@ from .extensions import db
 load_dotenv(".flaskenv")
 
 
-def create_app():
+def create_app(test_config=None):
+    """Application factory.
+
+    test_config: optional dict of config overrides applied before the
+    database is initialized — tests use it to force an in-memory database
+    (setting SQLALCHEMY_DATABASE_URI after create_app returns is too late:
+    the engine is already bound by the startup create_all).
+    """
     app = Flask(__name__)
     CORS(app)
 
@@ -97,6 +104,10 @@ def create_app():
         app.logger.debug("[__init__.py] Created a File based Database")
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///../data/stock_trades.db"
 
+    # Test overrides must land before db.init_app binds the engine
+    if test_config:
+        app.config.update(test_config)
+
     # Initialize extensions
     db.init_app(app)
 
@@ -105,6 +116,10 @@ def create_app():
     from .routes.api_routes import api_bp
     app.register_blueprint(web_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
+
+    # Fresh app, fresh analysis cache (also isolates per-test in-memory DBs)
+    from .services.analysis_service import clear_analysis_cache
+    clear_analysis_cache()
 
     # Create database tables
     with app.app_context():

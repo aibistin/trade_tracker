@@ -72,7 +72,7 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 - **Repository layer:** `app/repositories/trade_repository.py` — all query functions (`get_current_holdings()`, `get_trade_data_for_analysis()`, etc.). `get_current_holdings()` returns `(symbol, trade_type, quantity, avg_price, cost_basis, name)` tuples, joining on both `symbol` and `trade_type` to correctly handle symbols with both stock and option positions.
 - **Service layer** (routes stay thin — business logic lives here):
   - `app/services/trade_service.py` — `validate_trade_update()` and `validate_positions_params()` (scope/after_date/account/asset_type request validation) shared by both route blueprints.
-  - `app/services/analysis_service.py` — `analyze_symbol()` (the repository → TradingAnalyzer → JSON pipeline), `analyze_symbol_safe()` (returns None instead of raising, for cross-symbol loops), `iter_open_buy_trades()` (walks open positions in an analysis result).
+  - `app/services/analysis_service.py` — `analyze_symbol()` (the repository → TradingAnalyzer → JSON pipeline), `analyze_symbol_safe()` (returns None instead of raising, for cross-symbol loops), `iter_open_buy_trades()` (walks open positions in an analysis result). `analyze_symbol_safe` results are **cached** per (symbol, status): entries are validated per call against a data-version token (`MAX(id), COUNT(*)` on trade_transaction), so inserts — including from the external Schwab sync — invalidate automatically; the trade-edit routes call `clear_analysis_cache()` since field updates don't change the token; 30-min TTL backstops direct sqlite edits. Callers must treat cached results as read-only.
   - `app/services/holdings_service.py` — `build_holdings()`: full open-positions aggregation for `GET /api/holdings`, with parallel yfinance price fetching.
 - **Database:** SQLite at `data/stock_trades.db`
 - **API authentication:** `X-API-KEY` header checked against `API_SECRET_KEY` env var; bypassed when `FLASK_ENV=dev`
@@ -129,8 +129,8 @@ Server-side validation in `app/services/trade_service.py`: `reason` max 500 char
 
 ## Testing Patterns
 - **Framework:** unittest (not pytest). No conftest.py.
-- **Database:** Tests use in-memory SQLite (`sqlite:///:memory:`) with `DatabaseInserter` for test data
-- **Flask routes:** Tested via `app.test_client()` with mock data inserted per test. `FLASK_ENV=testing` and `FLASK_ENV=dev` set in test setUp.
+- **Database:** Tests use in-memory SQLite with `DatabaseInserter` for test data. **Always create the app via `tests/helpers.py: create_test_app()`** — it passes the in-memory URI into `create_app(test_config=...)` and asserts the engine is not the file DB. Setting `app.config["SQLALCHEMY_DATABASE_URI"]` after `create_app()` returns is silently ignored (engine already bound) and tests would read/write the real `data/stock_trades.db`.
+- **Flask routes:** Tested via `app.test_client()` with mock data inserted per test. `create_test_app(flask_env="dev")` bypasses the API key check; `flask_env=None` enforces it.
 - **External APIs:** Mocked with `unittest.mock.patch()`
 - **Trade models:** Tested with real-world trading scenarios (partial fills, multi-account, options)
 - **No known flaky tests** — `test_yfinance` tests now use mocked `yfinance.Ticker` with `max_age_minutes=0` to bypass file cache; no live API calls

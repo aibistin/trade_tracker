@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 from ..models.models import Security, TradeTransaction
 from ..repositories.trade_repository import get_trade_data_for_analysis, get_trade_stats_summary
 from ..services.trade_service import validate_trade_update
+from ..services.analysis_service import clear_analysis_cache
 from lib.constants import Action
 
 
@@ -81,6 +82,8 @@ def update_transaction(transaction_id):
 
     log.info(f"Committing the update for transaction id: {transaction_id}")
     db.session.commit()
+    # Field edits don't change the cache's data-version token — clear explicitly
+    clear_analysis_cache()
     flash("Transaction updated successfully!", "success")
     return redirect(url_for("web.view_transaction", transaction_id=transaction_id))
 

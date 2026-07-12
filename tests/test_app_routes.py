@@ -3,10 +3,10 @@ import unittest
 import logging
 from unittest.mock import patch, MagicMock
 from sqlalchemy import select, delete
-from app import create_app
 from app.models.models import Security, TradeTransaction
 from app.extensions import db
 from lib.db_utils import DatabaseInserter
+from tests.helpers import create_test_app
 
 # Configure test logger
 test_logger = logging.getLogger("test_routes")
@@ -48,13 +48,8 @@ TRANSACTION_KEYS = [
 
 class TestAppRoutes(unittest.TestCase):
     def setUp(self):
-        # Ensure API auth is bypassed in dev mode regardless of shell environment
-        os.environ["FLASK_ENV"] = "dev"
-
-        # Create test app with testing configuration
-        self.app = create_app()
-        self.app.config["TESTING"] = True
-        self.app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+        # In-memory DB app with API auth bypassed (dev mode)
+        self.app = create_test_app(flask_env="dev")
         self.client = self.app.test_client()
 
         # Push application context
@@ -1207,13 +1202,11 @@ class TestAPIAuth(unittest.TestCase):
     """Tests that the API key enforcement works when not in dev mode."""
 
     def setUp(self):
-        # Remove dev bypass so auth is enforced
-        self._prev_flask_env = os.environ.pop("FLASK_ENV", None)
+        # flask_env=None removes the dev bypass so auth is enforced
+        self._prev_flask_env = os.environ.get("FLASK_ENV")
         os.environ["API_SECRET_KEY"] = "test-secret-key"
 
-        self.app = create_app()
-        self.app.config["TESTING"] = True
-        self.app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+        self.app = create_test_app(flask_env=None)
         self.client = self.app.test_client()
 
         self.app_context = self.app.app_context()
