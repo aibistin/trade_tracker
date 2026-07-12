@@ -105,7 +105,7 @@ test.describe('TradeHome Holdings page', () => {
     // Stock Holdings should still be visible
     await expect(page.locator('text=Stock Holdings')).toBeVisible();
     // Option Holdings should be hidden
-    await expect(page.locator('text=Option Holdings')).not.toBeVisible();
+    await expect(page.locator('text=Option Holdings')).toBeHidden();
 
     // Click "Options" filter
     const optionsBtn = page.locator('button').filter({ hasText: 'Options' });
@@ -114,7 +114,7 @@ test.describe('TradeHome Holdings page', () => {
     // Option Holdings should now be visible
     await expect(page.locator('text=Option Holdings')).toBeVisible();
     // Stock Holdings should be hidden
-    await expect(page.locator('text=Stock Holdings')).not.toBeVisible();
+    await expect(page.locator('text=Stock Holdings')).toBeHidden();
 
     // Click "All" to restore both
     const allBtn = page.locator('button').filter({ hasText: 'All' });
@@ -187,8 +187,8 @@ test.describe('TradeHome Holdings page', () => {
 
     // Give it a moment to settle — no holdings tables should appear
     await page.waitForTimeout(1000);
-    await expect(page.locator('text=Stock Holdings')).not.toBeVisible();
-    await expect(page.locator('text=Option Holdings')).not.toBeVisible();
+    await expect(page.locator('text=Stock Holdings')).toBeHidden();
+    await expect(page.locator('text=Option Holdings')).toBeHidden();
   });
 
   test('closed position should NOT appear in holdings list', async ({ page }) => {
@@ -207,8 +207,8 @@ test.describe('TradeHome Holdings page', () => {
     // Only AAPL should appear
     await expect(page.locator('td:has-text("AAPL")')).toBeVisible();
     // Others should not appear
-    await expect(page.locator('td:has-text("MSFT")')).not.toBeVisible();
-    await expect(page.locator('td:has-text("TSLA")')).not.toBeVisible();
-    await expect(page.locator('td:has-text("SPY")')).not.toBeVisible();
+    await expect(page.locator('td:has-text("MSFT")')).toBeHidden();
+    await expect(page.locator('td:has-text("TSLA")')).toBeHidden();
+    await expect(page.locator('td:has-text("SPY")')).toBeHidden();
   });
 });

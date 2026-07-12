@@ -319,44 +319,6 @@
       <div v-else-if="!holdingsLoading && !holdingsError" class="text-muted py-3">No open option holdings.</div>
     </div>
 
-    <!-- By Symbol Breakdown -->
-    <div v-if="summary && summary.by_symbol.length > 0" class="dash-section">
-      <div class="dash-section-header">
-        <div>
-          <h5 class="dash-section-title">By Symbol — Closed Trade History</h5>
-          <p class="dash-section-subtitle">Realized P&amp;L and win/loss stats for all closed trades, sorted by P&amp;L</p>
-        </div>
-      </div>
-      <div class="table-responsive">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Symbol</th>
-              <th>Name</th>
-
-              <th class="text-end">Wins</th>
-              <th class="text-end">Losses</th>
-              <th class="text-end">Win Rate</th>
-              <th class="text-end">Realized P/L</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="s in sortedBySymbol" :key="s.symbol">
-              <td>
-                <router-link :to="`/trades/closed/${s.symbol}`" class="dash-symbol-link">{{ s.symbol }}</router-link>
-              </td>
-              <td class="text-muted text-sm">{{ s.name }}</td>
-              <td class="text-end text-profit">{{ s.combined.winning_trades_count }}</td>
-              <td class="text-end text-loss">{{ s.combined.losing_trades_count }}</td>
-              <td class="text-end">{{ (s.combined.batting_average * 100).toFixed(1) }}%</td>
-              <td class="text-end" :class="s.combined.profit_loss >= 0 ? 'text-profit' : 'text-loss'">
-                {{ formatCurrency(s.combined.profit_loss) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -645,13 +607,6 @@ const heatmapPrices = computed(() => {
   return prices
 })
 
-const sortedBySymbol = computed(() => {
-  if (!summary.value) return []
-  return [...summary.value.by_symbol].sort(
-    (a, b) => b.combined.profit_loss - a.combined.profit_loss
-  )
-})
-
 function tradeTypeLabel(code) {
   const map = { L: 'Long', S: 'Short', C: 'Call', P: 'Put', O: 'Other' }
   return map[code] ?? code
@@ -801,13 +756,6 @@ function typeBadgeClass(code) {
 .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .mt-2 { margin-top: 0.5rem; }
 .ml-2 { margin-left: 0.5rem; }
-
-/* Section subtitle */
-.dash-section-subtitle {
-  font-size: 0.72rem;
-  color: var(--color-terminal-text-muted);
-  margin-top: 2px;
-}
 
 /* Option expandable rows */
 .option-row { cursor: pointer; }

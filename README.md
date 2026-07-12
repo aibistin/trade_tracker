@@ -11,6 +11,7 @@ Track stock and options trades made on the Schwab brokerage platform.
 ## Features
 
 - **Dashboard:** Summary cards, P&L bar chart, cumulative P&L line, win-rate trend, portfolio heatmap, and aggregated holdings — all in one view, dark trading-terminal theme
+- **History page:** Closed-trade performance by symbol (wins, losses, win rate, realized P&L) with sortable columns and a totals row
 - **Stock holdings:** One aggregated row per ticker; shows current price, market value, and unrealized P&L fetched from Yahoo Finance
 - **Option holdings:** Grouped by underlying symbol with expand/collapse; live option prices fetched via OCC-format tickers from Yahoo Finance
 - **Trade view:** All, open, or closed positions for any symbol, with per-trade P&L

@@ -36,6 +36,11 @@ const routes = [
     component: () => import("@/views/Dashboard.vue"),
   },
   {
+    path: "/history",
+    name: "History",
+    component: () => import("@/views/SymbolHistory.vue"),
+  },
+  {
     path: "/", // Redirect root to /home
     component: () => import("@/views/TradeHome.vue"),
     redirect: "/home",

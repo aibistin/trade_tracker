@@ -190,19 +190,6 @@ describe('Dashboard', () => {
     expect(wrapper.text()).toContain('$750.00');  // unrealized_pnl
   });
 
-  it('renders by-symbol breakdown rows', async () => {
-    mockAllRequests();
-    const wrapper = mountDashboard();
-    await flushPromises();
-    // The by-symbol breakdown table is the last .table in the DOM
-    const allTables = wrapper.findAll('.table');
-    const symbolTable = allTables[allTables.length - 1];
-    const rows = symbolTable.findAll('tbody tr');
-    expect(rows).toHaveLength(summaryResponse.by_symbol.length);
-    expect(wrapper.text()).toContain('Apple Inc.');
-    expect(wrapper.text()).toContain('75.0%');
-  });
-
   it('shows an error message when summary fetch fails', async () => {
     axios.get.mockImplementation((url) => {
       if (url.includes('dashboard/summary'))       return Promise.reject(new Error('Server error'));

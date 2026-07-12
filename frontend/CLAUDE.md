@@ -64,7 +64,10 @@ src/
     Dashboard.vue   — Performance dashboard: summary cards, P&L/cumulative/win-rate charts (hidden by
                       default, toggle to show), stock holdings table (one aggregated row per ticker),
                       options holdings table (grouped by underlying with expand/collapse per contract),
-                      portfolio heatmap, by-symbol breakdown. Holdings data from GET /api/holdings.
+                      portfolio heatmap. Holdings data from GET /api/holdings.
+    SymbolHistory.vue — "By Symbol — Closed Trade History" page (/history): per-symbol closed-trade
+                      stats from GET /api/dashboard/summary, click-to-sort columns (default P&L desc),
+                      totals footer row.
     TradeHome.vue   — Home page: symbol search + current holdings tables
     NotFound.vue    — 404 page
   router/index.js   — Route definitions (lazy-loaded)
@@ -84,7 +87,8 @@ src/
 - `useSymbolSearch()` — provides only `selectSymbol(symbol, scope)` for navigation. Search/filter logic lives in `SymbolSearchDropdown.vue`.
 
 ### Routing
-Routes: `/home` (TradeHome) and `/trades/:scope/:stockSymbol` (AllTrades). All lazy-loaded.
+Routes: `/home` (TradeHome), `/dashboard` (Dashboard), `/history` (SymbolHistory), and `/trades/:scope/:stockSymbol` (AllTrades). All lazy-loaded.
+NavBar's scope/asset-type toggles only show on trade views — new page-level routes must be added to the exclusion list in `NavBar.vue`'s `isTradeView`.
 Scope (`all`/`open`/`closed`) and `asset_type` query param are stored in the URL — treat the URL as the source of truth for filter state.
 
 ### `tradeUtils.js` Reference

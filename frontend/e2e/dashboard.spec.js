@@ -45,13 +45,32 @@ const pnlData = {
   ],
 };
 
-const holdingsData = [
-  { symbol: 'AAPL', trade_type: 'L', shares: 50, average_price: 180.00, profit_loss: 750.00, name: 'Apple Inc.' },
-  { symbol: 'MSFT', trade_type: 'L', shares: 30, average_price: 410.00, profit_loss: -200.00, name: 'Microsoft Corp.' },
-  { symbol: 'SPY', trade_type: 'C', shares: 5, average_price: 12.50, profit_loss: 300.00, name: 'SPDR S&P 500' },
-];
+// GET /api/holdings response shape: stock/option sections, each with
+// aggregated positions (server-provided prices) and section totals.
+const holdingsData = {
+  stock: {
+    positions: [
+      { symbol: 'AAPL', trade_type: 'L', quantity: 50, avg_cost: 180.00, cost_basis: 9000.00, current_price: 195.00, market_value: 9750.00, unrealized_pnl: 750.00, pnl_pct: 8.33, name: 'Apple Inc.' },
+      { symbol: 'MSFT', trade_type: 'L', quantity: 30, avg_cost: 410.00, cost_basis: 12300.00, current_price: 403.33, market_value: 12100.00, unrealized_pnl: -200.00, pnl_pct: -1.63, name: 'Microsoft Corp.' },
+    ],
+    total_cost_basis: 21300.00,
+    total_market_value: 21850.00,
+    total_unrealized_pnl: 550.00,
+  },
+  option: {
+    positions: [
+      { symbol: 'SPY', label: 'SPY 12/19/2025 500.00 C', trade_type: 'C', quantity: 5, avg_cost: 12.50, cost_basis: 6250.00, current_price: 13.10, market_value: 6550.00, unrealized_pnl: 300.00, pnl_pct: 4.8, occ_ticker: 'SPY251219C00500000', name: 'SPDR S&P 500' },
+    ],
+    total_cost_basis: 6250.00,
+    total_market_value: 6550.00,
+    total_unrealized_pnl: 300.00,
+  },
+};
 
-const stockPriceData = { currentPrice: 195.00, regularMarketPrice: 195.00 };
+const emptyHoldingsData = {
+  stock: { positions: [], total_cost_basis: null, total_market_value: null, total_unrealized_pnl: null },
+  option: { positions: [], total_cost_basis: null, total_market_value: null, total_unrealized_pnl: null },
+};
 
 const priceHistoryData = { prices: [], annotations: [] };
 
@@ -65,11 +84,8 @@ async function mockDashboardAPIs(page) {
   await page.route('**/api/dashboard/pnl_over_time**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(pnlData) })
   );
-  await page.route('**/api/trade/current_holdings_json', route =>
+  await page.route('**/api/holdings', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(holdingsData) })
-  );
-  await page.route('**/api/get_stock_data/**', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(stockPriceData) })
   );
   await page.route('**/api/ticker/history/**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(priceHistoryData) })
@@ -153,46 +169,13 @@ test.describe('Dashboard page', () => {
     await expect(msftRow).toBeVisible();
   });
 
-  test('Get Price button fetches live price', async ({ page }) => {
+  test('shows server-provided current price and unrealized P&L', async ({ page }) => {
     await page.goto('/dashboard');
     await expect(page.locator('text=Stock Holdings')).toBeVisible({ timeout: 10000 });
 
-    // Find a Get Price button and click it
-    const getPriceBtn = page.locator('button').filter({ hasText: 'Get Price' }).first();
-    await expect(getPriceBtn).toBeVisible();
-    await getPriceBtn.click();
-
-    // After clicking, the live price should appear
-    await expect(page.locator('text=$195.00')).toBeVisible({ timeout: 5000 });
-  });
-
-  test('by-symbol breakdown table renders all symbols', async ({ page }) => {
-    await page.goto('/dashboard');
-
-    // Wait for by-symbol section
-    await expect(page.locator('text=By Symbol')).toBeVisible({ timeout: 10000 });
-
-    // Scope to the by-symbol section
-    const symbolSection = page.locator('.dash-section').filter({ hasText: 'By Symbol' });
-
-    // Both test symbols should appear
-    await expect(symbolSection.locator('text=Apple Inc.')).toBeVisible();
-    await expect(symbolSection.locator('text=Tesla Inc.')).toBeVisible();
-
-    // Win rate for AAPL: 71.4%
-    await expect(symbolSection.locator('text=71.4%')).toBeVisible();
-  });
-
-  test('by-symbol table sorts by P&L descending', async ({ page }) => {
-    await page.goto('/dashboard');
-    await expect(page.locator('text=By Symbol')).toBeVisible({ timeout: 10000 });
-
-    // Find the by-symbol table — it's the last table on the page (after stock and option holdings)
-    const symbolSection = page.locator('.dash-section').filter({ hasText: 'By Symbol' });
-    const rows = symbolSection.locator('tbody tr');
-    // AAPL (3200.00) should come before TSLA (-300.50) when sorted by P&L desc
-    const firstSymbol = await rows.first().locator('td').first().textContent();
-    expect(firstSymbol.trim()).toBe('AAPL');
+    // Prices come directly from GET /api/holdings — no button click needed
+    await expect(page.locator('text=$195.00')).toBeVisible();  // AAPL current_price
+    await expect(page.locator('text=$750.00')).toBeVisible();  // AAPL unrealized_pnl
   });
 
   test('P&L chart section is visible', async ({ page }) => {
@@ -267,8 +250,8 @@ test.describe('Dashboard page', () => {
 
   test('no open stock holdings shows empty message', async ({ page }) => {
     // Override holdings to return empty
-    await page.route('**/api/trade/current_holdings_json', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+    await page.route('**/api/holdings', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(emptyHoldingsData) })
     );
 
     await page.goto('/dashboard');

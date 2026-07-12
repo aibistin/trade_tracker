@@ -10,6 +10,7 @@
       <div class="navbar-links">
         <router-link class="nav-link" to="/home">Home</router-link>
         <router-link class="nav-link" to="/dashboard">Dashboard</router-link>
+        <router-link class="nav-link" to="/history">History</router-link>
 
         <!-- Symbols Dropdown (click-based) -->
         <div class="nav-dropdown" ref="dropdownRef">
@@ -92,7 +93,7 @@ const assetTypes = [
   { value: 'option', label: 'Option' },
 ];
 
-const isTradeView = computed(() => route.name !== 'Home' && route.name !== 'Dashboard');
+const isTradeView = computed(() => !['Home', 'Dashboard', 'History'].includes(route.name));
 const activeScope = computed(() => route.params.scope || 'all');
 const activeAssetType = computed(() => route.query.asset_type || 'all');
 
