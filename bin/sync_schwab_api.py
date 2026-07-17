@@ -137,17 +137,25 @@ def determine_action(txn, leg, asset_type):
     determine the action. Expirations/assignments arrive as RECEIVE_AND_DELIVER
     transactions identified by their description text.
     """
+    desc = (txn.get('description') or '').lower()
     if txn.get('type') == 'RECEIVE_AND_DELIVER':
-        desc = (txn.get('description') or '').lower()
         if 'expiration' in desc:
             return 'Expired'
         if 'assignment' in desc or 'exercise' in desc:
             return 'Exchange or Exercise'
+        if 'removal of worthless' in desc:
+            # Broker removes a worthless position — economically a total-loss
+            # close, same as an expiration.
+            return 'Expired'
         return None
 
     signed_qty = float(leg.get('amount') or 0)
     if signed_qty == 0:
         return None
+    if 'dividend reinvest' in desc and signed_qty > 0:
+        # Reinvestment purchases must keep the CSV pipeline's RS action code —
+        # mapping them to plain Buy would double-count against existing RS rows.
+        return 'Reinvest Shares'
     if asset_type == 'OPTION':
         effect = (leg.get('positionEffect') or '').upper()
         if effect == 'OPENING':
@@ -234,8 +242,10 @@ def build_transaction_record(txn, leg, account_code):
 
     if action_name in ('Expired', 'Exchange or Exercise'):
         # CSV pipeline records these on the option's expiration date with zero
-        # price/amount — mirror that so the dedupe check matches.
-        trade_date = expiration_date
+        # price/amount — mirror that so the dedupe check matches. Equity events
+        # (worthless-security removals) have no expiration date, so fall back
+        # to the transaction date.
+        trade_date = expiration_date or parse_date(txn.get('tradeDate') or txn.get('time'))
         price = 0.0
         amount = 0.0
     else:
@@ -244,6 +254,9 @@ def build_transaction_record(txn, leg, account_code):
         # Leg cost is the signed gross amount: negative for buys, positive for
         # sells — same convention as the CSV pipeline's amount column.
         amount = float(leg.get('cost') or 0)
+        if action_name == 'Reinvest Shares':
+            # CSV pipeline stores RS amounts as positive — keep that convention
+            amount = abs(amount)
 
     if not trade_date:
         log.warning('Skipping transaction with no trade date: %s', txn.get('activityId'))
@@ -314,6 +327,25 @@ def _save_watermark(db, end_date):
         )
 
 
+def build_account_codes(accounts, account_map):
+    """
+    Resolve each account hash to its mapped single-letter code, auto-assigning
+    U, V, W, ... in encounter order for any hash missing from account_map.
+    """
+    codes = {}
+    counter = 0
+    for acct in accounts:
+        hash_val = acct.get('hashValue')
+        if hash_val in account_map:
+            codes[hash_val] = account_map[hash_val]
+        else:
+            code = chr(ord('U') + counter)
+            counter += 1
+            log.warning('No mapping for account hash %s — assigning code %s', hash_val, code)
+            codes[hash_val] = code
+    return codes
+
+
 def list_accounts(client):
     """Print account hashes and numbers to help build the account map."""
     resp = client.get_account_numbers()
@@ -361,16 +393,7 @@ def sync(start_date=None, end_date=None, dry_run=False, symbol=None):
     resp.raise_for_status()
     accounts = resp.json()
 
-    # Assign codes for unmapped accounts
-    auto_code_counter = [0]
-    def account_code(hash_val):
-        if hash_val in account_map:
-            return account_map[hash_val]
-        # Auto-assign: U, V, W, X, Y, Z
-        code = chr(ord('U') + auto_code_counter[0])
-        auto_code_counter[0] += 1
-        log.warning('No mapping for account hash %s — assigning code %s', hash_val, code)
-        return code
+    account_codes = build_account_codes(accounts, account_map)
 
     inserted = 0
     skipped_existing = 0
@@ -387,7 +410,7 @@ def sync(start_date=None, end_date=None, dry_run=False, symbol=None):
 
         for acct in accounts:
             hash_val = acct.get('hashValue')
-            code = account_code(hash_val)
+            code = account_codes[hash_val]
             log.info('Fetching transactions for account %s (code=%s) from %s to %s%s',
                      hash_val[:8] + '...', code,
                      start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'),
