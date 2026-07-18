@@ -97,37 +97,56 @@ class DatabaseInserter(DatabaseConnection):
         """
         Check if transaction exists in database.
 
+        When the record carries a Schwab activity_id (API-sourced), that plus
+        leg_index is the reliable identity check: a single order can fill in
+        several legs with byte-identical symbol/quantity/price, which the
+        business-field match below would wrongly treat as a duplicate and
+        silently drop. CSV-sourced records have no activity_id and fall back
+        to the business-field match.
+
         Args:
             trade_transaction: Dictionary with transaction details
 
         Returns:
             bool: True if transaction exists
         """
-        query = """
-            SELECT 1 FROM trade_transaction
-            WHERE
-                symbol = :symbol AND
-                action = :action AND
-                label IS :label AND
-                trade_type = :trade_type AND
-                trade_date = :trade_date AND
-                quantity = :quantity AND
-                price = :price AND
-                amount = :amount AND
-                account = :account
-            LIMIT 1
-        """
-        params = {
-            "symbol": trade_transaction["symbol"],
-            "action": self.convert_action(trade_transaction["action"]),
-            "label": trade_transaction.get("label"),
-            "trade_type": trade_transaction.get("trade_type", ""),
-            "trade_date": trade_transaction["trade_date"],
-            "quantity": trade_transaction["quantity"],
-            "price": self._parse_price(trade_transaction.get("price")),
-            "amount": trade_transaction["amount"],
-            "account": trade_transaction.get("account", "U"),
-        }
+        activity_id = trade_transaction.get("activity_id")
+        if activity_id is not None:
+            query = """
+                SELECT 1 FROM trade_transaction
+                WHERE activity_id = :activity_id AND leg_index = :leg_index
+                LIMIT 1
+            """
+            params = {
+                "activity_id": activity_id,
+                "leg_index": trade_transaction.get("leg_index", 0),
+            }
+        else:
+            query = """
+                SELECT 1 FROM trade_transaction
+                WHERE
+                    symbol = :symbol AND
+                    action = :action AND
+                    label IS :label AND
+                    trade_type = :trade_type AND
+                    trade_date = :trade_date AND
+                    quantity = :quantity AND
+                    price = :price AND
+                    amount = :amount AND
+                    account = :account
+                LIMIT 1
+            """
+            params = {
+                "symbol": trade_transaction["symbol"],
+                "action": self.convert_action(trade_transaction["action"]),
+                "label": trade_transaction.get("label"),
+                "trade_type": trade_transaction.get("trade_type", ""),
+                "trade_date": trade_transaction["trade_date"],
+                "quantity": trade_transaction["quantity"],
+                "price": self._parse_price(trade_transaction.get("price")),
+                "amount": trade_transaction["amount"],
+                "account": trade_transaction.get("account", "U"),
+            }
 
         try:
             with self.transaction():
@@ -152,11 +171,13 @@ class DatabaseInserter(DatabaseConnection):
             INSERT INTO trade_transaction (
                 symbol, action, label, trade_type, trade_date, expiration_date,
                 reason, quantity, price, amount, target_price,
-                initial_stop_price, projected_sell_price, account
+                initial_stop_price, projected_sell_price, account,
+                activity_id, leg_index
             ) VALUES (
                 :symbol, :action, :label, :trade_type, :trade_date, :expiration_date,
                 :reason, :quantity, :price, :amount, :target_price,
-                :initial_stop_price, :projected_sell_price, :account
+                :initial_stop_price, :projected_sell_price, :account,
+                :activity_id, :leg_index
             )
         """
         params = self._prepare_transaction_params(trade_transaction)
@@ -197,6 +218,8 @@ class DatabaseInserter(DatabaseConnection):
             "initial_stop_price": trade_transaction.get("initial_stop_price"),
             "projected_sell_price": trade_transaction.get("projected_sell_price"),
             "account": trade_transaction.get("account", "U"),
+            "activity_id": trade_transaction.get("activity_id"),
+            "leg_index": trade_transaction.get("leg_index"),
         }
 
     def convert_action(self, action: str) -> str:

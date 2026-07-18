@@ -38,7 +38,9 @@ CREATE TABLE trade_transaction (
     target_price REAL,
     initial_stop_price REAL,
     projected_sell_price REAL,
-    account TEXT NOT NULL
+    account TEXT NOT NULL,
+    activity_id INTEGER,
+    leg_index INTEGER
 );
 """
 
@@ -71,6 +73,10 @@ def trade_txn(amount, position_effect=None, asset_type="EQUITY", **txn_overrides
         "type": "TRADE",
         "tradeDate": "2026-07-10T04:00:00+0000",
         "description": "test",
+        # Real Schwab TRADE transactions always carry a netAmount matching the
+        # leg's cost; only "System transfer"-style transactions have netAmount
+        # of exactly 0 despite a nonzero leg cost.
+        "netAmount": leg["cost"],
         "transferItems": [leg],
     }
     txn.update(txn_overrides)
@@ -162,6 +168,20 @@ class TestDetermineAction(unittest.TestCase):
                              description="CAPSTONE ENERGY+ INC")
         self.assertIsNone(determine_action(txn, leg, "EQUITY"))
 
+    def test_dividend_reinvest_is_reinvest_shares(self):
+        txn, leg = trade_txn(amount=10, description="Dividend Reinvest")
+        self.assertEqual(determine_action(txn, leg, "EQUITY"), "Reinvest Shares")
+
+    def test_zero_net_trade_returns_none(self):
+        # "System transfer" moves existing shares between sub-accounts/books
+        # with no real cash-settled purchase, despite a real-looking leg cost.
+        txn, leg = trade_txn(amount=100, description="System transfer", netAmount=0.0)
+        self.assertIsNone(determine_action(txn, leg, "EQUITY"))
+
+    def test_nonzero_net_trade_is_not_treated_as_transfer(self):
+        txn, leg = trade_txn(amount=100)
+        self.assertEqual(determine_action(txn, leg, "EQUITY"), "Buy")
+
 
 class TestExtractTradeLegs(unittest.TestCase):
     def test_filters_currency_legs(self):
@@ -214,6 +234,28 @@ class TestBuildTransactionRecord(unittest.TestCase):
         self.assertEqual(record["trade_date"], "2026-07-17")  # expiration, not trade date
         self.assertEqual(record["price"], 0.0)
         self.assertEqual(record["amount"], 0.0)
+
+    def test_record_carries_activity_id_and_leg_index(self):
+        txn, leg = trade_txn(amount=100, activityId=555)
+        record = build_transaction_record(txn, leg, "C", leg_index=1)
+        self.assertEqual(record["activity_id"], 555)
+        self.assertEqual(record["leg_index"], 1)
+
+    def test_leg_index_defaults_to_zero(self):
+        txn, leg = trade_txn(amount=100)
+        record = build_transaction_record(txn, leg, "C")
+        self.assertEqual(record["leg_index"], 0)
+
+    def test_cusip_symbol_is_rejected(self):
+        # Corporate-action legs (mergers, reverse splits) sometimes report a
+        # 9-character CUSIP as the instrument symbol instead of a ticker.
+        txn, leg = trade_txn(amount=200)
+        leg["instrument"]["symbol"] = "873379101"
+        self.assertIsNone(build_transaction_record(txn, leg, "C"))
+
+    def test_system_transfer_is_skipped(self):
+        txn, leg = trade_txn(amount=100, description="System transfer", netAmount=0.0)
+        self.assertIsNone(build_transaction_record(txn, leg, "C"))
 
 
 class TestWatermark(unittest.TestCase):

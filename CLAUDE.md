@@ -91,24 +91,25 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 - `schwab_client.py` — schwab-py auth factory. `get_client()` loads the saved token (`data/schwab_token.json`); `login(interactive=False)` runs the one-time OAuth browser flow.
 
 ### Data Flow
-Two ingestion paths feed the same schema — both non-breaking, same `DatabaseInserter`, same `trade_transaction` table:
-1. **CSV (historical):** Schwab CSV export → `bin/process_schwab_transactions.py` → SQLite. Required for any history older than 60 days.
-2. **API (recent, automatic):** `bin/sync_schwab_api.py` → schwab-py `get_transactions()` → SQLite. Runs automatically at the start of `run_dev.sh`. See "Schwab API Sync" below.
-
-Then, for both paths:
-3. API request → `get_trade_data_for_analysis(symbol)` → raw transaction dicts (lowercase keys, includes `reason`, `initial_stop_price`, `projected_sell_price`)
-4. `TradingAnalyzer.analyze_trades(status, account, after_date)` → converts to Trade objects, matches buys/sells, computes P&L
-5. `get_profit_loss_data_json()` → JSON-serializable dict with `stock` and `option` sections
-6. JSON response → Vue frontend renders with TradeCard components
+**The Schwab API is the sole source populating `trade_transaction` (2026-07-17 policy change).** The CSV pipeline (`bin/process_schwab_transactions.py`, `lib/csv_processing_utils.py`) is retired but left in place, unused — CSV rows carry no unique identifier (no activity id, no timestamp, date only), so they can't be reliably reconciled against API-sourced rows.
+1. `bin/sync_schwab_api.py` → schwab-py `get_transactions()` → SQLite. Runs automatically at the start of `run_dev.sh`. See "Schwab API Sync" below.
+2. `get_trade_data_for_analysis(symbol)` → raw transaction dicts (lowercase keys, includes `reason`, `initial_stop_price`, `projected_sell_price`)
+3. `TradingAnalyzer.analyze_trades(status, account, after_date)` → converts to Trade objects, matches buys/sells, computes P&L
+4. `get_profit_loss_data_json()` → JSON-serializable dict with `stock` and `option` sections
+5. JSON response → Vue frontend renders with TradeCard components
 
 ### Schwab API Sync
-`bin/sync_schwab_api.py` pulls transactions from the live Schwab API (unofficial `schwab-py` wrapper) into the same SQLite schema used by the CSV pipeline — no schema changes, fully idempotent.
+`bin/sync_schwab_api.py` pulls transactions from the live Schwab API (unofficial `schwab-py` wrapper) into SQLite; fully idempotent via `activity_id`/`leg_index` (see "trade_transaction identity" below).
 - **Auth:** `lib/schwab_client.py`. Token at `data/schwab_token.json` (gitignored, auto-refreshed). One-time setup: `python bin/schwab_login.py` (opens a browser; ~90-day token expiry — re-run after deleting the token file if the sync starts failing auth).
 - **Account mapping:** `data/schwab_account_map.json` (gitignored) maps Schwab account hashes → single-letter account codes (C/R/I). Get hashes via `python bin/sync_schwab_api.py --list-accounts`.
-- **API limitation:** Schwab caps each request's `startDate`↔`endDate` span at 1 year (verified live 2026-07-07; HTTP 400 beyond it). `sync()` raises a clear `ValueError` before calling the API if a manual `--start-date`/`--end-date` range exceeds this. The CSV pipeline remains the source of truth for history older than 1 year.
-- **Watermark tracking:** last successful sync end-date is stored in the `config` table (key `schwab_api_last_sync`). Each run starts from `watermark - 2 days` (safe overlap; dedupe is exact). The very first sync instead starts the day after the newest existing `trade_date` in the DB, since the API reports each fill separately while CSV rows aggregate partial fills into one row — re-fetching CSV-covered days would double-count positions.
-- **Payload mapping quirks:** the API has no `instruction` field — buy/sell is derived from the leg's signed `amount` plus `positionEffect` (OPENING/CLOSING). Option `label` (e.g. `"QBTS 07/17/2026 25.00 C"`) is built from `underlyingSymbol` + `expirationDate` + `strikePrice` + `putCall` (the API's own `description` field is prose, not this format). ETFs report as `assetType: COLLECTIVE_INVESTMENT`. Expirations arrive as `RECEIVE_AND_DELIVER` transactions.
+- **API limitation:** Schwab caps each request's `startDate`↔`endDate` span at 1 year (verified live 2026-07-07; HTTP 400 beyond it). `sync()` raises a clear `ValueError` before calling the API if a manual `--start-date`/`--end-date` range exceeds this. `util/rebuild_trade_transactions.py` (gitignored, one-off tool) walks sequential windows to rebuild the full history back to a given start date.
+- **Watermark tracking:** last successful sync end-date is stored in the `config` table (key `schwab_api_last_sync`). Each run starts from `watermark - 2 days` (safe overlap; dedupe is exact).
+- **Payload mapping quirks:** the API has no `instruction` field — buy/sell is derived from the leg's signed `amount` plus `positionEffect` (OPENING/CLOSING). Option `label` (e.g. `"QBTS 07/17/2026 25.00 C"`) is built from `underlyingSymbol` + `expirationDate` + `strikePrice` + `putCall` (the API's own `description` field is prose, not this format). ETFs report as `assetType: COLLECTIVE_INVESTMENT`. Expirations arrive as `RECEIVE_AND_DELIVER` transactions. Zero-net transactions (`netAmount == 0`) — sub-account journals and "System transfer" internal moves — are skipped regardless of `type`, since the leg can still carry a real-looking cost/price. A resolved `symbol` longer than 6 characters is rejected as a CUSIP (some corporate-action legs report the CUSIP instead of a ticker), not inserted as a security.
 - **Flags:** `--dry-run` (preview only), `--list-accounts`, `--start-date`/`--end-date` (manual override), `--symbol SYMBOL` (sync just one stock + its options; defaults to the full 1-year lookback rather than resuming from the watermark, and never advances the watermark since it doesn't cover all symbols).
+- **Known gap:** ten symbols (BE, BMY, CGRN, DE, FFIC, FSLR, MDB, TEAM, TRHC, TWLO) were opened via an Internal Transfer/Journaled Shares pair during Schwab's 2023 TD Ameritrade account migration; that source account no longer exists in the live API (confirmed by querying all 15 transaction types). Until a manual one-time re-seed (see `docs/PLANNING.md`, 2026-07-17 entry), these may show as still-open or with a negative net quantity.
+
+### trade_transaction identity
+Every row now carries `activity_id`/`leg_index` (Schwab's own transaction id + position within a multi-leg transaction), enforced by a partial unique index `WHERE activity_id IS NOT NULL`. This is the real per-row identity — a single order can fill in several legs with byte-identical symbol/quantity/price, which the old business-field uniqueness check (`symbol, action, trade_type, trade_date, quantity, price, amount, account`) couldn't tell apart, silently dropping real fills as "duplicates". `DatabaseInserter.transaction_exists()` checks `activity_id` first, falling back to the business-field match only for CSV-era rows (`activity_id IS NULL`). Schema migrated via `bin/migrate_add_activity_id.py` (idempotent, backs up the DB first).
 
 ### Trade Update API
 `PATCH /api/trade/update/<id>` — updates `reason`, `initial_stop_price`, `projected_sell_price` on a `TradeTransaction`.
