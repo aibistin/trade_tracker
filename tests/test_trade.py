@@ -511,6 +511,34 @@ class TestTradeClasses(unittest.TestCase):
         expected = (94.94 - 94.85) * 25 + (96.99 - 94.85) * 10 + (94.92 - 94.85) * 15
         self.assertAlmostEqual(profit_loss, expected, 2)
 
+    def test_apply_sell_trades_terminates_despite_float_drift(self):
+        """
+        Regression test: applying two partial sells whose quantities sum in
+        binary floating point to a hair below the buy's quantity (e.g.
+        0.7892 + 9.1572 == 9.946399999999999, not 9.9464) must still mark the
+        buy done. Before rounding current_sold_qty after each accumulation,
+        this left is_done permanently False, and apply_sell_trades spun
+        forever re-applying 0.0 qty against the same exhausted buy.
+        """
+        buy_data = dict(self.sample_trades[0])
+        buy_data.update(trade_id="B1", quantity=9.9464, price=16.40293, amount=-163.15)
+        buy = BuyTrade(cast(TradeData, buy_data))
+
+        sell1_data = dict(self.sample_trades[1])
+        sell1_data.update(trade_id="S1", quantity=0.7892, price=16.4, amount=12.94)
+        sell2_data = dict(self.sample_trades[1])
+        sell2_data.update(trade_id="S2", quantity=519.0, price=16.4, amount=8511.6)
+        sells = [SellTrade(cast(TradeData, sell1_data)), SellTrade(cast(TradeData, sell2_data))]
+
+        buy.apply_sell_trades(sells)  # hangs before the current_sold_qty rounding fix
+
+        self.assertTrue(buy.is_done)
+        self.assertEqual(buy.current_sold_qty, 9.9464)
+        # The oversized second sell can only be partially absorbed by this
+        # buy; the leftover remains on the sell, unconsumed.
+        self.assertEqual(len(sells), 1)
+        self.assertAlmostEqual(sells[0].quantity, 519.0 - (9.9464 - 0.7892), places=4)
+
     def test_repr_output(self):
         """Test string representation of trades"""
         buy = BuyTrade(self.sample_trades[0])  # type: ignore

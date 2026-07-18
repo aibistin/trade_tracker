@@ -137,17 +137,34 @@ def determine_action(txn, leg, asset_type):
     determine the action. Expirations/assignments arrive as RECEIVE_AND_DELIVER
     transactions identified by their description text.
     """
+    desc = (txn.get('description') or '').lower()
     if txn.get('type') == 'RECEIVE_AND_DELIVER':
-        desc = (txn.get('description') or '').lower()
         if 'expiration' in desc:
             return 'Expired'
         if 'assignment' in desc or 'exercise' in desc:
             return 'Exchange or Exercise'
+        if 'removal of worthless' in desc:
+            # Broker removes a worthless position — economically a total-loss
+            # close, same as an expiration.
+            return 'Expired'
+        return None
+
+    if txn.get('type') == 'TRADE' and not float(txn.get('netAmount') or 0):
+        # Zero-net "System transfer" trades move existing shares between
+        # sub-accounts/internal books with no real cash-settled purchase — the
+        # leg still carries a real-looking cost/price, but treating it as an
+        # ordinary buy either flips the sign (cost positive on a "Buy") or
+        # phantom-duplicates a position already recorded elsewhere. Skip it,
+        # same as a zero-value RECEIVE_AND_DELIVER journal.
         return None
 
     signed_qty = float(leg.get('amount') or 0)
     if signed_qty == 0:
         return None
+    if 'dividend reinvest' in desc and signed_qty > 0:
+        # Reinvestment purchases must keep the CSV pipeline's RS action code —
+        # mapping them to plain Buy would double-count against existing RS rows.
+        return 'Reinvest Shares'
     if asset_type == 'OPTION':
         effect = (leg.get('positionEffect') or '').upper()
         if effect == 'OPENING':
@@ -172,10 +189,10 @@ def extract_trade_legs(transfer_items):
 def _log_skipped_leg(txn, leg):
     """
     Log a leg that couldn't be mapped to an action, with enough detail to see
-    why. Zero-value RECEIVE_AND_DELIVER legs are sub-account journals (e.g.
-    Schwab moving a position between CASH and MARGIN) or corporate actions —
-    not trades, so skipping them is correct and logged at INFO. Anything else
-    unmapped is unexpected and stays a WARNING.
+    why. Any transaction with zero net cash impact — a RECEIVE_AND_DELIVER
+    sub-account journal (e.g. CASH<->MARGIN moves) or a TRADE-type "System
+    transfer" — is not a real trade, so skipping it is correct and logged at
+    INFO. Anything else unmapped is unexpected and stays a WARNING.
     """
     instrument = leg.get('instrument', {})
     detail = (
@@ -186,11 +203,7 @@ def _log_skipped_leg(txn, leg):
         f"amount={leg.get('amount')} cost={leg.get('cost')} "
         f"price={leg.get('price')} positionEffect={leg.get('positionEffect')}"
     )
-    is_journal = (
-        txn.get('type') == 'RECEIVE_AND_DELIVER'
-        and not float(txn.get('netAmount') or 0)
-        and not float(leg.get('cost') or 0)
-    )
+    is_journal = not float(txn.get('netAmount') or 0)
     if is_journal:
         log.info('Skipping transaction %s — sub-account journal/corporate action, '
                  'not a trade (%s)', txn.get('activityId'), detail)
@@ -199,7 +212,17 @@ def _log_skipped_leg(txn, leg):
                     txn.get('activityId'), detail)
 
 
-def build_transaction_record(txn, leg, account_code):
+def _looks_like_ticker(symbol):
+    """
+    Real Schwab equity/ETF tickers are short. Some corporate-action legs
+    (mergers, reverse splits, bankruptcy conversions) report a 9-character
+    CUSIP as the instrument symbol instead of a resolvable ticker — reject
+    those rather than creating a garbage security for a CUSIP.
+    """
+    return len(symbol) <= 6
+
+
+def build_transaction_record(txn, leg, account_code, leg_index=0):
     """
     Convert one instrument leg of a Schwab API transaction to our
     DatabaseInserter format. Returns None if the leg should be skipped.
@@ -232,10 +255,18 @@ def build_transaction_record(txn, leg, account_code):
         log.warning('Skipping transaction with no symbol: %s', txn.get('activityId'))
         return None
 
+    if not _looks_like_ticker(symbol):
+        log.warning('Skipping transaction %s — symbol %r looks like a CUSIP, not a '
+                    'ticker (likely an unmapped corporate action)',
+                    txn.get('activityId'), symbol)
+        return None
+
     if action_name in ('Expired', 'Exchange or Exercise'):
         # CSV pipeline records these on the option's expiration date with zero
-        # price/amount — mirror that so the dedupe check matches.
-        trade_date = expiration_date
+        # price/amount — mirror that so the dedupe check matches. Equity events
+        # (worthless-security removals) have no expiration date, so fall back
+        # to the transaction date.
+        trade_date = expiration_date or parse_date(txn.get('tradeDate') or txn.get('time'))
         price = 0.0
         amount = 0.0
     else:
@@ -244,6 +275,9 @@ def build_transaction_record(txn, leg, account_code):
         # Leg cost is the signed gross amount: negative for buys, positive for
         # sells — same convention as the CSV pipeline's amount column.
         amount = float(leg.get('cost') or 0)
+        if action_name == 'Reinvest Shares':
+            # CSV pipeline stores RS amounts as positive — keep that convention
+            amount = abs(amount)
 
     if not trade_date:
         log.warning('Skipping transaction with no trade date: %s', txn.get('activityId'))
@@ -267,6 +301,8 @@ def build_transaction_record(txn, leg, account_code):
         'reason': '',
         'account': account_code,
         'security_name': security_name,
+        'activity_id': txn.get('activityId'),
+        'leg_index': leg_index,
     }
 
 
@@ -312,6 +348,25 @@ def _save_watermark(db, end_date):
             'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP',
             (SYNC_WATERMARK_KEY, end_date.isoformat(), 'Last successful Schwab API sync (UTC)'),
         )
+
+
+def build_account_codes(accounts, account_map):
+    """
+    Resolve each account hash to its mapped single-letter code, auto-assigning
+    U, V, W, ... in encounter order for any hash missing from account_map.
+    """
+    codes = {}
+    counter = 0
+    for acct in accounts:
+        hash_val = acct.get('hashValue')
+        if hash_val in account_map:
+            codes[hash_val] = account_map[hash_val]
+        else:
+            code = chr(ord('U') + counter)
+            counter += 1
+            log.warning('No mapping for account hash %s — assigning code %s', hash_val, code)
+            codes[hash_val] = code
+    return codes
 
 
 def list_accounts(client):
@@ -361,16 +416,7 @@ def sync(start_date=None, end_date=None, dry_run=False, symbol=None):
     resp.raise_for_status()
     accounts = resp.json()
 
-    # Assign codes for unmapped accounts
-    auto_code_counter = [0]
-    def account_code(hash_val):
-        if hash_val in account_map:
-            return account_map[hash_val]
-        # Auto-assign: U, V, W, X, Y, Z
-        code = chr(ord('U') + auto_code_counter[0])
-        auto_code_counter[0] += 1
-        log.warning('No mapping for account hash %s — assigning code %s', hash_val, code)
-        return code
+    account_codes = build_account_codes(accounts, account_map)
 
     inserted = 0
     skipped_existing = 0
@@ -387,7 +433,7 @@ def sync(start_date=None, end_date=None, dry_run=False, symbol=None):
 
         for acct in accounts:
             hash_val = acct.get('hashValue')
-            code = account_code(hash_val)
+            code = account_codes[hash_val]
             log.info('Fetching transactions for account %s (code=%s) from %s to %s%s',
                      hash_val[:8] + '...', code,
                      start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'),
@@ -415,8 +461,8 @@ def sync(start_date=None, end_date=None, dry_run=False, symbol=None):
                 if not legs:
                     skipped_invalid += 1
                     continue
-                for leg in legs:
-                    record = build_transaction_record(txn, leg, code)
+                for i, leg in enumerate(legs):
+                    record = build_transaction_record(txn, leg, code, leg_index=i)
                     if record is None:
                         skipped_invalid += 1
                     elif symbol and record['symbol'] != symbol:

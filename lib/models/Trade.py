@@ -318,7 +318,11 @@ class BuyTrade(Trade):
             applied_qty * applied_sell.price * self.multiplier, 2
         )
 
-        self.current_sold_qty += applied_qty
+        # Round after every accumulation, not just on the sell side — without
+        # this, repeated partial fills can leave current_sold_qty a hair below
+        # self.quantity (e.g. 9.946399999999999 vs 9.9464), so is_done never
+        # becomes True and apply_sell_trades spins forever applying 0.0 qty.
+        self.current_sold_qty = round(self.current_sold_qty + applied_qty, 4)
         sell_trade.quantity = round(sell_trade.quantity - applied_qty, 4)
         sell_trade.amount -= applied_sell.amount
         # TODO test in test_trade.py

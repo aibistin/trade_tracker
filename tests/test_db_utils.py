@@ -22,7 +22,9 @@ CREATE TABLE trade_transaction (
     target_price REAL,
     initial_stop_price REAL,
     projected_sell_price REAL,
-    account TEXT NOT NULL
+    account TEXT NOT NULL,
+    activity_id INTEGER,
+    leg_index INTEGER
 );
 """
 
@@ -105,6 +107,42 @@ class TestTransactionExists(DbUtilsTestCase):
         self.assertTrue(self.db.transaction_exists(option))
         other = dict(option, label="FAKE 01/16/2026 10.00 C")
         self.assertFalse(self.db.transaction_exists(other))
+
+    def test_identical_fills_with_different_activity_id_are_not_duplicates(self):
+        """
+        A single order can fill in several legs with byte-identical symbol/
+        quantity/price/date (e.g. three separate -100 share sells at the same
+        price). Only Schwab's activity_id tells them apart — the business-
+        field match alone would treat the 2nd and 3rd as "already exists" and
+        silently drop them.
+        """
+        first = stock_txn(action="Sell", quantity=100.0, amount=1424.0,
+                          activity_id=111, leg_index=0)
+        second = stock_txn(action="Sell", quantity=100.0, amount=1424.0,
+                           activity_id=222, leg_index=0)
+        self.db.insert_transaction(first)
+        self.assertFalse(self.db.transaction_exists(second))
+        self.db.insert_transaction(second)
+        self.db.cursor.execute("SELECT COUNT(*) FROM trade_transaction")
+        self.assertEqual(self.db.cursor.fetchone()[0], 2)
+
+    def test_same_activity_id_and_leg_index_is_duplicate(self):
+        record = stock_txn(activity_id=111, leg_index=0)
+        self.db.insert_transaction(record)
+        self.assertTrue(self.db.transaction_exists(record))
+
+    def test_same_activity_id_different_leg_index_is_not_duplicate(self):
+        # A multi-leg transaction (e.g. an option spread) shares one
+        # activity_id across its legs.
+        first = stock_txn(activity_id=111, leg_index=0)
+        second = stock_txn(activity_id=111, leg_index=1)
+        self.db.insert_transaction(first)
+        self.assertFalse(self.db.transaction_exists(second))
+
+    def test_no_activity_id_falls_back_to_business_field_match(self):
+        """CSV-sourced records carry no activity_id."""
+        self.db.insert_transaction(stock_txn())
+        self.assertTrue(self.db.transaction_exists(stock_txn()))
 
 
 class TestInsertTransaction(DbUtilsTestCase):

@@ -30,6 +30,8 @@ class TradeTransaction(db.Model):
     initial_stop_price = db.Column(db.Float)
     projected_sell_price = db.Column(db.Float)
     account = db.Column(db.String(1), nullable=False)  # 'C', 'R', 'I'
+    activity_id = db.Column(db.Integer)  # Schwab's transaction id; NULL for CSV-sourced rows
+    leg_index = db.Column(db.Integer)  # position within a multi-leg Schwab transaction
 
     security = db.relationship(
         "Security", backref=db.backref("transactions", lazy=True)
