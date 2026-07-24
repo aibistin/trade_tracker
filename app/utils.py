@@ -1,12 +1,13 @@
 import re
 
+from lib.ignore_symbols import get_ignored_symbols
+
 SYMBOLS_TO_EXCLUDE = [
     "",
     "14067D508",
     "14067D607",
     "873379101",
     "BMY/R",
-    "CGRN",
     "G06242104",
     "MMDA1",
 ]
@@ -21,6 +22,7 @@ def is_option_symbol(symbol):
 
 
 def filter_symbols(all_symbol_names):
+    ignored = get_ignored_symbols()
     return [
         (symbol, name)
         for symbol, name in all_symbol_names
@@ -28,4 +30,5 @@ def filter_symbols(all_symbol_names):
         and len(symbol) < 6
         and not is_option_symbol(symbol)
         and symbol not in SYMBOLS_TO_EXCLUDE
+        and symbol.upper() not in ignored
     ]

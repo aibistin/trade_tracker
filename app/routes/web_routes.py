@@ -16,6 +16,7 @@ from ..repositories.trade_repository import get_trade_data_for_analysis, get_tra
 from ..services.trade_service import validate_trade_update
 from ..services.analysis_service import clear_analysis_cache
 from lib.constants import Action
+from lib.ignore_symbols import get_ignored_symbols
 
 
 @web_bp.route("/")
@@ -24,7 +25,10 @@ def index():
     log.info(f"[index] Home Page")
     stmt = (
         select(Security)
-        .where(Security.symbol.notin_(SYMBOLS_TO_EXCLUDE))
+        .where(
+            Security.symbol.notin_(SYMBOLS_TO_EXCLUDE),
+            Security.symbol.notin_(get_ignored_symbols()),
+        )
         .order_by(Security.symbol)
     )
     all_securities = db.session.execute(stmt).scalars().all()
@@ -101,6 +105,7 @@ def recent_trades(days):
         .where(
             TradeTransaction.action.in_([Action.BUY, Action.REINVEST_SHARES, Action.SELL]),
             TradeTransaction.trade_date > days_ago,
+            TradeTransaction.symbol.notin_(get_ignored_symbols()),
         )
         .order_by(
             TradeTransaction.symbol,
@@ -117,6 +122,8 @@ def trades_by_symbol(symbol):
     """Fetches all buy and sell transactions for the given symbol, ordered by trade date."""
 
     log.info(f"Inside Trades By Symbol route '/trades/{symbol}'")
+    if symbol.upper() in get_ignored_symbols():
+        return "Symbol not found", 404
     stmt = (
         select(TradeTransaction)
         .where(

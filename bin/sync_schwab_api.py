@@ -9,8 +9,10 @@ Usage:
     # Sync since the last watermark (or since the newest DB trade on first run):
     python bin/sync_schwab_api.py
 
-    # Sync a specific date range (start/end must be no more than 1 year apart):
+    # Sync a specific date range — any length works; ranges over Schwab's
+    # ~1-year per-request cap are walked internally in <1-year windows:
     python bin/sync_schwab_api.py --start-date 2026-01-01 --end-date 2026-03-31
+    python bin/sync_schwab_api.py --start-date 2015-01-01 --end-date 2026-07-23
 
     # Sync just one stock (and its options) — defaults to the full ~1-year
     # lookback window regardless of the watermark; combine with --start-date/
@@ -38,8 +40,9 @@ Note on history:
     is a maximum 1-year span between startDate and endDate per request — not the
     60 days suggested by schwab-py's default-argument docstring. Requesting a
     range over 1 year returns HTTP 400 ("difference between the dates must not
-    be more than a year"). For history older than 1 year, use the CSV export
-    pipeline.
+    be more than a year"). This script walks any longer range internally in
+    <1-year windows (see iter_windows()), so --start-date/--end-date accept any
+    span without the caller needing to split it up.
 """
 
 import argparse
@@ -48,6 +51,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from logging.handlers import RotatingFileHandler
 
 # Allow running from project root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -55,10 +59,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-)
+LOGS_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'logs'))
+os.makedirs(LOGS_DIR, exist_ok=True)
+LOG_PATH = os.path.join(LOGS_DIR, 'sync_schwab_api.log')
+
+_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+_file_handler = RotatingFileHandler(LOG_PATH, maxBytes=2 * 1024 * 1024, backupCount=5)
+_file_handler.setFormatter(_formatter)
+_console_handler = logging.StreamHandler()
+_console_handler.setFormatter(_formatter)
+
+logging.basicConfig(level=logging.INFO, handlers=[_file_handler, _console_handler])
 log = logging.getLogger(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'stock_trades.db')
@@ -314,6 +325,21 @@ SYNC_WATERMARK_KEY = 'schwab_api_last_sync'
 MAX_API_WINDOW_DAYS = 364
 
 
+def iter_windows(start_date, end_date, max_days=MAX_API_WINDOW_DAYS):
+    """
+    Yield sequential (window_start, window_end) pairs covering
+    [start_date, end_date] in chunks no wider than max_days, so a range of
+    any length can be walked through Schwab's per-request 1-year cap. A
+    range already within max_days yields exactly one pair spanning the
+    whole thing.
+    """
+    window_start = start_date
+    while window_start < end_date:
+        window_end = min(window_start + timedelta(days=max_days), end_date)
+        yield window_start, window_end
+        window_start = window_end
+
+
 def _resolve_start_date(db, end_date):
     """
     Pick the sync start date:
@@ -393,20 +419,17 @@ def sync(start_date=None, end_date=None, dry_run=False, symbol=None):
     A symbol-filtered run does not cover all symbols, so it never advances the
     sync watermark and defaults to the full lookback window rather than
     resuming from it (an explicit --start-date/--end-date still narrows it).
+
+    A range wider than Schwab's ~1-year per-request cap (e.g. a full manual
+    backfill from account inception) is walked internally in
+    MAX_API_WINDOW_DAYS-sized chunks via iter_windows() — callers never need
+    to split a long range themselves.
     """
     from lib.schwab_client import get_client
     from lib.db_utils import DatabaseInserter
 
     if end_date is None:
         end_date = datetime.now(timezone.utc)
-
-    if start_date is not None and (end_date - start_date).days > MAX_API_WINDOW_DAYS:
-        raise ValueError(
-            f'Date range too wide: {(end_date - start_date).days} days requested, '
-            f'Schwab caps requests at ~1 year ({MAX_API_WINDOW_DAYS} days). '
-            'Split the range into multiple syncs, or use the CSV export pipeline '
-            'for history beyond 1 year.'
-        )
 
     client = get_client()
     account_map = load_account_map()
@@ -431,73 +454,86 @@ def sync(start_date=None, end_date=None, dry_run=False, symbol=None):
                 else _resolve_start_date(db, end_date)
             )
 
-        for acct in accounts:
-            hash_val = acct.get('hashValue')
-            code = account_codes[hash_val]
-            log.info('Fetching transactions for account %s (code=%s) from %s to %s%s',
-                     hash_val[:8] + '...', code,
-                     start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'),
-                     f' (filtering to {symbol})' if symbol else '')
+        windows = list(iter_windows(start_date, end_date))
+        if len(windows) > 1:
+            log.info('Range spans %d windows of up to %d days each',
+                     len(windows), MAX_API_WINDOW_DAYS)
 
-            resp = client.get_transactions(
-                account_hash=hash_val,
-                start_date=start_date,
-                end_date=end_date,
-                transaction_types=[
-                    client.Transactions.TransactionType.TRADE,
-                    client.Transactions.TransactionType.RECEIVE_AND_DELIVER,
-                ],
-            )
-            resp.raise_for_status()
-            transactions = resp.json()
-            log.info('  Retrieved %d transactions', len(transactions))
+        for window_num, (window_start, window_end) in enumerate(windows, start=1):
+            if len(windows) > 1:
+                log.info('=== Window %d/%d: %s to %s ===', window_num, len(windows),
+                         window_start.strftime('%Y-%m-%d'), window_end.strftime('%Y-%m-%d'))
 
-            records = []
-            for txn in transactions:
-                if txn.get('type', '') not in _TRADE_TYPES:
-                    skipped_invalid += 1
-                    continue
-                legs = extract_trade_legs(txn.get('transferItems', []))
-                if not legs:
-                    skipped_invalid += 1
-                    continue
-                for i, leg in enumerate(legs):
-                    record = build_transaction_record(txn, leg, code, leg_index=i)
-                    if record is None:
+            for acct in accounts:
+                hash_val = acct.get('hashValue')
+                code = account_codes[hash_val]
+                log.info('Fetching transactions for account %s (code=%s) from %s to %s%s',
+                         hash_val[:8] + '...', code,
+                         window_start.strftime('%Y-%m-%d'), window_end.strftime('%Y-%m-%d'),
+                         f' (filtering to {symbol})' if symbol else '')
+
+                resp = client.get_transactions(
+                    account_hash=hash_val,
+                    start_date=window_start,
+                    end_date=window_end,
+                    transaction_types=[
+                        client.Transactions.TransactionType.TRADE,
+                        client.Transactions.TransactionType.RECEIVE_AND_DELIVER,
+                    ],
+                )
+                resp.raise_for_status()
+                transactions = resp.json()
+                log.info('  Retrieved %d transactions', len(transactions))
+
+                records = []
+                for txn in transactions:
+                    if txn.get('type', '') not in _TRADE_TYPES:
                         skipped_invalid += 1
-                    elif symbol and record['symbol'] != symbol:
                         continue
-                    else:
-                        records.append(record)
+                    legs = extract_trade_legs(txn.get('transferItems', []))
+                    if not legs:
+                        skipped_invalid += 1
+                        continue
+                    for i, leg in enumerate(legs):
+                        record = build_transaction_record(txn, leg, code, leg_index=i)
+                        if record is None:
+                            skipped_invalid += 1
+                        elif symbol and record['symbol'] != symbol:
+                            continue
+                        else:
+                            records.append(record)
 
-            for record in records:
-                if dry_run:
-                    log.info('[DRY RUN] Would insert: %s %s %s qty=%s price=%s',
-                             record['trade_date'], record['action'],
-                             record['symbol'], record['quantity'], record['price'])
+                for record in records:
+                    if dry_run:
+                        log.info('[DRY RUN] Would insert: %s %s %s qty=%s price=%s',
+                                 record['trade_date'], record['action'],
+                                 record['symbol'], record['quantity'], record['price'])
+                        inserted += 1
+                        continue
+
+                    # Ensure security exists
+                    db.insert_security({
+                        'symbol': record['symbol'],
+                        'name': record.get('security_name') or record['symbol'],
+                    })
+
+                    if db.transaction_exists(record):
+                        skipped_existing += 1
+                        log.debug('Already exists: %s %s %s', record['trade_date'],
+                                  record['symbol'], record['action'])
+                        continue
+
+                    db.insert_transaction(record)
                     inserted += 1
-                    continue
+                    log.info('Inserted: %s %s %s qty=%s',
+                             record['trade_date'], record['action'],
+                             record['symbol'], record['quantity'])
 
-                # Ensure security exists
-                db.insert_security({
-                    'symbol': record['symbol'],
-                    'name': record.get('security_name') or record['symbol'],
-                })
-
-                if db.transaction_exists(record):
-                    skipped_existing += 1
-                    log.debug('Already exists: %s %s %s', record['trade_date'],
-                              record['symbol'], record['action'])
-                    continue
-
-                db.insert_transaction(record)
-                inserted += 1
-                log.info('Inserted: %s %s %s qty=%s',
-                         record['trade_date'], record['action'],
-                         record['symbol'], record['quantity'])
-
-        if not dry_run and not symbol:
-            _save_watermark(db, end_date)
+            # Checkpoint after every window (not just the last) so an
+            # interrupted multi-window backfill resumes near where it left
+            # off instead of re-fetching from the original start date.
+            if not dry_run and not symbol:
+                _save_watermark(db, window_end)
 
     log.info('Sync complete. Inserted: %d, Already existed: %d, Skipped invalid: %d',
              inserted, skipped_existing, skipped_invalid)
@@ -505,7 +541,10 @@ def sync(start_date=None, end_date=None, dry_run=False, symbol=None):
 
 def main():
     parser = argparse.ArgumentParser(description='Sync Schwab API transactions to local DB')
-    parser.add_argument('--start-date', help='Start date YYYY-MM-DD (default: since last sync watermark)')
+    parser.add_argument('--start-date',
+                        help='Start date YYYY-MM-DD (default: since last sync watermark). '
+                             'Any span works — ranges over ~1 year are walked internally '
+                             'in <1-year windows.')
     parser.add_argument('--end-date', help='End date YYYY-MM-DD (default: today)')
     parser.add_argument('--dry-run', action='store_true', help='Preview without inserting')
     parser.add_argument('--list-accounts', action='store_true',

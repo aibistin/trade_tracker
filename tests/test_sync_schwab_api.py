@@ -1,5 +1,9 @@
+import os
+import sqlite3
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
 from bin.sync_schwab_api import (
     MAX_API_WINDOW_DAYS,
@@ -9,6 +13,7 @@ from bin.sync_schwab_api import (
     determine_action,
     determine_trade_type,
     extract_trade_legs,
+    iter_windows,
     parse_date,
     sync,
     _resolve_start_date,
@@ -301,13 +306,127 @@ class TestWatermark(unittest.TestCase):
         self.assertEqual(start, self.end_date - timedelta(days=MAX_API_WINDOW_DAYS))
 
 
-class TestSyncDateValidation(unittest.TestCase):
-    def test_range_over_one_year_raises_before_any_network_call(self):
+class TestIterWindows(unittest.TestCase):
+    def test_short_range_yields_one_window_spanning_the_whole_thing(self):
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 3, 1, tzinfo=timezone.utc)
+        windows = list(iter_windows(start, end))
+        self.assertEqual(windows, [(start, end)])
+
+    def test_long_range_is_split_into_multiple_windows(self):
         start = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        end = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        with self.assertRaises(ValueError) as ctx:
-            sync(start_date=start, end_date=end)
-        self.assertIn("Date range too wide", str(ctx.exception))
+        end = datetime(2026, 1, 1, tzinfo=timezone.utc)  # ~2 years
+        windows = list(iter_windows(start, end))
+        self.assertGreater(len(windows), 1)
+        # Contiguous, no gaps or overlaps, and covers the full range exactly
+        self.assertEqual(windows[0][0], start)
+        self.assertEqual(windows[-1][1], end)
+        for (_, prev_end), (next_start, _) in zip(windows, windows[1:]):
+            self.assertEqual(prev_end, next_start)
+        for window_start, window_end in windows:
+            self.assertLessEqual((window_end - window_start).days, MAX_API_WINDOW_DAYS)
+
+    def test_eleven_year_range_matches_expected_window_count(self):
+        start = datetime(2015, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 7, 23, tzinfo=timezone.utc)
+        windows = list(iter_windows(start, end))
+        total_days = (end - start).days
+        self.assertEqual(len(windows), -(-total_days // MAX_API_WINDOW_DAYS))  # ceil div
+
+    def test_zero_length_range_yields_no_windows(self):
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self.assertEqual(list(iter_windows(start, start)), [])
+
+
+class TestSyncWindowing(unittest.TestCase):
+    """
+    sync() used to reject any --start-date/--end-date range wider than
+    Schwab's ~1-year per-request cap. It now walks a range of any length
+    internally via iter_windows() — these tests drive sync() end-to-end with
+    a mocked Schwab client (never a real network call) against a real
+    temp-file DB, so watermark checkpointing behavior is exercised too.
+    """
+
+    def setUp(self):
+        fd, self.db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        conn = sqlite3.connect(self.db_path)
+        conn.executescript(SCHEMA)
+        conn.commit()
+        conn.close()
+        patcher = patch("bin.sync_schwab_api.DB_PATH", self.db_path)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(os.remove, self.db_path)
+
+    def _mock_client(self):
+        client = MagicMock()
+        accounts_resp = MagicMock()
+        accounts_resp.json.return_value = [{"hashValue": "HASH1", "accountNumber": "123"}]
+        client.get_account_numbers.return_value = accounts_resp
+        empty_resp = MagicMock()
+        empty_resp.json.return_value = []
+        client.get_transactions.return_value = empty_resp
+        return client
+
+    def _run_sync(self, client, **kwargs):
+        with patch("lib.schwab_client.get_client", return_value=client), \
+             patch("bin.sync_schwab_api.load_account_map", return_value={"HASH1": "C"}):
+            sync(**kwargs)
+
+    def test_long_range_makes_one_api_call_per_window(self):
+        client = self._mock_client()
+        start = datetime(2015, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 7, 23, tzinfo=timezone.utc)
+        self._run_sync(client, start_date=start, end_date=end, dry_run=True)
+
+        expected_windows = list(iter_windows(start, end))
+        self.assertEqual(client.get_transactions.call_count, len(expected_windows))
+        calls = client.get_transactions.call_args_list
+        self.assertEqual(calls[0].kwargs["start_date"], start)
+        self.assertEqual(calls[-1].kwargs["end_date"], end)
+
+    def test_short_range_makes_a_single_api_call(self):
+        client = self._mock_client()
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 3, 1, tzinfo=timezone.utc)
+        self._run_sync(client, start_date=start, end_date=end, dry_run=True)
+        self.assertEqual(client.get_transactions.call_count, 1)
+
+    def test_watermark_reflects_the_final_window_end_after_a_long_backfill(self):
+        client = self._mock_client()
+        start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 7, 23, tzinfo=timezone.utc)
+        self._run_sync(client, start_date=start, end_date=end, dry_run=False)
+
+        conn = sqlite3.connect(self.db_path)
+        row = conn.execute(
+            "SELECT value FROM config WHERE key = ?", (SYNC_WATERMARK_KEY,)
+        ).fetchone()
+        conn.close()
+        self.assertEqual(row[0], end.isoformat())
+
+    def test_symbol_filter_also_loops_over_a_long_range(self):
+        client = self._mock_client()
+        start = datetime(2015, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 7, 23, tzinfo=timezone.utc)
+        self._run_sync(client, start_date=start, end_date=end, dry_run=True, symbol="AAPL")
+
+        expected_windows = list(iter_windows(start, end))
+        self.assertEqual(client.get_transactions.call_count, len(expected_windows))
+
+    def test_symbol_filter_does_not_advance_watermark_even_with_looping(self):
+        client = self._mock_client()
+        start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 7, 23, tzinfo=timezone.utc)
+        self._run_sync(client, start_date=start, end_date=end, dry_run=False, symbol="AAPL")
+
+        conn = sqlite3.connect(self.db_path)
+        row = conn.execute(
+            "SELECT value FROM config WHERE key = ?", (SYNC_WATERMARK_KEY,)
+        ).fetchone()
+        conn.close()
+        self.assertIsNone(row)
 
 
 if __name__ == "__main__":

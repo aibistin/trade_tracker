@@ -272,6 +272,16 @@ class TestAppRoutes(unittest.TestCase):
             "Page title 'Trade Tracker' not found in response",
         )
 
+    def test_index_route_excludes_ignored_symbols(self):
+        """An ignored symbol must not appear in the home page's security dropdown."""
+        from unittest.mock import patch
+        from app.routes import web_routes
+
+        with patch.object(web_routes, "get_ignored_symbols", return_value={"FAKE1"}):
+            response = self.client.get("/")
+        self.assertNotIn(b"/trade/detail/FAKE1", response.data)
+        self.assertIn(b"/trade/detail/FAKE2", response.data)
+
     # @unittest.skip("Skipping test_recent_trades_route")
     def test_recent_trades_route(self):
         """Test recent trades route returns successfully"""

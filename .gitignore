@@ -130,6 +130,7 @@ bin/test*
 **/old/**
 app/templates/old
 data/*
+config/
 docs/
 tags
 util/

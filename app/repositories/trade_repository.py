@@ -4,10 +4,12 @@ from sqlalchemy import func, case, select
 from ..extensions import db
 from ..models.models import Security, TradeTransaction, common_actions
 from lib.constants import Action
+from lib.ignore_symbols import get_ignored_symbols
 
 
 def get_trade_stats_summary():
     """Fetches trade statistics summary from the database."""
+    ignored = get_ignored_symbols()
     trade_summary = (
         select(
             TradeTransaction.symbol,
@@ -62,7 +64,10 @@ def get_trade_stats_summary():
                 )
             ).label("profit_loss"),
         )
-        .where(TradeTransaction.action.in_(common_actions))
+        .where(
+            TradeTransaction.action.in_(common_actions),
+            TradeTransaction.symbol.notin_(ignored),
+        )
         .group_by(TradeTransaction.symbol)
         .subquery()
     )
@@ -115,8 +120,11 @@ def get_current_holdings(symbol=None):
     Args:
         symbol (str, optional): If provided, fetches holdings only for this symbol. Otherwise, fetches all holdings.
     """
+    ignored = get_ignored_symbols()
+
     symbol_names = (
         select(Security.symbol, Security.name)
+        .where(Security.symbol.notin_(ignored))
         .order_by(Security.symbol)
         .cte("symbol_names")
     )
@@ -130,7 +138,10 @@ def get_current_holdings(symbol=None):
             func.sum(TradeTransaction.quantity).label("bsum"),
             func.abs(func.sum(TradeTransaction.amount)).label("bamount"),
         )
-        .where(TradeTransaction.action.in_([Action.BUY, Action.REINVEST_SHARES, Action.BUY_TO_OPEN]))
+        .where(
+            TradeTransaction.action.in_([Action.BUY, Action.REINVEST_SHARES, Action.BUY_TO_OPEN]),
+            TradeTransaction.symbol.notin_(ignored),
+        )
         .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
         .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
         .cte("buy_sum")
@@ -145,7 +156,10 @@ def get_current_holdings(symbol=None):
             func.sum(TradeTransaction.quantity).label("ssum"),
             func.sum(TradeTransaction.amount).label("samount"),
         )
-        .where(TradeTransaction.action.in_([Action.SELL, Action.SELL_TO_CLOSE, Action.EXPIRED, Action.EXERCISED]))
+        .where(
+            TradeTransaction.action.in_([Action.SELL, Action.SELL_TO_CLOSE, Action.EXPIRED, Action.EXERCISED]),
+            TradeTransaction.symbol.notin_(ignored),
+        )
         .group_by(TradeTransaction.symbol, TradeTransaction.trade_type)
         .order_by(TradeTransaction.symbol, TradeTransaction.trade_type)
         .cte("sell_sum")
@@ -190,6 +204,8 @@ def get_current_holdings_symbols():
 
 
 def get_raw_trade_data(symbol):
+    if symbol.upper() in get_ignored_symbols():
+        return []
     stmt = (
         select(
             TradeTransaction.id,
@@ -229,12 +245,20 @@ def get_trade_data_for_analysis(stock_symbol):
 
 def get_all_securities():
     """Fetches all securities from the database."""
-    stmt = select(Security.symbol, Security.name).order_by(Security.symbol)
+    stmt = (
+        select(Security.symbol, Security.name)
+        .where(Security.symbol.notin_(get_ignored_symbols()))
+        .order_by(Security.symbol)
+    )
     return db.session.execute(stmt).all()
 
 
 def get_all_traded_symbols():
     """Returns all unique symbols that have at least one trade transaction."""
     from sqlalchemy import distinct
-    stmt = select(distinct(TradeTransaction.symbol)).order_by(TradeTransaction.symbol)
+    stmt = (
+        select(distinct(TradeTransaction.symbol))
+        .where(TradeTransaction.symbol.notin_(get_ignored_symbols()))
+        .order_by(TradeTransaction.symbol)
+    )
     return [row[0] for row in db.session.execute(stmt).all()]
