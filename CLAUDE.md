@@ -100,7 +100,7 @@ journalctl -u trade_tracker_front -f      # Real-time frontend logs
 
 ### Schwab API Sync
 `bin/sync_schwab_api.py` pulls transactions from the live Schwab API (unofficial `schwab-py` wrapper) into SQLite; fully idempotent via `activity_id`/`leg_index` (see "trade_transaction identity" below).
-- **Auth:** `lib/schwab_client.py`. Token at `data/schwab_token.json` (gitignored, auto-refreshed). One-time setup: `python bin/schwab_login.py` (opens a browser; ~90-day token expiry — re-run after deleting the token file if the sync starts failing auth).
+- **Auth:** `lib/schwab_client.py`. Token at `data/schwab_token.json` (gitignored, auto-refreshed). One-time setup: `python bin/schwab_login.py` (opens a browser; ~90-day token expiry — if the sync starts failing auth, run `python bin/schwab_login.py --force` to discard the stale token and log in again).
 - **Account mapping:** `data/schwab_account_map.json` (gitignored) maps Schwab account hashes → single-letter account codes (C/R/I). Get hashes via `python bin/sync_schwab_api.py --list-accounts`.
 - **API limitation:** Schwab caps each request's `startDate`↔`endDate` span at 1 year (verified live 2026-07-07; HTTP 400 beyond it). `sync()` raises a clear `ValueError` before calling the API if a manual `--start-date`/`--end-date` range exceeds this. `util/rebuild_trade_transactions.py` (gitignored, one-off tool) walks sequential windows to rebuild the full history back to a given start date.
 - **Watermark tracking:** last successful sync end-date is stored in the `config` table (key `schwab_api_last_sync`). Each run starts from `watermark - 2 days` (safe overlap; dedupe is exact).

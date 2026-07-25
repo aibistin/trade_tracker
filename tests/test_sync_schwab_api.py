@@ -5,6 +5,8 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+from authlib.integrations.base_client.errors import OAuthError
+
 from bin.sync_schwab_api import (
     MAX_API_WINDOW_DAYS,
     SYNC_WATERMARK_KEY,
@@ -14,8 +16,10 @@ from bin.sync_schwab_api import (
     determine_trade_type,
     extract_trade_legs,
     iter_windows,
+    main,
     parse_date,
     sync,
+    _report_fatal_error,
     _resolve_start_date,
     _save_watermark,
 )
@@ -427,6 +431,51 @@ class TestSyncWindowing(unittest.TestCase):
         ).fetchone()
         conn.close()
         self.assertIsNone(row)
+
+
+class TestReportFatalError(unittest.TestCase):
+    """
+    The raw authlib/httpx traceback is long and buries its one useful line
+    at the bottom — _report_fatal_error() must send that mess to the log
+    file only, and print a short, actionable message to the terminal.
+    """
+
+    def test_oauth_error_gives_login_instructions(self):
+        exc = OAuthError(
+            error="invalid_grant",
+            description="Refresh token is invalid, expired or revoked",
+        )
+        with patch("bin.sync_schwab_api.log") as mock_log, \
+             patch("bin.sync_schwab_api._diagnostics_log") as mock_diag:
+            _report_fatal_error(exc)
+
+        mock_diag.error.assert_called_once()
+        self.assertTrue(mock_diag.error.call_args.kwargs.get("exc_info"))
+
+        friendly_message = mock_log.error.call_args[0][1]
+        self.assertIn("schwab_login.py", friendly_message)
+        self.assertNotIn("Traceback", friendly_message)
+
+    def test_generic_error_includes_original_message(self):
+        with patch("bin.sync_schwab_api.log") as mock_log, \
+             patch("bin.sync_schwab_api._diagnostics_log"):
+            _report_fatal_error(ValueError("network down"))
+
+        friendly_message = mock_log.error.call_args[0][1]
+        self.assertIn("network down", friendly_message)
+
+
+class TestMainErrorHandling(unittest.TestCase):
+    def test_sync_failure_exits_nonzero_and_reports_friendly_error(self):
+        with patch("bin.sync_schwab_api.sync", side_effect=RuntimeError("network down")), \
+             patch("bin.sync_schwab_api._report_fatal_error") as mock_report, \
+             patch("sys.argv", ["sync_schwab_api.py"]):
+            with self.assertRaises(SystemExit) as ctx:
+                main()
+
+        self.assertEqual(ctx.exception.code, 1)
+        mock_report.assert_called_once()
+        self.assertIsInstance(mock_report.call_args[0][0], RuntimeError)
 
 
 if __name__ == "__main__":

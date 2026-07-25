@@ -53,6 +53,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
+from authlib.integrations.base_client.errors import OAuthError
+
 # Allow running from project root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -71,6 +73,33 @@ _console_handler.setFormatter(_formatter)
 
 logging.basicConfig(level=logging.INFO, handlers=[_file_handler, _console_handler])
 log = logging.getLogger(__name__)
+
+# Full tracebacks (authlib/httpx internals) are noise on the terminal — send
+# them to the log file only. A separate, non-propagating logger lets us do
+# that without also silencing normal console output from `log`.
+_diagnostics_log = logging.getLogger(f'{__name__}.diagnostics')
+_diagnostics_log.setLevel(logging.ERROR)
+_diagnostics_log.addHandler(_file_handler)
+_diagnostics_log.propagate = False
+
+
+def _report_fatal_error(exc):
+    """
+    Log the full traceback to file only, then print a short, actionable
+    message to the terminal. Raw authlib/httpx tracebacks bury their one
+    useful line (e.g. the OAuth error_description) at the very bottom.
+    """
+    _diagnostics_log.error('Sync failed', exc_info=True)
+
+    if isinstance(exc, OAuthError) or 'invalid_grant' in str(exc):
+        friendly = (
+            'Schwab login has expired or been revoked. Fix:\n'
+            '  python bin/schwab_login.py --force'
+        )
+    else:
+        friendly = f'Sync failed: {exc}'
+
+    log.error('%s\n(Full error details logged to %s)', friendly, LOG_PATH)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'stock_trades.db')
 DB_PATH = os.path.normpath(DB_PATH)
@@ -554,19 +583,23 @@ def main():
                              '~1-year lookback, ignoring the watermark; does not advance it)')
     args = parser.parse_args()
 
-    if args.list_accounts:
-        from lib.schwab_client import get_client
-        list_accounts(get_client())
-        return
+    try:
+        if args.list_accounts:
+            from lib.schwab_client import get_client
+            list_accounts(get_client())
+            return
 
-    start = None
-    end = None
-    if args.start_date:
-        start = datetime.strptime(args.start_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
-    if args.end_date:
-        end = datetime.strptime(args.end_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+        start = None
+        end = None
+        if args.start_date:
+            start = datetime.strptime(args.start_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+        if args.end_date:
+            end = datetime.strptime(args.end_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
 
-    sync(start_date=start, end_date=end, dry_run=args.dry_run, symbol=args.symbol)
+        sync(start_date=start, end_date=end, dry_run=args.dry_run, symbol=args.symbol)
+    except Exception as exc:
+        _report_fatal_error(exc)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
