@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./run_dev.sh status)",
+      "Bash(pnpm test:e2e *)"
+    ]
+  }
+}
