@@ -1,63 +1,73 @@
 <template>
   <div class="ts-wrapper">
-    <table class="ts-table">
-      <thead>
-        <tr>
-          <th colspan="13" class="ts-title">
-            {{ stockType }} Transaction Summary —
-            <span class="ts-symbol">{{ stockSymbol }}</span>
-          </th>
-        </tr>
-        <tr>
-          <th colspan="3" class="ts-group ts-group-bought">Bought</th>
-          <th colspan="4" class="ts-group ts-group-sold">Sold</th>
-          <th colspan="3" class="ts-group ts-group-unsold">Unsold</th>
-          <th colspan="3" class="ts-group ts-group-result">Result</th>
-        </tr>
-        <tr>
-          <th class="ts-col">Qty</th>
-          <th class="ts-col">Avg Price</th>
-          <th class="ts-col">Cost</th>
+    <div class="ts-title">
+      {{ stockType }} Transaction Summary —
+      <span class="ts-symbol">{{ stockSymbol }}</span>
+    </div>
 
-          <th class="ts-col">Qty</th>
-          <th class="ts-col">Avg Price</th>
-          <th class="ts-col">Cost</th>
-          <th class="ts-col">Revenue</th>
+    <div class="ts-grid">
+      <div class="ts-card ts-card-bought">
+        <div class="ts-card-header">Bought</div>
+        <div class="ts-card-row ts-card-labels">
+          <span>Qty</span>
+          <span>Avg Price</span>
+          <span>Cost</span>
+        </div>
+        <div class="ts-card-row ts-card-values">
+          <span>{{ tradeSummary.bought_quantity }}</span>
+          <span>{{ formatCurrency(Math.abs(tradeSummary.average_bought_price || 0)) }}</span>
+          <span>{{ formatCurrency(tradeSummary.bought_amount || 0) }}</span>
+        </div>
+      </div>
 
-          <th class="ts-col">Qty</th>
-          <th class="ts-col">Avg Price</th>
-          <th class="ts-col">Cost</th>
+      <div class="ts-card ts-card-sold">
+        <div class="ts-card-header">Sold</div>
+        <div class="ts-card-row ts-card-labels ts-cols-4">
+          <span>Qty</span>
+          <span>Avg Price</span>
+          <span>Cost</span>
+          <span>Revenue</span>
+        </div>
+        <div class="ts-card-row ts-card-values ts-cols-4">
+          <span>{{ tradeSummary.sold_quantity }}</span>
+          <span>{{ formatCurrency(tradeSummary.average_basis_sold_price || 0) }}</span>
+          <span>{{ formatCurrency(tradeSummary.closed_bought_amount || 0) }}</span>
+          <span>{{ formatCurrency(tradeSummary.sold_amount || 0) }}</span>
+        </div>
+      </div>
 
-          <th class="ts-col">P/L</th>
-          <th class="ts-col">P/L%</th>
-          <th class="ts-col">Trade Ct</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="ts-data-row">
-          <td>{{ tradeSummary.bought_quantity }}</td>
-          <td>{{ formatCurrency(Math.abs(tradeSummary.average_bought_price || 0)) }}</td>
-          <td>{{ formatCurrency(tradeSummary.bought_amount || 0) }}</td>
+      <div class="ts-card ts-card-unsold">
+        <div class="ts-card-header">Unsold</div>
+        <div class="ts-card-row ts-card-labels">
+          <span>Qty</span>
+          <span>Avg Price</span>
+          <span>Cost</span>
+        </div>
+        <div class="ts-card-row ts-card-values">
+          <span>{{ tradeSummary.open_bought_quantity }}</span>
+          <span>{{ formatCurrency(tradeSummary.average_basis_open_price || 0) }}</span>
+          <span>{{ formatCurrency(tradeSummary.open_bought_amount || 0) }}</span>
+        </div>
+      </div>
 
-          <td>{{ tradeSummary.sold_quantity }}</td>
-          <td>{{ formatCurrency(tradeSummary.average_basis_sold_price || 0) }}</td>
-          <td>{{ formatCurrency(tradeSummary.closed_bought_amount || 0) }}</td>
-          <td>{{ formatCurrency(tradeSummary.sold_amount || 0) }}</td>
-
-          <td>{{ tradeSummary.open_bought_quantity }}</td>
-          <td>{{ formatCurrency(tradeSummary.average_basis_open_price || 0) }}</td>
-          <td>{{ formatCurrency(tradeSummary.open_bought_amount || 0) }}</td>
-
-          <td :class="profitLossClass(tradeSummary.profit_loss)">
+      <div class="ts-card ts-card-result">
+        <div class="ts-card-header">Result</div>
+        <div class="ts-card-row ts-card-labels">
+          <span>P/L</span>
+          <span>P/L%</span>
+          <span>Trade Ct</span>
+        </div>
+        <div class="ts-card-row ts-card-values">
+          <span :class="profitLossClass(tradeSummary.profit_loss)">
             {{ formatCurrency(tradeSummary.profit_loss) }}
-          </td>
-          <td :class="profitLossClass(tradeSummary.percent_profit_loss)">
+          </span>
+          <span :class="profitLossClass(tradeSummary.percent_profit_loss)">
             {{ formatValue(tradeSummary.percent_profit_loss) }}%
-          </td>
-          <td>{{ allTradeCount }}</td>
-        </tr>
-      </tbody>
-    </table>
+          </span>
+          <span>{{ allTradeCount }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -74,17 +84,7 @@ defineProps({
 
 <style scoped>
 .ts-wrapper {
-  border-radius: 6px;
-  overflow: hidden;
   margin-bottom: 16px;
-  border: 1px solid var(--color-terminal-border);
-}
-
-.ts-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 0;
-  font-size: 0.82rem;
 }
 
 .ts-title {
@@ -95,51 +95,79 @@ defineProps({
   font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+  border: 1px solid var(--color-terminal-border);
+  border-radius: 6px;
+  margin-bottom: 12px;
 }
 
 .ts-symbol {
   color: var(--color-accent-cyan);
 }
 
-.ts-group {
+/* 2x2 on a standard laptop width, collapsing to 1 column as the
+   viewport narrows (the page wrapper caps content at 1200px, so this
+   never grows past 2 columns even on a wide monitor). */
+.ts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  gap: 14px;
+}
+
+.ts-card {
+  background: var(--color-terminal-panel);
+  border: 1px solid var(--color-terminal-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ts-card-header {
   text-align: center;
   padding: 6px 8px;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border: 1px solid var(--color-terminal-border);
   border-bottom-width: 2px;
+  border-bottom-style: solid;
 }
 
-.ts-group-bought {
+.ts-card-bought .ts-card-header {
   background: rgba(59, 130, 246, 0.08);
   color: var(--color-long);
   border-bottom-color: var(--color-long);
 }
 
-.ts-group-sold {
+.ts-card-sold .ts-card-header {
   background: rgba(239, 68, 68, 0.08);
   color: var(--color-loss);
   border-bottom-color: var(--color-loss);
 }
 
-.ts-group-unsold {
+.ts-card-unsold .ts-card-header {
   background: rgba(34, 197, 94, 0.08);
   color: var(--color-profit);
   border-bottom-color: var(--color-profit);
 }
 
-.ts-group-result {
+.ts-card-result .ts-card-header {
   background: rgba(249, 115, 22, 0.08);
   color: var(--color-accent-orange);
   border-bottom-color: var(--color-accent-orange);
 }
 
-.ts-col {
+.ts-card-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  text-align: center;
+}
+
+.ts-card-row.ts-cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.ts-card-labels span {
   background: var(--color-terminal-panel);
   color: var(--color-terminal-text-muted);
-  text-align: center;
   padding: 5px 8px;
   font-size: 0.68rem;
   font-weight: 600;
@@ -149,17 +177,16 @@ defineProps({
   border: 1px solid var(--color-terminal-border-subtle);
 }
 
-.ts-data-row td {
+.ts-card-values span {
   background: var(--color-terminal-surface);
   color: var(--color-terminal-text);
-  text-align: center;
   padding: 7px 8px;
   border: 1px solid var(--color-terminal-border-subtle);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
-.ts-data-row td:hover {
+.ts-card-values span:hover {
   background: var(--color-terminal-hover);
 }
 </style>
