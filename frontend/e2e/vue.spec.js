@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 
-test('home page loads with title and search input', async ({ page }) => {
+test('root redirects to the Dashboard', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/trading/i);
-  await expect(page.locator('h1')).toContainText('Trade Tracker');
-  await expect(page.locator('input[placeholder="Type to search..."]')).toBeVisible();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.locator('input[placeholder="Search symbols..."]')).toBeVisible();
 });
 
 test('navigating to a trade symbol route shows the AllTrades view', async ({ page }) => {

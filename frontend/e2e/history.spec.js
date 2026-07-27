@@ -43,7 +43,7 @@ test.describe('Symbol History page', () => {
   });
 
   test('loads via the History nav link', async ({ page }) => {
-    await page.goto('/home');
+    await page.goto('/dashboard');
     await page.locator('.nav-link', { hasText: 'History' }).click();
     await expect(page).toHaveURL(/\/history/);
     await expect(page.locator('text=By Symbol — Closed Trade History')).toBeVisible({ timeout: 10000 });

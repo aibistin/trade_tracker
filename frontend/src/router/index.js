@@ -7,11 +7,6 @@ import { createRouter, createWebHistory } from "vue-router";
 
 const routes = [
   {
-    path: "/home",
-    name: "Home",
-    component: () => import("@/views/TradeHome.vue"),
-  },
-  {
     /* open/all/closed trades */
     path: "/trades/:scope/:stockSymbol",
     name: "AllTrades",
@@ -41,9 +36,8 @@ const routes = [
     component: () => import("@/views/SymbolHistory.vue"),
   },
   {
-    path: "/", // Redirect root to /home
-    component: () => import("@/views/TradeHome.vue"),
-    redirect: "/home",
+    path: "/", // Redirect root to /dashboard
+    redirect: "/dashboard",
   },
   {
     path: "/:pathMatch(.*)*", // Catch-all route

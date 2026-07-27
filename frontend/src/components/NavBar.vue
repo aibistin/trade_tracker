@@ -2,13 +2,12 @@
   <nav class="navbar">
     <div class="navbar-inner">
       <!-- Brand -->
-      <router-link class="navbar-brand" to="/home">
+      <router-link class="navbar-brand" to="/dashboard">
         &#9650; Trade Tracker
       </router-link>
 
       <!-- Nav Links -->
       <div class="navbar-links">
-        <router-link class="nav-link" to="/home">Home</router-link>
         <router-link class="nav-link" to="/dashboard">Dashboard</router-link>
         <router-link class="nav-link" to="/history">History</router-link>
 
@@ -93,7 +92,7 @@ const assetTypes = [
   { value: 'option', label: 'Option' },
 ];
 
-const isTradeView = computed(() => !['Home', 'Dashboard', 'History'].includes(route.name));
+const isTradeView = computed(() => !['Dashboard', 'History'].includes(route.name));
 const activeScope = computed(() => route.params.scope || 'all');
 const activeAssetType = computed(() => route.query.asset_type || 'all');
 

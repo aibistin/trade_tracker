@@ -2,7 +2,7 @@
   <div class="not-found">
     <h1 class="nf-code">404</h1>
     <p class="nf-message">Page not found</p>
-    <router-link to="/home" class="nf-link">Return to Home</router-link>
+    <router-link to="/dashboard" class="nf-link">Return to Dashboard</router-link>
   </div>
 </template>
 
