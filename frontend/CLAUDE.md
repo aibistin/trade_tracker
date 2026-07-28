@@ -3,23 +3,9 @@
 Frontend-specific guidance for the Vue 3 + Vite application in this directory.
 This file is loaded in addition to the root `CLAUDE.md` when working inside `frontend/`.
 
-## Commands
-
-```bash
-pnpm install              # Install dependencies
-pnpm dev                  # Vite dev server (http://localhost:5173, proxies to backend at :5000)
-pnpm build                # Production build (reads frontend/.env.production)
-pnpm preview              # Serve the production build locally on port 4173
-pnpm lint                 # ESLint with auto-fix
-pnpm test:unit            # Vitest unit tests (run once)
-pnpm test:unit:watch      # Vitest in watch mode
-pnpm test:unit:coverage   # Vitest with coverage report
-pnpm test:e2e             # Playwright end-to-end tests
-```
-
 ## Architecture
 
-**Vue 3 + Vite + Tailwind CSS v4 + Axios + chart.js (via vue-chartjs + chartjs-chart-treemap). No Vuex/Pinia — state is router-based or component-local.**
+**No Vuex/Pinia — state is router-based or component-local.**
 
 ### Design System — Dark Terminal Theme
 CSS custom properties in `src/assets/base.css` define a Bloomberg/trading-terminal dark theme. Use these exact values for any new chart, canvas, or hardcoded color (Chart.js options can't consume CSS variables directly):
@@ -41,7 +27,7 @@ src/
     TradeCard.vue             — Expandable buy-trade card; lazy-fetches live price on expand (open trades only).
                                 Stock trades use useStockPrice; option trades use useOptionPrice (×100 multiplier).
                                 Metrics bar shows: Live/Option Price | Cost | Mkt Value | Diff | Diff%.
-    TransactionSummary.vue    — Trade stats summary table
+    TransactionSummary.vue    — Bought/Sold/Unsold/Result trade stats as 4 individual cards
     WinLossBar.vue            — Horizontal W/L bar: accepts wins/losses props, shows win rate %
     PortfolioHeatmap.vue      — Treemap visualization of portfolio positions, sized by weight, colored by P&L
     CumulativePnlChart.vue    — Cumulative P&L line chart computed from monthly/quarterly buckets
@@ -57,8 +43,7 @@ src/
     usePriceHistory.js  — Fetches sparkline price history: fetchHistory(symbol, period) → { prices, annotations }.
                           Module-level Map cache. Silently skips on error (endpoint may not exist yet).
   utils/
-    tradeUtils.js       — Pure formatting functions (no Vue deps): formatCurrency, formatDate,
-                          profitLossClass, formatValue, formatTradeType, formatAction, rowClass
+    tradeUtils.js       — Pure formatting functions (see reference table below)
   views/              # Page-level components registered in the router
     AllTrades.vue   — Trade detail view for a symbol+scope; shows WinLossBar below each TransactionSummary
     Dashboard.vue   — Performance dashboard: summary cards, P&L/cumulative/win-rate charts (hidden by
@@ -68,12 +53,9 @@ src/
     SymbolHistory.vue — "By Symbol — Closed Trade History" page (/history): per-symbol closed-trade
                       stats from GET /api/dashboard/summary, click-to-sort columns (default P&L desc),
                       totals footer row.
-    TradeHome.vue   — Home page: symbol search + current holdings tables
     NotFound.vue    — 404 page
   router/index.js   — Route definitions (lazy-loaded)
-  config.js         — API base URL
   main.js           — App bootstrap (Tailwind CSS via @tailwindcss/vite plugin)
-  tests/            — Vitest unit tests
 ```
 
 ### Component Conventions

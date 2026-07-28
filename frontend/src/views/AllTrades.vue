@@ -307,10 +307,11 @@ watch(
 
 /* ── Trade Card Section ─────────────────────────────────────── */
 .tc-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  gap: 14px;
   margin-bottom: 24px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid var(--color-terminal-border-subtle);
+  align-items: start;
 }
 
 .text-center { text-align: center; }

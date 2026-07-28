@@ -79,72 +79,70 @@ describe('TradeCard', () => {
 
   it('does not show detail panel before expand', () => {
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
-    expect(wrapper.find('.tc-detail').exists()).toBe(false);
+    expect(wrapper.find('.tc-subsection').exists()).toBe(false);
   });
 
   it('shows detail panel after clicking the row', async () => {
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
-    await wrapper.find('.tc-row').trigger('click');
-    expect(wrapper.find('.tc-detail').exists()).toBe(true);
+    await wrapper.find('.tc-header').trigger('click');
+    expect(wrapper.find('.tc-subsection').exists()).toBe(true);
   });
 
   it('collapses detail panel on second click', async () => {
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
-    await wrapper.find('.tc-row').trigger('click');
-    await wrapper.find('.tc-row').trigger('click');
-    expect(wrapper.find('.tc-detail').exists()).toBe(false);
+    await wrapper.find('.tc-header').trigger('click');
+    await wrapper.find('.tc-header').trigger('click');
+    expect(wrapper.find('.tc-subsection').exists()).toBe(false);
   });
 
   it('calls fetchPrice with symbol when expanding an open trade', async () => {
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
-    await wrapper.find('.tc-row').trigger('click');
+    await wrapper.find('.tc-header').trigger('click');
     expect(mockFetchPrice).toHaveBeenCalledOnce();
     expect(mockFetchPrice).toHaveBeenCalledWith('AAPL');
   });
 
   it('shows — when price is null and not loading', async () => {
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
-    await wrapper.find('.tc-row').trigger('click');
-    const metricsText = wrapper.find('.tc-metrics-bar').text();
-    expect(metricsText).toContain('--');
+    await wrapper.find('.tc-header').trigger('click');
+    expect(wrapper.text()).toContain('--');
   });
 
   it('shows loading indicator while fetching price', async () => {
     mockLoading.value = true;
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
-    await wrapper.find('.tc-row').trigger('click');
-    expect(wrapper.find('.tc-metrics-bar').text()).toContain('...');
+    await wrapper.find('.tc-header').trigger('click');
+    expect(wrapper.text()).toContain('...');
   });
 
   it('shows live price once fetched', async () => {
     mockPrice.value = 125.50;
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
-    await wrapper.find('.tc-row').trigger('click');
-    expect(wrapper.find('.tc-metrics-bar').text()).toContain('$125.50');
+    await wrapper.find('.tc-header').trigger('click');
+    expect(wrapper.text()).toContain('$125.50');
   });
 
   it('does not call fetchPrice again if price is already loaded', async () => {
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
-    await wrapper.find('.tc-row').trigger('click'); // expand — price null, fetchPrice called
+    await wrapper.find('.tc-header').trigger('click'); // expand — price null, fetchPrice called
     mockPrice.value = 110.00;                       // simulate fetch completing
-    await wrapper.find('.tc-row').trigger('click'); // collapse
-    await wrapper.find('.tc-row').trigger('click'); // re-expand — price not null, no second call
+    await wrapper.find('.tc-header').trigger('click'); // collapse
+    await wrapper.find('.tc-header').trigger('click'); // re-expand — price not null, no second call
     expect(mockFetchPrice).toHaveBeenCalledTimes(1);
   });
 
   it('does not show live price section for closed trades', async () => {
     const trade = makeTrade({ is_done: true, closed_date: '2024-06-01', current_profit_loss: 250 });
     const wrapper = mount(TradeCard, { props: { trade } });
-    await wrapper.find('.tc-row').trigger('click');
-    // Live price metric is only shown when !trade.is_done
-    const liveMetric = wrapper.findAll('.tc-metric').find(m => m.text().includes('Live Price'));
-    expect(liveMetric).toBeUndefined();
+    await wrapper.find('.tc-header').trigger('click');
+    // Live Pricing section is only shown when !trade.is_done
+    expect(wrapper.text()).not.toContain('Live Price');
   });
 
   it('does not call fetchPrice for closed trades', async () => {
     const trade = makeTrade({ is_done: true, closed_date: '2024-06-01', current_profit_loss: 250 });
     const wrapper = mount(TradeCard, { props: { trade } });
-    await wrapper.find('.tc-row').trigger('click');
+    await wrapper.find('.tc-header').trigger('click');
     expect(mockFetchPrice).not.toHaveBeenCalled();
   });
 
@@ -173,7 +171,7 @@ describe('TradeCard', () => {
     // trade: 10 shares bought at $100; live price $115 → unreal P&L = $150
     mockPrice.value = 115.00;
     const wrapper = mount(TradeCard, { props: { trade: makeTrade({ quantity: 10, price: 100 }) } });
-    await wrapper.find('.tc-row').trigger('click');
+    await wrapper.find('.tc-header').trigger('click');
     expect(wrapper.text()).toContain('$150.00');
   });
 
@@ -183,14 +181,14 @@ describe('TradeCard', () => {
     mockOptionPrice.value = 3.00;
     const trade = makeTrade({ trade_type: 'C', quantity: 1, price: 2.50 });
     const wrapper = mount(TradeCard, { props: { trade } });
-    await wrapper.find('.tc-row').trigger('click');
+    await wrapper.find('.tc-header').trigger('click');
     expect(wrapper.text()).toContain('$50.00');   // Diff
     expect(wrapper.text()).toContain('$250.00');  // Cost (×100)
   });
 
   it('does not show unrealized P&L before live price is fetched', async () => {
     const wrapper = mount(TradeCard, { props: { trade: makeTrade() } });
-    await wrapper.find('.tc-row').trigger('click');
+    await wrapper.find('.tc-header').trigger('click');
     expect(wrapper.text()).not.toContain('Unreal.');
   });
 
@@ -198,7 +196,7 @@ describe('TradeCard', () => {
     mockPrice.value = 125.00;
     const trade = makeTrade({ is_done: true, current_profit_loss: 300, closed_date: '2024-06-01' });
     const wrapper = mount(TradeCard, { props: { trade } });
-    await wrapper.find('.tc-row').trigger('click');
+    await wrapper.find('.tc-header').trigger('click');
     expect(wrapper.text()).not.toContain('Unreal.');
   });
 });
