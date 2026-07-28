@@ -15,9 +15,11 @@ source python_setup.sh            # Create pyenv venv + install requirements (gi
 
 ### Running the App
 ```bash
-./run_dev.sh                      # Sync Schwab API → Flask (:5000) + Vite (:5173) → opens browser at /dashboard. Detaches; terminal returns immediately.
+./run_dev.sh start                # Sync Schwab API → Flask (:5000) + Vite (:5173) → opens browser at /dashboard. Detaches; terminal returns immediately.
 ./run_dev.sh status               # Check whether backend/frontend are running
 ./run_dev.sh stop                 # Stop backend + frontend
+./run_dev.sh restart              # Stop, then start (sync runs again)
+./run_dev.sh                      # No default — prints usage and exits 1
 ./run_flask.sh                    # Flask dev server only, on localhost:5000
 ```
 

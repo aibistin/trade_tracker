@@ -55,9 +55,10 @@ pnpm dev          # Vite dev server with hot reload
 ### 5. Run the app
 
 ```bash
-./run_dev.sh                 # syncs Schwab API, starts backend + frontend in the background, opens the browser
+./run_dev.sh start           # syncs Schwab API, starts backend + frontend in the background, opens the browser
 ./run_dev.sh status          # check whether backend/frontend are running
 ./run_dev.sh stop            # stop backend + frontend
+./run_dev.sh restart         # stop, then start (sync runs again)
 # or
 ./run_flask.sh              # Flask dev server only, on localhost:5000
 # or

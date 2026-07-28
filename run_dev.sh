@@ -2,9 +2,13 @@
 # run_dev.sh — Manage the dev environment: Schwab sync + Flask backend + Vite frontend
 #
 # Usage:
-#   ./run_dev.sh [start]   Sync Schwab API, start backend + frontend in the background, open the browser
+#   ./run_dev.sh start     Sync Schwab API, start backend + frontend in the background, open the browser
 #   ./run_dev.sh stop      Stop the backend and frontend
+#   ./run_dev.sh restart   Stop, then start (sync runs again as part of start)
 #   ./run_dev.sh status    Show whether the backend and frontend are running
+#
+# Running with no argument (or an unrecognized one) prints this usage and exits 1 —
+# there is no default command.
 #
 # start detaches immediately — the servers keep running after the terminal closes.
 # Logs are written to .run/backend.log, .run/frontend.log and .run/schwab_sync.log.
@@ -111,11 +115,19 @@ cmd_stop() {
     printf "\033[1m[dev]\033[0m Done.\n"
 }
 
+cmd_help() {
+    printf "Usage: %s {start|stop|restart|status}\n\n" "$0"
+    printf "  start     Sync Schwab API, start backend + frontend in the background, open the browser\n"
+    printf "  stop      Stop the backend and frontend\n"
+    printf "  restart   Stop, then start (sync runs again as part of start)\n"
+    printf "  status    Show whether the backend and frontend are running\n"
+}
+
 cmd_start() {
     if is_running "$BACKEND_PID_FILE" || is_running "$FRONTEND_PID_FILE"; then
         printf "\033[1m[dev]\033[0m Already running:\n"
         cmd_status
-        printf "\nRun \033[1m./run_dev.sh stop\033[0m first if you want to restart.\n"
+        printf "\nRun \033[1m./run_dev.sh restart\033[0m if you want to restart.\n"
         exit 1
     fi
 
@@ -161,12 +173,23 @@ cmd_start() {
     disown
 }
 
-case "${1:-start}" in
+cmd_restart() {
+    cmd_stop
+    cmd_start
+}
+
+case "${1:-}" in
     start) cmd_start ;;
     stop) cmd_stop ;;
+    restart) cmd_restart ;;
     status) cmd_status ;;
+    "")
+        cmd_help
+        exit 1
+        ;;
     *)
-        echo "Usage: $0 [start|stop|status]"
+        printf "\033[1m[dev]\033[0m Unknown option: %s\n\n" "$1"
+        cmd_help
         exit 1
         ;;
 esac
