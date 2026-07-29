@@ -28,6 +28,8 @@ from ..services.analysis_service import (
     clear_analysis_cache,
 )
 from ..services.holdings_service import build_holdings
+from ..services.sync_service import start_sync, get_job_status
+from lib.schwab_transactions import get_last_sync
 
 
 # TODO Add proper authentication
@@ -455,3 +457,39 @@ def get_pnl_over_time():
 
     log.info(f"[dashboard/pnl_over_time] {len(monthly_list)} months, {len(quarterly_list)} quarters")
     return jsonify({"monthly": monthly_list, "quarterly": quarterly_list})
+
+
+@api_bp.route("/schwab/sync", methods=["POST"])
+def post_schwab_sync():
+    """Start a background Schwab sync — global, or scoped to one symbol.
+
+    Optional JSON body: { "symbol": "AAPL" }. Returns immediately; poll
+    GET /api/schwab/sync/<job_id> for status. If a sync for the same scope
+    is already running, its job_id is returned instead of starting a new one.
+    """
+    data = request.get_json(silent=True) or {}
+    symbol = (data.get("symbol") or "").strip().upper() or None
+
+    job_id = start_sync(symbol=symbol)
+    log.info(f"[schwab/sync] Started job {job_id} (symbol={symbol or 'all'})")
+    return jsonify({"job_id": job_id}), 202
+
+
+@api_bp.route("/schwab/sync/last")
+def get_schwab_sync_last():
+    """Return the last successful Schwab sync time — global, or for one symbol.
+
+    Optional query param: symbol
+    """
+    symbol = (request.args.get("symbol") or "").strip().upper() or None
+    last_synced = get_last_sync(symbol=symbol)
+    return jsonify({"last_synced_at": last_synced.isoformat() if last_synced else None})
+
+
+@api_bp.route("/schwab/sync/<int:job_id>")
+def get_schwab_sync_job(job_id):
+    """Return the status/result of a background sync job started via POST /api/schwab/sync."""
+    job = get_job_status(job_id)
+    if job is None:
+        return jsonify({"error": f"Sync job {job_id} not found"}), 404
+    return jsonify(job)

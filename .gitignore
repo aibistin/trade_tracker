@@ -137,4 +137,5 @@ util/
 .vscode
 .python-version
 gunicorn.ctl
+.playwright-mcp/
 paad

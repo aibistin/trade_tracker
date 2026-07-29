@@ -323,7 +323,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, reactive } from 'vue'
 import axios from 'axios'
 import {
   Chart as ChartJS,
@@ -338,6 +338,7 @@ import PortfolioHeatmap from '@/components/PortfolioHeatmap.vue'
 import SparklineChart from '@/components/SparklineChart.vue'
 import CumulativePnlChart from '@/components/CumulativePnlChart.vue'
 import { usePriceHistory } from '@/composables/usePriceHistory.js'
+import { onSyncComplete } from '@/composables/syncEvents.js'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend)
 
@@ -428,10 +429,24 @@ function setAssetType(val) {
   fetchPnlOverTime()
 }
 
+// Any completed sync (global or per-symbol) can change the aggregate
+// dashboard, so it always refetches all three sources.
+let unsubscribeSync = null
+
 onMounted(() => {
   fetchSummary()
   fetchPnlOverTime()
   fetchHoldings()
+
+  unsubscribeSync = onSyncComplete(() => {
+    fetchSummary()
+    fetchPnlOverTime()
+    fetchHoldings()
+  })
+})
+
+onBeforeUnmount(() => {
+  unsubscribeSync?.()
 })
 
 // ── Chart Data ────────────────────────────────────────────────────────

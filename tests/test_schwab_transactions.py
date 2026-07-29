@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ from lib.schwab_transactions import (
     determine_action,
     determine_trade_type,
     extract_trade_legs,
+    get_last_sync,
     iter_windows,
     load_account_map,
     parse_date,
@@ -327,6 +329,52 @@ class TestSaveWatermark(unittest.TestCase):
         self.assertEqual(
             self.db.cursor.fetchone()[0], "2026-07-11T00:00:00+00:00"
         )
+
+    def test_per_symbol_watermark_uses_its_own_key(self):
+        save_watermark(self.db, datetime(2026, 7, 9, tzinfo=timezone.utc), symbol="aapl")
+        self.db.cursor.execute(
+            "SELECT value FROM config WHERE key = ?", (f"{SYNC_WATERMARK_KEY}:AAPL",)
+        )
+        self.assertEqual(
+            self.db.cursor.fetchone()[0], "2026-07-09T00:00:00+00:00"
+        )
+
+
+class TestGetLastSync(unittest.TestCase):
+    """
+    get_last_sync() opens its own sqlite3 connection (used by the /api/schwab/sync/last
+    route), so it needs a real temp-file DB rather than DatabaseInserter's :memory:
+    (a fresh :memory: connection is a separate, empty database every time).
+    """
+
+    def setUp(self):
+        fd, self.db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        conn = sqlite3.connect(self.db_path)
+        conn.executescript(CONFIG_SCHEMA)
+        conn.commit()
+        conn.close()
+        self.addCleanup(os.remove, self.db_path)
+
+    def test_returns_none_when_never_synced(self):
+        self.assertIsNone(get_last_sync(db_path=self.db_path))
+
+    def test_returns_global_watermark(self):
+        db = DatabaseInserter(db_path=self.db_path)
+        save_watermark(db, datetime(2026, 7, 20, tzinfo=timezone.utc))
+        db.close()
+        self.assertEqual(get_last_sync(db_path=self.db_path), datetime(2026, 7, 20, tzinfo=timezone.utc))
+
+    def test_per_symbol_watermark_independent_of_global(self):
+        db = DatabaseInserter(db_path=self.db_path)
+        save_watermark(db, datetime(2026, 7, 1, tzinfo=timezone.utc))
+        save_watermark(db, datetime(2026, 7, 15, tzinfo=timezone.utc), symbol="AAPL")
+        db.close()
+        self.assertEqual(
+            get_last_sync(db_path=self.db_path, symbol="AAPL"),
+            datetime(2026, 7, 15, tzinfo=timezone.utc),
+        )
+        self.assertEqual(get_last_sync(db_path=self.db_path), datetime(2026, 7, 1, tzinfo=timezone.utc))
 
 
 class TestSchwabTransactionFetcher(unittest.TestCase):

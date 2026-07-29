@@ -17,12 +17,16 @@ themselves.
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
 
 ACCOUNT_MAP_PATH = os.path.normpath(
     os.path.join(os.path.dirname(__file__), '..', 'data', 'schwab_account_map.json')
+)
+
+DB_PATH = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), '..', 'data', 'stock_trades.db')
 )
 
 # Only process these Schwab transaction types.
@@ -304,14 +308,159 @@ def iter_windows(start_date, end_date, max_days=MAX_API_WINDOW_DAYS):
         window_start = window_end
 
 
-def save_watermark(db, end_date):
-    """Upsert the sync watermark (config table) to end_date (UTC)."""
+def _watermark_key(symbol=None):
+    """Global sync watermark key, or a per-symbol variant (e.g. 'schwab_api_last_sync:AAPL')."""
+    return f'{SYNC_WATERMARK_KEY}:{symbol.upper()}' if symbol else SYNC_WATERMARK_KEY
+
+
+def save_watermark(db, end_date, symbol=None):
+    """Upsert the sync watermark (config table) to end_date (UTC). Per-symbol if symbol is given."""
+    key = _watermark_key(symbol)
+    description = (
+        f'Last successful Schwab API sync for {symbol.upper()} (UTC)' if symbol
+        else 'Last successful Schwab API sync (UTC)'
+    )
     with db.transaction():
         db.cursor.execute(
             'INSERT INTO config (key, value, description) VALUES (?, ?, ?) '
             'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP',
-            (SYNC_WATERMARK_KEY, end_date.isoformat(), 'Last successful Schwab API sync (UTC)'),
+            (key, end_date.isoformat(), description),
         )
+
+
+def get_last_sync(db_path=None, symbol=None):
+    """Read the last successful sync watermark (global, or per-symbol), or None if never synced."""
+    import sqlite3
+    key = _watermark_key(symbol)
+    conn = sqlite3.connect(db_path or DB_PATH, timeout=10)
+    try:
+        row = conn.execute('SELECT value FROM config WHERE key = ?', (key,)).fetchone()
+    finally:
+        conn.close()
+    return datetime.fromisoformat(row[0]) if row else None
+
+
+def _resolve_start_date(db, end_date, symbol=None):
+    """
+    Pick the sync start date:
+    1. Config watermark (global, or per-symbol if symbol is given) minus a
+       2-day overlap for late-arriving fills (API-to-API dedupe is exact, so
+       overlap is safe).
+    2. Else, for a global sync, the day after the newest DB trade — CSV rows
+       aggregate partial fills into one row while the API reports each fill,
+       so re-fetching CSV-covered days would double-count positions. A
+       per-symbol sync with no watermark yet has no equivalent signal, so it
+       falls straight through to the full API window (a one-time backfill
+       for that symbol).
+    3. Else the full API window.
+    Always capped to MAX_API_WINDOW_DAYS.
+    """
+    earliest = end_date - timedelta(days=MAX_API_WINDOW_DAYS)
+    db.cursor.execute('SELECT value FROM config WHERE key = ?', (_watermark_key(symbol),))
+    row = db.cursor.fetchone()
+    if row:
+        start = datetime.fromisoformat(row[0]) - timedelta(days=2)
+        return max(start, earliest)
+
+    if symbol:
+        return earliest
+
+    db.cursor.execute('SELECT MAX(substr(trade_date, 1, 10)) FROM trade_transaction')
+    row = db.cursor.fetchone()
+    if row and row[0]:
+        start = datetime.strptime(row[0], '%Y-%m-%d').replace(tzinfo=timezone.utc) + timedelta(days=1)
+        log.info('First API sync — starting after newest DB trade date %s', row[0])
+    else:
+        start = earliest
+    return max(start, earliest)
+
+
+def sync(start_date=None, end_date=None, dry_run=False, symbol=None, db_path=None):
+    """
+    Sync Schwab API transactions into the local SQLite database.
+
+    symbol: if given, only sync transactions for this stock (and any options on
+    it). Schwab's own `symbol` query param matches the literal instrument
+    string, which for options is a padded OCC-ish code (e.g. "QBTS  260717C00
+    025000") rather than the underlying ticker — so it can't be used to filter
+    server-side without missing option legs. Instead we fetch normally and
+    filter locally against the symbol our own mapping resolves to (underlying
+    ticker for options, ticker for stocks).
+
+    A symbol-filtered run tracks its own per-symbol watermark (see
+    _resolve_start_date/save_watermark) independently of the global one, so it
+    resumes from where it last left off for that symbol without touching the
+    global sync's progress.
+
+    A range wider than Schwab's ~1-year per-request cap (e.g. a full manual
+    backfill from account inception) is walked internally in
+    MAX_API_WINDOW_DAYS-sized chunks by SchwabTransactionFetcher — callers
+    never need to split a long range themselves.
+    """
+    from lib.schwab_client import get_client
+    from lib.db_utils import DatabaseInserter
+
+    if end_date is None:
+        end_date = datetime.now(timezone.utc)
+
+    client = get_client()
+    account_map = load_account_map()
+
+    # Fetch account hashes
+    resp = client.get_account_numbers()
+    resp.raise_for_status()
+    accounts = resp.json()
+
+    fetcher = SchwabTransactionFetcher(client, accounts, account_map)
+
+    inserted = 0
+    skipped_existing = 0
+
+    with DatabaseInserter(db_path=db_path or DB_PATH) as db:
+        if start_date is None:
+            start_date = _resolve_start_date(db, end_date, symbol=symbol)
+
+        for window_end, records in fetcher.fetch(start_date, end_date, symbol=symbol):
+            for record in records:
+                if dry_run:
+                    log.info('[DRY RUN] Would insert: %s %s %s qty=%s price=%s',
+                             record['trade_date'], record['action'],
+                             record['symbol'], record['quantity'], record['price'])
+                    inserted += 1
+                    continue
+
+                # Ensure security exists
+                db.insert_security({
+                    'symbol': record['symbol'],
+                    'name': record.get('security_name') or record['symbol'],
+                })
+
+                if db.transaction_exists(record):
+                    skipped_existing += 1
+                    log.debug('Already exists: %s %s %s', record['trade_date'],
+                              record['symbol'], record['action'])
+                    continue
+
+                db.insert_transaction(record)
+                inserted += 1
+                log.info('Inserted: %s %s %s qty=%s',
+                         record['trade_date'], record['action'],
+                         record['symbol'], record['quantity'])
+
+            # Checkpoint after every window (not just the last) so an
+            # interrupted multi-window backfill resumes near where it left
+            # off instead of re-fetching from the original start date.
+            if not dry_run:
+                save_watermark(db, window_end, symbol=symbol)
+
+    skipped_invalid = fetcher.stats['skipped_non_trade'] + fetcher.stats['skipped_invalid_leg']
+    log.info('Sync complete. Inserted: %d, Already existed: %d, Skipped invalid: %d',
+             inserted, skipped_existing, skipped_invalid)
+    return {
+        'inserted': inserted,
+        'skipped_existing': skipped_existing,
+        'skipped_invalid': skipped_invalid,
+    }
 
 
 class SchwabTransactionFetcher:

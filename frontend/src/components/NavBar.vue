@@ -60,6 +60,8 @@
         placeholder="Search symbols..."
         @select="selectSymbolWithScope"
       />
+
+      <SyncButton v-if="!isTradeView" />
     </div>
   </nav>
 
@@ -74,6 +76,7 @@ import { useFetchTrades } from '@/composables/useFetchTrades.js';
 import { useSymbolSearch } from '@/composables/useSymbolSearch.js';
 import { API_BASE_URL } from '@/config.js';
 import SymbolSearchDropdown from './SymbolSearchDropdown.vue';
+import SyncButton from './SyncButton.vue';
 
 const route = useRoute();
 const router = useRouter();

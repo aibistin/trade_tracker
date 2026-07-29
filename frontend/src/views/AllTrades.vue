@@ -13,10 +13,13 @@
 
     <div v-if="data">
       <div class="trades-header">
-        <h4 class="trades-title">
-          {{ titleCase(scope) }} Trades —
-          <span class="trades-symbol">{{ data.stock_symbol }}</span>
-        </h4>
+        <div class="trades-title-row">
+          <h4 class="trades-title">
+            {{ titleCase(scope) }} Trades —
+            <span class="trades-symbol">{{ data.stock_symbol }}</span>
+          </h4>
+          <SyncButton :symbol="data.stock_symbol" />
+        </div>
 
         <!-- Cost vs Market Value summary -->
         <div v-if="holdingSummary" class="holding-summary">
@@ -91,15 +94,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config.js';
 import { useFetchTrades } from '@/composables/useFetchTrades.js';
+import { onSyncComplete } from '@/composables/syncEvents.js';
 import { formatCurrency } from '@/utils/tradeUtils.js';
 import TransactionSummary from '@/components/TransactionSummary.vue';
 import TradeCard from '@/components/TradeCard.vue';
 import WinLossBar from '@/components/WinLossBar.vue';
+import SyncButton from '@/components/SyncButton.vue';
 
 const props = defineProps({
   stockSymbol: {
@@ -220,9 +225,25 @@ function updateTrade(tradeId, fields) {
   }
 }
 
+// A completed sync refetches this page's data when it's relevant here: a
+// global sync (symbol undefined) always is; a per-symbol sync only if it
+// matches the symbol currently on screen.
+let unsubscribeSync = null;
+
 onMounted(() => {
   fetchData(createApiUrl(props.scope, props.stockSymbol, route.query));
   fetchHoldingSummary(props.stockSymbol);
+
+  unsubscribeSync = onSyncComplete((symbol) => {
+    if (!symbol || symbol === props.stockSymbol) {
+      fetchData(createApiUrl(props.scope, props.stockSymbol, route.query));
+      fetchHoldingSummary(props.stockSymbol);
+    }
+  });
+});
+
+onBeforeUnmount(() => {
+  unsubscribeSync?.();
 });
 
 watch(
@@ -244,11 +265,19 @@ watch(
   margin-bottom: 16px;
 }
 
+.trades-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
 .trades-title {
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-terminal-text);
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 /* Cost vs Market Value summary bar */

@@ -7,14 +7,16 @@ from unittest.mock import MagicMock, patch
 
 from authlib.integrations.base_client.errors import OAuthError
 
-from bin.sync_schwab_api import (
-    main,
-    sync,
-    _report_fatal_error,
-    _resolve_start_date,
-)
+from bin.sync_schwab_api import main, _report_fatal_error
 from lib.db_utils import DatabaseInserter
-from lib.schwab_transactions import MAX_API_WINDOW_DAYS, SYNC_WATERMARK_KEY, iter_windows, save_watermark
+from lib.schwab_transactions import (
+    MAX_API_WINDOW_DAYS,
+    SYNC_WATERMARK_KEY,
+    _resolve_start_date,
+    iter_windows,
+    save_watermark,
+    sync,
+)
 
 SCHEMA = """
 CREATE TABLE config (
@@ -83,6 +85,18 @@ class TestResolveStartDate(unittest.TestCase):
         start = _resolve_start_date(self.db, self.end_date)
         self.assertEqual(start, self.end_date - timedelta(days=MAX_API_WINDOW_DAYS))
 
+    def test_symbol_resolves_from_its_own_watermark_minus_overlap(self):
+        save_watermark(self.db, datetime(2026, 7, 9, tzinfo=timezone.utc), symbol="AAPL")
+        start = _resolve_start_date(self.db, self.end_date, symbol="AAPL")
+        self.assertEqual(start, datetime(2026, 7, 7, tzinfo=timezone.utc))
+
+    def test_symbol_without_its_own_watermark_uses_full_window(self):
+        # A global watermark exists, but AAPL has never been synced on its own —
+        # it must not borrow the global progress, since that's a different scope.
+        save_watermark(self.db, datetime(2026, 7, 9, tzinfo=timezone.utc))
+        start = _resolve_start_date(self.db, self.end_date, symbol="AAPL")
+        self.assertEqual(start, self.end_date - timedelta(days=MAX_API_WINDOW_DAYS))
+
 
 class TestSyncWindowing(unittest.TestCase):
     """
@@ -101,9 +115,6 @@ class TestSyncWindowing(unittest.TestCase):
         conn.executescript(SCHEMA)
         conn.commit()
         conn.close()
-        patcher = patch("bin.sync_schwab_api.DB_PATH", self.db_path)
-        patcher.start()
-        self.addCleanup(patcher.stop)
         self.addCleanup(os.remove, self.db_path)
 
     def _mock_client(self):
@@ -118,8 +129,8 @@ class TestSyncWindowing(unittest.TestCase):
 
     def _run_sync(self, client, **kwargs):
         with patch("lib.schwab_client.get_client", return_value=client), \
-             patch("bin.sync_schwab_api.load_account_map", return_value={"HASH1": "C"}):
-            sync(**kwargs)
+             patch("lib.schwab_transactions.load_account_map", return_value={"HASH1": "C"}):
+            return sync(db_path=self.db_path, **kwargs)
 
     def test_long_range_makes_one_api_call_per_window(self):
         client = self._mock_client()
@@ -162,18 +173,29 @@ class TestSyncWindowing(unittest.TestCase):
         expected_windows = list(iter_windows(start, end))
         self.assertEqual(client.get_transactions.call_count, len(expected_windows))
 
-    def test_symbol_filter_does_not_advance_watermark_even_with_looping(self):
+    def test_symbol_filter_advances_only_its_own_per_symbol_watermark(self):
         client = self._mock_client()
         start = datetime(2024, 1, 1, tzinfo=timezone.utc)
         end = datetime(2026, 7, 23, tzinfo=timezone.utc)
         self._run_sync(client, start_date=start, end_date=end, dry_run=False, symbol="AAPL")
 
         conn = sqlite3.connect(self.db_path)
-        row = conn.execute(
+        global_row = conn.execute(
             "SELECT value FROM config WHERE key = ?", (SYNC_WATERMARK_KEY,)
         ).fetchone()
+        symbol_row = conn.execute(
+            "SELECT value FROM config WHERE key = ?", (f"{SYNC_WATERMARK_KEY}:AAPL",)
+        ).fetchone()
         conn.close()
-        self.assertIsNone(row)
+        self.assertIsNone(global_row)
+        self.assertEqual(symbol_row[0], end.isoformat())
+
+    def test_sync_returns_result_counts(self):
+        client = self._mock_client()
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 3, 1, tzinfo=timezone.utc)
+        result = self._run_sync(client, start_date=start, end_date=end, dry_run=True)
+        self.assertEqual(result, {"inserted": 0, "skipped_existing": 0, "skipped_invalid": 0})
 
 
 class TestReportFatalError(unittest.TestCase):
