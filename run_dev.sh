@@ -63,12 +63,12 @@ is_port_listening() {
 }
 
 status_for() {
-    local label="$1" pidfile="$2" port="$3"
+    local label="$1" pidfile="$2" port="$3" url="$4"
     if is_running "$pidfile"; then
         local pid
         pid="$(cat "$pidfile")"
         if is_port_listening "$port"; then
-            printf "  %-10s \033[0;32mrunning\033[0m   (pid %s, port %s)\n" "$label" "$pid" "$port"
+            printf "  %-10s \033[0;32mrunning\033[0m   (pid %s, port %s) \033[0;36m%s\033[0m\n" "$label" "$pid" "$port" "$url"
         else
             printf "  %-10s \033[0;33mstarting\033[0m  (pid %s, port %s not listening yet)\n" "$label" "$pid" "$port"
         fi
@@ -79,8 +79,8 @@ status_for() {
 
 cmd_status() {
     printf "\033[1m[dev] Status:\033[0m\n"
-    status_for "Backend" "$BACKEND_PID_FILE" "$BACKEND_PORT"
-    status_for "Frontend" "$FRONTEND_PID_FILE" "$FRONTEND_PORT"
+    status_for "Backend" "$BACKEND_PID_FILE" "$BACKEND_PORT" "$BACKEND_URL"
+    status_for "Frontend" "$FRONTEND_PID_FILE" "$FRONTEND_PORT" "$FRONTEND_URL"
 }
 
 stop_one() {
