@@ -26,7 +26,7 @@ select {
 input:focus,
 select:focus {
   border-color: var(--color-accent-blue);
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 1px rgba(38, 139, 210, 0.3);
 }
 
 /* ── Buttons ─────────────────────────────────────────────────── */
@@ -48,12 +48,12 @@ select:focus {
 
 .btn-primary {
   background: var(--color-accent-blue);
-  color: #fff;
+  color: #fdf6e3;
   border-color: var(--color-accent-blue);
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  background: #2076b2;
 }
 
 .btn-outline-primary {
@@ -63,12 +63,12 @@ select:focus {
 }
 
 .btn-outline-primary:hover {
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(38, 139, 210, 0.1);
 }
 
 .btn-success {
   background: var(--color-profit);
-  color: #000;
+  color: var(--color-terminal-bg);
 }
 
 .btn-outline-success {
@@ -189,7 +189,7 @@ select:focus {
 .alert-danger {
   background: var(--color-loss-bg);
   color: var(--color-loss);
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: rgba(220, 50, 47, 0.3);
 }
 
 /* ── WinLossBar detail text ──────────────────────────────────── */

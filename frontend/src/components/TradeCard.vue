@@ -380,10 +380,10 @@ onBeforeUnmount(() => {
   color: var(--color-terminal-text-muted);
 }
 
-.pill-long { background: rgba(59,130,246,0.15); color: var(--color-long); }
-.pill-short { background: rgba(239,68,68,0.15); color: var(--color-short); }
-.pill-call { background: rgba(34,197,94,0.15); color: var(--color-call); }
-.pill-put { background: rgba(249,115,22,0.15); color: var(--color-put); }
+.pill-long { background: rgba(38,139,210,0.15); color: var(--color-long); }
+.pill-short { background: rgba(220,50,47,0.15); color: var(--color-short); }
+.pill-call { background: rgba(133,153,0,0.15); color: var(--color-call); }
+.pill-put { background: rgba(203,75,22,0.15); color: var(--color-put); }
 
 .tc-status-pill {
   display: inline-block;
@@ -401,12 +401,12 @@ onBeforeUnmount(() => {
 }
 
 .tc-win {
-  background: rgba(34,197,94,0.2);
+  background: rgba(133,153,0,0.2);
   color: var(--color-profit);
 }
 
 .tc-loss {
-  background: rgba(239,68,68,0.2);
+  background: rgba(220,50,47,0.2);
   color: var(--color-loss);
 }
 

@@ -1,39 +1,43 @@
 @import "tailwindcss";
 
-/* ── Color scheme — Bloomberg/terminal dark theme ─────────────── */
+/* ── Color scheme — Solarized Dark ─────────────────────────────
+   Base tones (bg/surface/border/text) are canonical Solarized
+   values (base03/02/01/1/2). Panel/hover/text-dim have no
+   canonical Solarized token — derived by blending toward base01
+   so they still read as "the same palette, one step lighter". */
 :root {
   /* Backgrounds */
-  --color-terminal-bg: #0d0f13;
-  --color-terminal-surface: #13161c;
-  --color-terminal-panel: #1a1e27;
-  --color-terminal-hover: #1e2330;
-  --color-terminal-border: #262b38;
-  --color-terminal-border-subtle: #1c2030;
+  --color-terminal-bg: #002b36;
+  --color-terminal-surface: #073642;
+  --color-terminal-panel: #0a4552;
+  --color-terminal-hover: #0e5263;
+  --color-terminal-border: #586e75;
+  --color-terminal-border-subtle: #0b4a58;
 
   /* Text */
-  --color-terminal-text: #dce4f0;
-  --color-terminal-text-muted: #6b7a96;
-  --color-terminal-text-dim: #363e52;
+  --color-terminal-text: #eee8d5;
+  --color-terminal-text-muted: #93a1a1;
+  --color-terminal-text-dim: #2b5865;
 
   /* Trading P&L colors */
-  --color-profit: #00c896;
-  --color-profit-bg: rgba(0, 200, 150, 0.08);
-  --color-loss: #ff4060;
-  --color-loss-bg: rgba(255, 64, 96, 0.08);
-  --color-highlight: #ffd700;
-  --color-highlight-bg: rgba(255, 215, 0, 0.10);
+  --color-profit: #859900;
+  --color-profit-bg: rgba(133, 153, 0, 0.08);
+  --color-loss: #dc322f;
+  --color-loss-bg: rgba(220, 50, 47, 0.08);
+  --color-highlight: #b58900;
+  --color-highlight-bg: rgba(181, 137, 0, 0.10);
 
   /* Accent */
-  --color-accent-blue: #4d9fff;
-  --color-accent-cyan: #00d4e8;
-  --color-accent-orange: #ff8c42;
-  --color-accent-purple: #a78bfa;
+  --color-accent-blue: #268bd2;
+  --color-accent-cyan: #2aa198;
+  --color-accent-orange: #cb4b16;
+  --color-accent-purple: #6c71c4;
 
   /* Trade type colors */
-  --color-long: #4d9fff;
-  --color-short: #ff4060;
-  --color-call: #00c896;
-  --color-put: #ff8c42;
+  --color-long: #268bd2;
+  --color-short: #dc322f;
+  --color-call: #859900;
+  --color-put: #cb4b16;
 
   /* Font */
   --font-mono: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

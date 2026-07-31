@@ -7,12 +7,12 @@ This file is loaded in addition to the root `CLAUDE.md` when working inside `fro
 
 **No Vuex/Pinia — state is router-based or component-local.**
 
-### Design System — Dark Terminal Theme
-CSS custom properties in `src/assets/base.css` define a Bloomberg/trading-terminal dark theme. Use these exact values for any new chart, canvas, or hardcoded color (Chart.js options can't consume CSS variables directly):
-- Profit/positive: `#00c896` — Loss/negative: `#ff4060` — Highlight: `#ffd700`
-- Accent blue: `#4d9fff` — Accent cyan: `#00d4e8`
-- Chart tooltip bg: `#1a1e27`, title/body text: `#dce4f0`, border: `#262b38`
-- Chart grid lines: `rgba(255,255,255,0.04)` — tick color: `#6b7a96`
+### Design System — Solarized Dark Theme
+CSS custom properties in `src/assets/base.css` define a Solarized Dark theme. Use these exact values for any new chart, canvas, or hardcoded color (Chart.js options can't consume CSS variables directly):
+- Profit/positive: `#859900` — Loss/negative: `#dc322f` — Highlight: `#b58900`
+- Accent blue: `#268bd2` — Accent cyan: `#2aa198`
+- Chart tooltip bg: `#073642`, title/body text: `#eee8d5`, border: `#586e75`
+- Chart grid lines: `rgba(88,110,117,0.15)` — tick color: `#93a1a1`
 
 ### API Config
 `src/config.js` exports `API_BASE_URL` read from `VITE_API_BASE_URL` env var (default: `http://localhost:5000/api`).

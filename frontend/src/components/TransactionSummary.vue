@@ -132,25 +132,25 @@ defineProps({
 }
 
 .ts-card-bought .ts-card-header {
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(38, 139, 210, 0.08);
   color: var(--color-long);
   border-bottom-color: var(--color-long);
 }
 
 .ts-card-sold .ts-card-header {
-  background: rgba(239, 68, 68, 0.08);
+  background: rgba(220, 50, 47, 0.08);
   color: var(--color-loss);
   border-bottom-color: var(--color-loss);
 }
 
 .ts-card-unsold .ts-card-header {
-  background: rgba(34, 197, 94, 0.08);
+  background: rgba(133, 153, 0, 0.08);
   color: var(--color-profit);
   border-bottom-color: var(--color-profit);
 }
 
 .ts-card-result .ts-card-header {
-  background: rgba(249, 115, 22, 0.08);
+  background: rgba(203, 75, 22, 0.08);
   color: var(--color-accent-orange);
   border-bottom-color: var(--color-accent-orange);
 }

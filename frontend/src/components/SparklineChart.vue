@@ -24,10 +24,10 @@ const canvasRef = ref(null)
 
 const effectiveLineColor = computed(() => {
   if (props.lineColor) return props.lineColor
-  if (props.priceData.length < 2) return '#64748b'
+  if (props.priceData.length < 2) return '#93a1a1'
   const first = props.priceData[0]?.close ?? props.priceData[0]?.price ?? 0
   const last = props.priceData[props.priceData.length - 1]?.close ?? props.priceData[props.priceData.length - 1]?.price ?? 0
-  return last >= first ? '#00c896' : '#ff4060'
+  return last >= first ? '#859900' : '#dc322f'
 })
 
 function draw() {
@@ -111,9 +111,9 @@ function draw() {
       ctx.lineTo(x + 3.5, y - 2)
     }
     ctx.closePath()
-    ctx.fillStyle = isBuy ? '#00c896' : '#ff4060'
+    ctx.fillStyle = isBuy ? '#859900' : '#dc322f'
     ctx.fill()
-    ctx.strokeStyle = '#0d0f13'
+    ctx.strokeStyle = '#002b36'
     ctx.lineWidth = 0.5
     ctx.stroke()
   }

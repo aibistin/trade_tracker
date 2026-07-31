@@ -47,23 +47,16 @@ const heatmapData = computed(() => {
 
 const hasData = computed(() => heatmapData.value.length > 0)
 
+// Blends from the page background (#002b36) toward the profit/loss accent
+// color as |P&L%| grows, so a 0% cell reads as background and intensifies
+// from there — clamped between -20% and +20% for the color scale.
 function pnlColor(pnlPct) {
-  // Clamp intensity between -20% and +20% for color scaling
   const clamped = Math.max(-20, Math.min(20, pnlPct))
   const intensity = Math.abs(clamped) / 20
-  if (clamped >= 0) {
-    // Green: from near-black to #00c896
-    const r = Math.round(5 + 0 * intensity)
-    const g = Math.round(30 + (200 - 30) * intensity)
-    const b = Math.round(20 + (150 - 20) * intensity)
-    return `rgb(${r}, ${g}, ${b})`
-  } else {
-    // Red: from near-black to #ff4060
-    const r = Math.round(40 + (255 - 40) * intensity)
-    const g = Math.round(10 + (64 - 10) * intensity * 0.3)
-    const b = Math.round(15 + (96 - 15) * intensity * 0.4)
-    return `rgb(${r}, ${g}, ${b})`
-  }
+  const bg = [0, 43, 54]
+  const target = clamped >= 0 ? [133, 153, 0] : [220, 50, 47] // profit green / loss red
+  const [r, g, b] = bg.map((c, i) => Math.round(c + (target[i] - c) * intensity))
+  return `rgb(${r}, ${g}, ${b})`
 }
 
 function buildChart() {
@@ -89,7 +82,7 @@ function buildChart() {
             if (!d) return ''
             return [d.symbol, `${d.pnlPct >= 0 ? '+' : ''}${d.pnlPct.toFixed(1)}%`]
           },
-          color: '#dce4f0',
+          color: '#eee8d5',
           font: [
             { family: 'Inter, sans-serif', size: 13, weight: 'bold' },
             { family: 'Inter, sans-serif', size: 10 },
@@ -97,10 +90,10 @@ function buildChart() {
         },
         backgroundColor: (ctx) => {
           const d = ctx.raw?._data
-          if (!d) return '#1a1e27'
+          if (!d) return '#073642'
           return pnlColor(d.pnlPct)
         },
-        borderColor: '#0d0f13',
+        borderColor: '#002b36',
         borderWidth: 2,
         spacing: 1,
       }],
@@ -111,10 +104,10 @@ function buildChart() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1a1e27',
-          titleColor: '#dce4f0',
-          bodyColor: '#dce4f0',
-          borderColor: '#262b38',
+          backgroundColor: '#073642',
+          titleColor: '#eee8d5',
+          bodyColor: '#eee8d5',
+          borderColor: '#586e75',
           borderWidth: 1,
           titleFont: { family: 'Inter, sans-serif', size: 12 },
           bodyFont: { family: 'Inter, sans-serif', size: 11 },

@@ -44,8 +44,8 @@ function buildChart() {
 
   const { labels, values } = cumulativeData.value
   const lastVal = values[values.length - 1] ?? 0
-  const lineColor = lastVal >= 0 ? '#00c896' : '#ff4060'
-  const fillColor = lastVal >= 0 ? 'rgba(0,200,150,0.08)' : 'rgba(255,64,96,0.08)'
+  const lineColor = lastVal >= 0 ? '#859900' : '#dc322f'
+  const fillColor = lastVal >= 0 ? 'rgba(133,153,0,0.08)' : 'rgba(220,50,47,0.08)'
 
   chartInstance = new Chart(canvas, {
     type: 'line',
@@ -56,8 +56,8 @@ function buildChart() {
         data: values,
         borderColor: lineColor,
         backgroundColor: fillColor,
-        pointBackgroundColor: values.map(v => v >= 0 ? '#00c896' : '#ff4060'),
-        pointBorderColor: values.map(v => v >= 0 ? '#00c896' : '#ff4060'),
+        pointBackgroundColor: values.map(v => v >= 0 ? '#859900' : '#dc322f'),
+        pointBorderColor: values.map(v => v >= 0 ? '#859900' : '#dc322f'),
         pointRadius: 3,
         pointHoverRadius: 5,
         borderWidth: 2,
@@ -71,10 +71,10 @@ function buildChart() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1a1e27',
-          titleColor: '#dce4f0',
-          bodyColor: '#dce4f0',
-          borderColor: '#262b38',
+          backgroundColor: '#073642',
+          titleColor: '#eee8d5',
+          bodyColor: '#eee8d5',
+          borderColor: '#586e75',
           borderWidth: 1,
           titleFont: { family: 'Inter, sans-serif', size: 11 },
           bodyFont: { family: 'Inter, sans-serif', size: 11 },
@@ -88,13 +88,13 @@ function buildChart() {
       },
       scales: {
         x: {
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          ticks: { color: '#6b7a96', font: { family: 'Inter, sans-serif', size: 10 } },
+          grid: { color: 'rgba(88,110,117,0.15)' },
+          ticks: { color: '#93a1a1', font: { family: 'Inter, sans-serif', size: 10 } },
         },
         y: {
-          grid: { color: 'rgba(255,255,255,0.04)' },
+          grid: { color: 'rgba(88,110,117,0.15)' },
           ticks: {
-            color: '#6b7a96',
+            color: '#93a1a1',
             font: { family: 'Inter, sans-serif', size: 10 },
             callback: (v) => `$${v.toFixed(0)}`,
           },

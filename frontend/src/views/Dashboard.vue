@@ -467,8 +467,8 @@ const chartData = computed(() => {
       {
         label: 'Realized P&L ($)',
         data: pnlValues,
-        backgroundColor: pnlValues.map(v => v >= 0 ? 'rgba(0,200,150,0.55)' : 'rgba(255,64,96,0.55)'),
-        borderColor: pnlValues.map(v => v >= 0 ? '#00c896' : '#ff4060'),
+        backgroundColor: pnlValues.map(v => v >= 0 ? 'rgba(133,153,0,0.55)' : 'rgba(220,50,47,0.55)'),
+        borderColor: pnlValues.map(v => v >= 0 ? '#859900' : '#dc322f'),
         borderWidth: 1,
         borderRadius: 3,
       },
@@ -482,10 +482,10 @@ const chartOptions = {
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: '#1a1e27',
-      titleColor: '#dce4f0',
-      bodyColor: '#dce4f0',
-      borderColor: '#262b38',
+      backgroundColor: '#073642',
+      titleColor: '#eee8d5',
+      bodyColor: '#eee8d5',
+      borderColor: '#586e75',
       borderWidth: 1,
       titleFont: { family: 'Inter, sans-serif', size: 11 },
       bodyFont: { family: 'Inter, sans-serif', size: 11 },
@@ -499,13 +499,13 @@ const chartOptions = {
   },
   scales: {
     x: {
-      grid: { color: 'rgba(255,255,255,0.04)' },
-      ticks: { color: '#6b7a96', font: { family: 'Inter, sans-serif', size: 10 } },
+      grid: { color: 'rgba(88,110,117,0.15)' },
+      ticks: { color: '#93a1a1', font: { family: 'Inter, sans-serif', size: 10 } },
     },
     y: {
-      grid: { color: 'rgba(255,255,255,0.04)' },
+      grid: { color: 'rgba(88,110,117,0.15)' },
       ticks: {
-        color: '#6b7a96',
+        color: '#93a1a1',
         font: { family: 'Inter, sans-serif', size: 10 },
         callback: (v) => `$${v.toFixed(0)}`,
       },
@@ -522,12 +522,12 @@ const winRateData = computed(() => {
       {
         label: 'Win Rate (%)',
         data: buckets.map(b => +(b.batting_average * 100).toFixed(1)),
-        borderColor: '#00d4e8',
-        backgroundColor: 'rgba(0,212,232,0.08)',
+        borderColor: '#2aa198',
+        backgroundColor: 'rgba(42,161,152,0.08)',
         tension: 0.3,
         fill: true,
         pointRadius: 4,
-        pointBackgroundColor: '#00d4e8',
+        pointBackgroundColor: '#2aa198',
       },
     ],
   }
@@ -539,10 +539,10 @@ const winRateOptions = {
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: '#1a1e27',
-      titleColor: '#dce4f0',
-      bodyColor: '#dce4f0',
-      borderColor: '#262b38',
+      backgroundColor: '#073642',
+      titleColor: '#eee8d5',
+      bodyColor: '#eee8d5',
+      borderColor: '#586e75',
       borderWidth: 1,
       titleFont: { family: 'Inter, sans-serif', size: 11 },
       bodyFont: { family: 'Inter, sans-serif', size: 11 },
@@ -551,15 +551,15 @@ const winRateOptions = {
   },
   scales: {
     x: {
-      grid: { color: 'rgba(255,255,255,0.04)' },
-      ticks: { color: '#6b7a96', font: { family: 'Inter, sans-serif', size: 10 } },
+      grid: { color: 'rgba(88,110,117,0.15)' },
+      ticks: { color: '#93a1a1', font: { family: 'Inter, sans-serif', size: 10 } },
     },
     y: {
       min: 0,
       max: 100,
-      grid: { color: 'rgba(255,255,255,0.04)' },
+      grid: { color: 'rgba(88,110,117,0.15)' },
       ticks: {
-        color: '#6b7a96',
+        color: '#93a1a1',
         font: { family: 'Inter, sans-serif', size: 10 },
         callback: (v) => `${v}%`,
       },
@@ -754,10 +754,10 @@ function typeBadgeClass(code) {
   color: var(--color-terminal-text-muted);
 }
 
-.badge-long { background: rgba(59,130,246,0.15); color: var(--color-long); }
-.badge-short { background: rgba(239,68,68,0.15); color: var(--color-short); }
-.badge-call { background: rgba(34,197,94,0.15); color: var(--color-call); }
-.badge-put { background: rgba(249,115,22,0.15); color: var(--color-put); }
+.badge-long { background: rgba(38,139,210,0.15); color: var(--color-long); }
+.badge-short { background: rgba(220,50,47,0.15); color: var(--color-short); }
+.badge-call { background: rgba(133,153,0,0.15); color: var(--color-call); }
+.badge-put { background: rgba(203,75,22,0.15); color: var(--color-put); }
 
 .sparkline-cell {
   padding: 4px 8px;
