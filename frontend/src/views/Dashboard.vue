@@ -116,7 +116,7 @@
               <th>Name</th>
               <th>Type</th>
               <th class="text-end">Shares</th>
-              <th class="text-end">Avg Cost</th>
+              <th class="text-end">Avg Price</th>
               <th class="text-end">Cost Basis</th>
               <th class="text-end">Current Price</th>
               <th class="text-end">Mkt Value</th>
@@ -205,7 +205,7 @@
               <th>Name</th>
               <th>Type</th>
               <th class="text-end">Contracts</th>
-              <th class="text-end">Avg Cost</th>
+              <th class="text-end">Avg Price</th>
               <th class="text-end">Cost Basis</th>
               <th class="text-end">Current Price</th>
               <th class="text-end">Mkt Value</th>
@@ -215,7 +215,7 @@
           </thead>
           <tbody>
             <!-- One parent row per underlying symbol, expandable to show individual contracts -->
-            <!-- Columns: Symbol | Chart | Name | Type | Contracts | Avg Cost | Cost Basis | Current Price | Mkt Value | Unreal P&L | P&L% -->
+            <!-- Columns: Symbol | Chart | Name | Type | Contracts | Avg Price | Cost Basis | Current Price | Mkt Value | Unreal P&L | P&L% -->
             <template v-for="group in groupedOptions" :key="group.symbol">
               <tr @click="toggleOptionDetail(group.symbol)" class="option-row">
                 <td>
@@ -234,7 +234,7 @@
                 <td class="text-dim text-sm">{{ group.contracts.length }} ct{{ group.contracts.length !== 1 ? 's' : '' }}</td>
                 <!-- Contracts (qty) col: total across all contracts -->
                 <td class="text-end">{{ group.contracts.reduce((s, c) => s + c.quantity, 0).toFixed(0) }}</td>
-                <!-- Avg Cost col: N/A at group level -->
+                <!-- Avg Price col: N/A at group level -->
                 <td class="text-end text-dim">--</td>
                 <!-- Cost Basis col: total -->
                 <td class="text-end">{{ formatCurrency(group.total_cost_basis) }}</td>

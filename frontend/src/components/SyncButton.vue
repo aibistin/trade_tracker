@@ -28,9 +28,12 @@ const props = defineProps({
 });
 
 const { syncing, lastSyncedAt, lastResult, error, triggerSync, fetchLastSynced, stopPolling } =
-  useSchwabSync(props.symbol);
+  useSchwabSync(() => props.symbol);
 
 onMounted(fetchLastSynced);
+// This component instance can be reused across symbol navigations (see
+// useSchwabSync.js) — refetch so "Synced Xm ago" reflects the new symbol.
+watch(() => props.symbol, fetchLastSynced);
 
 // Shows the just-finished result ("Synced 3 new trades") briefly, then falls
 // back to the persistent "Synced Xm ago" display.

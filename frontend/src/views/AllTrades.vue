@@ -24,7 +24,7 @@
         <!-- Cost vs Market Value summary -->
         <div v-if="holdingSummary" class="holding-summary">
           <div class="hs-item">
-            <span class="hs-label">Avg Cost</span>
+            <span class="hs-label">Avg Price</span>
             <span class="hs-value">{{ formatCurrency(holdingSummary.avg_cost) }}</span>
           </div>
           <div class="hs-item">

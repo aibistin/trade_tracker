@@ -52,6 +52,17 @@ describe('SyncButton', () => {
     expect(mockFetchLastSynced).toHaveBeenCalledOnce();
   });
 
+  it('refetches lastSynced when the symbol prop changes', async () => {
+    // Regression test: AllTrades.vue's route reuses this component instance
+    // across symbol navigations, so the display must refresh per-symbol.
+    const wrapper = mount(SyncButton, { props: { symbol: 'AAPL' } });
+    mockFetchLastSynced.mockClear();
+
+    await wrapper.setProps({ symbol: 'MSFT' });
+
+    expect(mockFetchLastSynced).toHaveBeenCalledOnce();
+  });
+
   it('calls triggerSync when clicked', async () => {
     const wrapper = mount(SyncButton);
     await wrapper.find('button').trigger('click');

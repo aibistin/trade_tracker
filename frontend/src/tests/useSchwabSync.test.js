@@ -35,7 +35,7 @@ describe('useSchwabSync', () => {
 
   it('fetchLastSynced passes the symbol as a query param when scoped', async () => {
     axios.get.mockResolvedValueOnce({ data: { last_synced_at: null } });
-    const { fetchLastSynced } = useSchwabSync('AAPL');
+    const { fetchLastSynced } = useSchwabSync(() => 'AAPL');
 
     await fetchLastSynced();
 
@@ -129,11 +129,34 @@ describe('useSchwabSync', () => {
     const received = [];
     const unsubscribe = onSyncComplete((symbol) => received.push(symbol));
 
-    const { triggerSync } = useSchwabSync('MSFT');
+    const { triggerSync } = useSchwabSync(() => 'MSFT');
     await triggerSync();
     await vi.advanceTimersByTimeAsync(2000);
 
     unsubscribe();
     expect(received).toEqual(['MSFT']);
+  });
+
+  it('always reads the current symbol, even if it changes between calls', async () => {
+    // Regression test: AllTrades.vue's route (/trades/:scope/:stockSymbol)
+    // reuses the same component instance across symbol navigations, so a
+    // plain captured value would go stale. getSymbol must be re-invoked.
+    let currentSymbol = 'HESM';
+    axios.post.mockResolvedValueOnce({ data: { job_id: 7 } });
+    axios.get.mockResolvedValueOnce({
+      data: {
+        status: 'success', inserted: 1, skipped_existing: 0,
+        finished_at: '2026-08-03T00:00:00+00:00',
+      },
+    });
+
+    const { triggerSync } = useSchwabSync(() => currentSymbol);
+    currentSymbol = 'ORKA'; // simulate in-app navigation to a different symbol
+    await triggerSync();
+
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining('/schwab/sync'),
+      { symbol: 'ORKA' }
+    );
   });
 });

@@ -11,7 +11,11 @@ import { emitSyncComplete } from './syncEvents.js'
 
 const POLL_INTERVAL_MS = 2000
 
-export function useSchwabSync(symbol = null) {
+// getSymbol is called fresh on every use rather than captured once, because
+// callers on a param-based route (e.g. /trades/:scope/:stockSymbol) can have
+// their component instance reused across symbol navigations — a plain
+// captured value would silently go stale and sync the wrong symbol.
+export function useSchwabSync(getSymbol = () => null) {
   const syncing = ref(false)
   const lastSyncedAt = ref(null)
   const lastResult = ref(null)
@@ -27,6 +31,7 @@ export function useSchwabSync(symbol = null) {
 
   async function fetchLastSynced() {
     try {
+      const symbol = getSymbol()
       const params = symbol ? { symbol } : {}
       const { data } = await axios.get(`${API_BASE_URL}/schwab/sync/last`, { params })
       lastSyncedAt.value = data.last_synced_at
@@ -35,7 +40,7 @@ export function useSchwabSync(symbol = null) {
     }
   }
 
-  function poll(jobId) {
+  function poll(jobId, symbol) {
     pollTimer = setInterval(async () => {
       try {
         const { data } = await axios.get(`${API_BASE_URL}/schwab/sync/${jobId}`)
@@ -64,10 +69,11 @@ export function useSchwabSync(symbol = null) {
     syncing.value = true
     error.value = null
     lastResult.value = null
+    const symbol = getSymbol()
     try {
       const body = symbol ? { symbol } : {}
       const { data } = await axios.post(`${API_BASE_URL}/schwab/sync`, body)
-      poll(data.job_id)
+      poll(data.job_id, symbol)
     } catch (e) {
       syncing.value = false
       error.value = e.message || 'Failed to start sync'
